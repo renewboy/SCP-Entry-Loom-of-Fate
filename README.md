@@ -16,7 +16,7 @@ Experience the horror, mystery, and scientific coldness of the Foundation throug
 
 [SCP Entry: Loom of Fate](https://ai.studio/apps/drive/1u4Gc2F84hVihQGYAxOxXrwqHJhMacJ2l)
 
-![Start Screen](docs/start_screen.png)
+![Start Screen](docs/start_screen.jpg)
 
 ## 🎮 Features
 
@@ -69,3 +69,5 @@ Experience the horror, mystery, and scientific coldness of the Foundation throug
 3.  **Initiate Weave**: Click Start. The system will retrieve data and generate the scenario.
 4.  **Survive**: Type your actions or choose from suggested options. Watch your **Stability** meter.
 5.  **Endings**: Attempt to Contain, Escape, or Survive. Beware of **Reality Collapse** (Stability 0).
+
+---

@@ -16,7 +16,7 @@
 
 [SCP Entry: Loom of Fate](https://ai.studio/apps/drive/1u4Gc2F84hVihQGYAxOxXrwqHJhMacJ2l)
 
-![Start Screen](docs/start_screen.png)
+![Start Screen](docs/start_screen.jpg)
 
 ## 🎮 游戏特色
 
