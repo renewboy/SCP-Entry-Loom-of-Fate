@@ -12,9 +12,9 @@ Experience the horror, mystery, and scientific coldness of the Foundation throug
 
 ## Try It Now
 
-![SCP Entry: Loom of Fate](https://ai.studio/apps/drive/1u4Gc2F84hVihQGYAxOxXrwqHJhMacJ2l)
+[SCP Entry: Loom of Fate](https://ai.studio/apps/drive/1u4Gc2F84hVihQGYAxOxXrwqHJhMacJ2l)
 
-![Start Screen](docs/start_screen_placeholder.png)
+![Start Screen](docs/start_screen.png)
 
 ## 🎮 Features
 
