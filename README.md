@@ -1,3 +1,5 @@
+[中文版本](README_CN.md)
+
 # SCP Entry: Loom of Fate
 
 > **SECURE. CONTAIN. PROTECT.**
@@ -67,5 +69,3 @@ Experience the horror, mystery, and scientific coldness of the Foundation throug
 3.  **Initiate Weave**: Click Start. The system will retrieve data and generate the scenario.
 4.  **Survive**: Type your actions or choose from suggested options. Watch your **Stability** meter.
 5.  **Endings**: Attempt to Contain, Escape, or Survive. Beware of **Reality Collapse** (Stability 0).
-
----

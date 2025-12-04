@@ -1,3 +1,5 @@
+[English Version](README.md)
+
 # SCP档案: 命运织机 (SCP Entry: Loom of Fate)
 
 > **控制 (SECURE). 收容 (CONTAIN). 保护 (PROTECT).**
