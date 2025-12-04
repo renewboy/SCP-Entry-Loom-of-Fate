@@ -1,0 +1,5 @@
+{
+  "name": "SCP Entry: Loom of Fate",
+  "description": "基于SCP基金会文档的沉浸式生成式文本冒险游戏。输入SCP编号或链接，选择你的角色，在实时AI生成的叙事和插图中体验独一无二的冒险故事。",
+  "requestFramePermissions": []
+}
