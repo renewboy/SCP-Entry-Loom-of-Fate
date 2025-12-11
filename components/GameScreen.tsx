@@ -171,6 +171,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
     const currentStability = gameState.stability;
     const newTurnCount = gameState.turnCount + 1;
+    const originalInput = input; // Capture input to restore on error/timeout
 
     console.log(`[GameScreen] processing turn ${newTurnCount}, stability ${currentStability}`);
 
@@ -204,9 +205,25 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
     try {
       console.log("[GameScreen] Invoking sendAction stream...");
       let fullResponse = '';
+      
       const stream = sendAction(userMsg.content, currentStability, language);
+      const iterator = stream[Symbol.asyncIterator]();
+      
+      // 30 seconds timeout limit for response stream
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('TIMEOUT')), 30000)
+      );
 
-      for await (const chunk of stream) {
+      while (true) {
+        // Race the stream iterator against the timeout
+        const result = await Promise.race([
+            iterator.next(),
+            timeoutPromise
+        ]);
+
+        if (result.done) break;
+
+        const chunk = result.value;
         fullResponse += chunk;
         setGameState(prev => ({
           ...prev,
@@ -256,13 +273,20 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         generateIllustration(aiMsgId, visualPrompt);
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("[GameScreen] Game Loop Error:", error);
+      
+      let errorMessage = t('game.err_offline');
+      if (error.message === 'TIMEOUT') {
+          errorMessage = t('game.err_timeout');
+          setInput(originalInput); // Restore user input so they can try again easily
+      }
+
       // Update UI to reflect error state instead of hanging on loading
       setGameState(prev => ({
         ...prev,
         messages: prev.messages.map(m => 
-          m.id === aiMsgId ? { ...m, content: t('game.err_offline'), isTyping: false } : m
+          m.id === aiMsgId ? { ...m, content: errorMessage, isTyping: false } : m
         )
       }));
     } finally {

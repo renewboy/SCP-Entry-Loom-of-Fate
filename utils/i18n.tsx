@@ -63,7 +63,8 @@ export const translations = {
       archiving_aborted: "⚠ 自动归档已中止。请手动操作。",
       access_logs: "访问世界线图谱",
       review_logs: "回顾行动日志",
-      err_offline: "⚠️ [纺锤脱机] 命运织机同步中断。当前因果线程无响应，请尝试重连或强制剪断链接。"
+      err_offline: "⚠️ [纺锤脱机] 命运织机同步中断。当前因果线程无响应，请尝试重连或强制剪断链接。",
+      err_timeout: "⚠️ [连接超时] 响应时间过长。已自动恢复输入，请重试。"
     },
     endings: {
       contained: { title: "CONTAINMENT RESTORED", subtitle: "收容措施已重建 // 任务完成" },
@@ -172,7 +173,8 @@ export const translations = {
       archiving_aborted: "⚠ Auto-archiving aborted. Manual action required.",
       access_logs: "ACCESS WORLD LINE GRAPH",
       review_logs: "REVIEW LOGS",
-      err_offline: "⚠️ [SPINDLE OFFLINE] Loom of Fate sync interrupted. Causal thread unresponsive. Reconnect or sever link."
+      err_offline: "⚠️ [SPINDLE OFFLINE] Loom of Fate sync interrupted. Causal thread unresponsive. Reconnect or sever link.",
+      err_timeout: "⚠️ [CONNECTION TIMEOUT] Response took too long. Input restored. Please retry."
     },
     endings: {
       contained: { title: "CONTAINMENT RESTORED", subtitle: "Procedures Restored // Mission Accomplished" },

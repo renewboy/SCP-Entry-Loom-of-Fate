@@ -26,9 +26,29 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
   }, [content]);
 
   return (
-    <div className="prose prose-invert prose-p:text-scp-text prose-headings:text-scp-accent max-w-none font-mono text-sm md:text-base leading-relaxed">
+    <div className="typewriter-container prose prose-invert prose-p:text-scp-text prose-headings:text-scp-accent max-w-none font-mono text-sm md:text-base leading-relaxed">
+      <style>
+        {`
+          .typewriter-container ol {
+            list-style: decimal !important; /* 强制显示数字编号 */
+            padding-left: 2rem !important;  /* 缩进避免编号被截断 */
+            margin: 1rem 0 !important;      /* 上下间距 */
+          }
+          .typewriter-container ol ol {
+            list-style: lower-alpha !important; /* 嵌套列表用字母编号 */
+            padding-left: 2.5rem !important;
+          }
+          .typewriter-container li {
+            margin: 0.5rem 0 !important;       /* 列表项间距 */
+          }
+        `}
+      </style>
+      
       <ReactMarkdown>{displayedContent}</ReactMarkdown>
-      {isStreaming && <span className="inline-block w-2 h-4 bg-scp-term animate-pulse ml-1">▋</span>}
+      
+      {isStreaming && (
+        <span className="inline-block w-2 h-4 bg-scp-term animate-pulse ml-1">▋</span>
+      )}
       <div ref={bottomRef} />
     </div>
   );
