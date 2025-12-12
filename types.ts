@@ -1,4 +1,5 @@
 
+
 export enum GameStatus {
   IDLE = 'IDLE',
   ANALYZING = 'ANALYZING', // Analyzing the SCP URL
@@ -69,6 +70,7 @@ export interface Message {
   timestamp: number;
   imageUrl?: string; // If the message comes with an illustration
   isTyping?: boolean; // For stream effect
+  stabilitySnapshot?: number; // Snapshot of stability at this message, used for history chart
 }
 
 export interface SCPData {
@@ -78,6 +80,32 @@ export interface SCPData {
   containmentClass: string;
   visualDescription?: string; // Description for background image generation
   entityDescription?: string; // Description for main entity image generation
+}
+
+export interface PerspectiveEvaluation {
+  sourceName: string; // e.g., "GOC High Command", "O5-Council", "Chaos Insurgency"
+  stance: string; // e.g., "Hostile", "Neutral", "Approving"
+  comment: string;
+}
+
+export interface GameReviewData {
+  operationName: string;
+  clearanceLevel: string;
+  evaluation: {
+    rank: string; // S, A, B, C, D, F
+    score: number;
+    verdict: string;
+  };
+  summary: string;
+  timelineAnalysis: {
+    turn: number;
+    event: string;
+    analysis: string;
+    impact: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+  }[];
+  psychProfile: string;
+  strategicAdvice: string;
+  perspectiveEvaluations: PerspectiveEvaluation[];
 }
 
 export interface GameState {

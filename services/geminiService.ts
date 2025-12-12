@@ -1,6 +1,5 @@
-
-import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
-import { SCPData, EndingType, Language } from "../types";
+import { GoogleGenAI, Chat } from "@google/genai";
+import { SCPData, EndingType, Language, Message, GameReviewData } from "../types";
 
 // Helper to get client with current key
 const getClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -82,7 +81,7 @@ Structure:
 If any of the keys are not found, fill "???".
 
 Output Language for 'visualDescription', 'entityDescription': English.
-Output Language for 'name': ${langInstruction}.`;
+Preferred Output Language for 'name': ${langInstruction}.`;
 
     console.log(`[GeminiService] Analyzing SCP: ${input}`);
     const response = await ai.models.generateContent({
@@ -125,7 +124,7 @@ export const initializeGameChatStream = async function* (scp: SCPData, role: str
   const langInstruction = language === 'zh' ? '中文' : '英文';
   
   const systemInstruction = `
-你是一个基于SCP基金会宇宙的文本冒险游戏《SCP 档案：命运织机》的AI主持人，核心职责是严格贴合 SCP 基金会世界观逻辑，为玩家构建沉浸式、高自由度的剧情体验。
+你是一个基于SCP基金会宇宙的文本冒险游戏《SCP 档案：命运织机》的AI主持人，核心职责是严格贴合 SCP 基金会世界观逻辑，为玩家构建沉浸式、多样性、高自由度的剧情体验。
 玩家在冒险游戏中扮演一个任意的角色，可以是研究员、D级人员，O5议会成员，或任何其他角色，甚至SCP本身。
 你需要根据当前场景信息生成一个独一无二的关于这篇SCP档案的文本冒险故事游戏，并设置一个明确的主线任务，冒险故事围绕这个任务展开。
 
@@ -148,9 +147,15 @@ SCP项目：${scp.designation} (${scp.name})
 4. **世界崩坏 (0%)**：世界线收束。
 
 [角色扮演与玩家能动性]
+- 为玩家所选角色设定人设和背景故事（不一定都是正面形象，可以是负面）
 - 所有叙事严格通过玩家所选角色的视角、知识与能力进行过滤。
 - 提供有意义的多元路径：避免设计单一通向死胡同的选择。
 - 允许创造性解法：只要符合角色能力和世界观逻辑，允许玩家尝试任何行动。其成功与否取决于逻辑、准备与概率，而非预设的“必败”。
+
+[任务设计原则]
+- 主线任务要充分结合角色、SCP项目背景、角色人设等设计，保证任务的多样性。
+- 主线任务并不总是“正面、积极”的，要结合角色立场来设定
+- 特别注意：休谟场仅是游戏稳定性的机制，和游戏主线任务并不强相关，设计冒险故事时，不应该过多围绕休谟场进行设计。
 
 [叙事韧性协议]
 你必须在生成的叙事中遵循以下原则：
@@ -163,7 +168,7 @@ SCP项目：${scp.designation} (${scp.name})
 有以下几种结局类型：
 1. **CONTAINED (收容成功/任务完成)**: 玩家成功完成了角色的核心任务。
 2. **DEATH (人员死亡/行动失败)**: 玩家角色死亡，或关键任务失败导致无法挽回，但世界未毁灭。
-3. **ESCAPED (逃离/失踪)**: 玩家（通常是D级或平民）成功逃离设施，但异常可能仍在活跃。
+3. **ESCAPED (逃离/失踪)**: 玩家成功逃离，但异常可能仍在活跃。
 4. **COLLAPSE (现实崩溃)**: 只有当 Stability<=0 时触发，世界线彻底毁灭。
 
 [输出格式规范]
@@ -197,7 +202,7 @@ SCP项目：${scp.designation} (${scp.name})
     message: `
 目标：${scp.designation}
 项目等级：${scp.containmentClass}
-现在开始游戏，请使用 Google Search 工具检索该目标的所有关键资料，严格按以下格式生成内容：
+现在开始游戏，请使用 Google Search 工具检索该目标的所有关键资料，严格按以下格式，用${langInstruction}生成内容：
 - **目标**：${scp.designation}
 
 - **项目等级**：${scp.containmentClass}
@@ -206,7 +211,7 @@ SCP项目：${scp.designation} (${scp.name})
 
 - **项目描述**
 
-- "${role}"的初始遭遇场景, 主线任务等, 200-300字。
+- "${role}"的初始遭遇场景, 主线任务等, 200-300字, ${langInstruction}。
 - [STABILITY: 100]
 - [VISUAL: prompt] (可选)
 
@@ -236,7 +241,7 @@ export const sendAction = async function* (action: string, currentStability: num
 [系统状态]
 Current Stability: ${currentStability}%
 User Action: "${action}"
-
+Output Language: ${langInstruction}
 任务: 
 1. 分析用户操作，并生成${langInstruction}叙事回应 (200字以内，必须遵守)。你生成的叙事回应必须逐步倾向某个结局，不能过于发散，不能止步不前。
 2. 判定是否达成结局 (CONTAINED/DEATH/COLLAPSE/ESCAPED)，如达成必须生成[ENDING: TYPE]。
@@ -309,4 +314,93 @@ export const extractEnding = (text: string): { cleanText: string, endingType: En
   }
 
   return { cleanText: cleanText.trim(), endingType };
+};
+
+// --- Game Review ---
+
+export const generateGameReview = async (
+  scpData: SCPData,
+  role: string,
+  ending: EndingType,
+  language: Language
+): Promise<GameReviewData> => {
+  console.log(`[GeminiService] Generating Game Review from active session...`);
+  
+  if (!chatSession) {
+    console.error("Chat session is missing. Cannot generate review.");
+    return {
+      operationName: "OPERATION [DATA LOST]",
+      clearanceLevel: "LEVEL 0",
+      evaluation: { rank: "F", score: 0, verdict: "CONNECTION SEVERED" },
+      summary: "Unable to retrieve session data. The neural link was broken (page refresh or error).",
+      timelineAnalysis: [],
+      psychProfile: "N/A",
+      strategicAdvice: "Ensure stable connection for future operations.",
+      perspectiveEvaluations: []
+    };
+  }
+    
+  const langPrompt = language === 'zh' ? 'Chinese' : 'English';
+  
+  // Prompt to switch context from Narrator to Analyst using the existing history
+  const prompt = `
+[SYSTEM COMMAND: CEASE NARRATIVE PROTOCOL. INITIATE AFTER-ACTION REPORT GENERATION.]
+
+Task: Analyze the preceding interaction log (the game session just completed) and generate a structured incident review.
+
+Context:
+Target: ${scpData.designation}
+Player Role: ${role}
+Outcome: ${ending}
+
+Output Language: ${langPrompt}
+
+Requirements:
+1. Review the entire conversation history available in this session context.
+2. Evaluate the player's (User's) choices, survival strategy, and adherence/subversion of their role.
+3. Assign a letter Rank (S/A/B/C/D/F) and numerical Score (0-100) based on their role's objectives.
+4. Extract 4-6 specific turning points (User actions) and analyze their impact.
+5. Create a psychological profile of the role based on their behavior.
+6. Provide strategic advice.
+7. **Multi-Perspective Evaluations**: Generate 2-3 evaluations from DIFFERENT in-universe entities/factions relevant to the scenario (e.g., O5 Council, Chaos Insurgency, Ethics Committee, or the Entity itself). Their tone and criteria must reflect their specific agenda.
+
+Format: RETURN ONLY RAW JSON. No markdown blocks.
+JSON Structure matches the interface:
+{
+  "operationName": "string",
+  "clearanceLevel": "string",
+  "evaluation": { "rank": "string", "score": number, "verdict": "string" },
+  "summary": "string",
+  "timelineAnalysis": [{ "turn": number, "event": "string", "analysis": "string", "impact": "POSITIVE"|"NEGATIVE"|"NEUTRAL" }],
+  "psychProfile": "string",
+  "strategicAdvice": "string",
+  "perspectiveEvaluations": [
+    { "sourceName": "string", "stance": "string", "comment": "string" }
+  ]
+}
+`;
+
+  try {
+    // Send message to existing history
+    const response = await chatSession.sendMessage({ message: prompt });
+    const text = response.text;
+    
+    if (!text) throw new Error("Empty response for review");
+    
+    // Clean potential markdown
+    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanJson) as GameReviewData;
+  } catch (error) {
+    console.error("Failed to generate review:", error);
+    return {
+      operationName: "OPERATION [ERROR]",
+      clearanceLevel: "LEVEL 0",
+      evaluation: { rank: "F", score: 0, verdict: "PARSING ERROR" },
+      summary: "The analyst failed to compile the report correctly.",
+      timelineAnalysis: [],
+      psychProfile: "N/A",
+      strategicAdvice: "Contact IT.",
+      perspectiveEvaluations: []
+    };
+  }
 };

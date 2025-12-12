@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { analyzeSCPUrl, initializeGameChatStream, generateImage, extractVisualPrompt } from '../services/geminiService';
+import { analyzeSCPUrl, initializeGameChatStream, generateImage, extractVisualPrompt, extractStability } from '../services/geminiService';
 import { GameState, GameStatus, Role } from '../types';
 import ParticleText from './ParticleText';
 import { useTranslation, ROLE_TRANSLATIONS } from '../utils/i18n';
@@ -134,13 +134,22 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
       }
 
       // 5. Post-process the full text (once stream is done)
-      // Extract visuals and clean tags
-      const { cleanText, visualPrompt } = extractVisualPrompt(fullText);
+      // Extract stability, visuals and clean tags
+      const stabilityResult = extractStability(fullText);
+      const textAfterStability = stabilityResult.cleanText;
+      const introStability = stabilityResult.newStability ?? 100;
+
+      const { cleanText, visualPrompt } = extractVisualPrompt(textAfterStability);
       
       setGameState(prev => ({
         ...prev,
         messages: prev.messages.map(m => 
-            m.id === msgId ? { ...m, content: cleanText, isTyping: false } : m
+            m.id === msgId ? { 
+                ...m, 
+                content: cleanText, 
+                isTyping: false,
+                stabilitySnapshot: introStability 
+            } : m
         )
       }));
 
