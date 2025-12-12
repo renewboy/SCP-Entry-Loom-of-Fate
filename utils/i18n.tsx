@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { Language } from '../types';
 
@@ -63,6 +64,7 @@ export const translations = {
       archiving_aborted: "⚠ 自动归档已中止。请手动操作。",
       access_logs: "访问世界线图谱",
       review_logs: "回顾行动日志",
+      other_instruct: "其他（请输入）",
       err_offline: "⚠️ [纺锤脱机] 命运织机同步中断。当前因果线程无响应，请尝试重连或强制剪断链接。",
       err_timeout: "⚠️ [连接超时] 响应时间过长。已自动恢复输入，请重试。"
     },
@@ -110,7 +112,25 @@ export const translations = {
         COLLAPSE: "因果律完整性归零。时间线已锁定。",
         UNKNOWN: "数据错误。"
       },
-      archived: "该迭代已被归档。"
+      archived: "该迭代已被归档。",
+      generate_review: "生成深度复盘",
+      generating_review: "正在分析数据...",
+      review_title: "行动后报告 (AAR)",
+      dept_analytics: "分析部门 // DEPT. OF ANALYTICS",
+      perf_eval: "综合表现评估",
+      score: "评分",
+      rank: "等级",
+      verdict: "最终裁定",
+      summary: "行动摘要",
+      key_moments: "关键转折点分析",
+      psych_profile: "人员心理侧写",
+      strat_advice: "战略建议与备注",
+      perspectives: "外部关注组织评价",
+      turn: "回合",
+      impact_pos: "正面",
+      impact_neg: "负面",
+      impact_neu: "中立",
+      stability_chart: "休谟场稳定性趋势"
     }
   },
   en: {
@@ -173,6 +193,7 @@ export const translations = {
       archiving_aborted: "⚠ Auto-archiving aborted. Manual action required.",
       access_logs: "ACCESS WORLD LINE GRAPH",
       review_logs: "REVIEW LOGS",
+      other_instruct: "Other (Please specify)",
       err_offline: "⚠️ [SPINDLE OFFLINE] Loom of Fate sync interrupted. Causal thread unresponsive. Reconnect or sever link.",
       err_timeout: "⚠️ [CONNECTION TIMEOUT] Response took too long. Input restored. Please retry."
     },
@@ -220,7 +241,25 @@ export const translations = {
         COLLAPSE: "Causal integrity zero. Timeline locked.",
         UNKNOWN: "Data Error."
       },
-      archived: "This iteration has been archived."
+      archived: "This iteration has been archived.",
+      generate_review: "GENERATE AAR",
+      generating_review: "ANALYZING DATA...",
+      review_title: "AFTER ACTION REPORT (AAR)",
+      dept_analytics: "DEPT. OF ANALYTICS",
+      perf_eval: "PERFORMANCE EVALUATION",
+      score: "SCORE",
+      rank: "RANK",
+      verdict: "FINAL VERDICT",
+      summary: "EXECUTIVE SUMMARY",
+      key_moments: "KEY TURNING POINTS",
+      psych_profile: "PSYCHOLOGICAL PROFILE",
+      strat_advice: "STRATEGIC NOTES",
+      perspectives: "EXTERNAL GOI/ENTITY EVALUATIONS",
+      turn: "TURN",
+      impact_pos: "POSITIVE",
+      impact_neg: "NEGATIVE",
+      impact_neu: "NEUTRAL",
+      stability_chart: "Hume Field Stability Trend"
     }
   }
 };

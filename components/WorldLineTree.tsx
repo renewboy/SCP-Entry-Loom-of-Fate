@@ -1,7 +1,8 @@
-
-import React, { useRef, useEffect } from 'react';
-import { Message, SCPData, EndingType } from '../types';
+import React, { useRef, useEffect, useState } from 'react';
+import { Message, SCPData, EndingType, GameReviewData } from '../types';
 import { useTranslation } from '../utils/i18n';
+import { generateGameReview } from '../services/geminiService';
+import GameReviewReport from './GameReviewReport';
 
 interface WorldLineTreeProps {
   messages: Message[];
@@ -10,11 +11,20 @@ interface WorldLineTreeProps {
   onMinimize: () => void;
   backgroundImage: string | null;
   endingType: EndingType;
+  role: string;
 }
 
-const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRestart, onMinimize, backgroundImage, endingType }) => {
+const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRestart, onMinimize, backgroundImage, endingType, role }) => {
   const { t, language } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  const [reviewData, setReviewData] = useState<GameReviewData | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const reviewRef = useRef<HTMLDivElement>(null);
+
+
+  // Extract Stability History
+  const [stabilityHistory, setStabilityHistory] = useState<number[]>([100]);
 
   useEffect(() => {
     if (containerRef.current) {
@@ -22,14 +32,50 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
     }
   }, []);
 
+  useEffect(() => {
+    // Parse messages to build stability history
+    const history: number[] = [];
+    messages.forEach(msg => {
+        if (msg.sender === 'narrator') {
+            if (msg.stabilitySnapshot !== undefined) {
+                history.push(msg.stabilitySnapshot);
+            } else {
+                // Fallback to regex if snapshot missing (compatibility)
+                const match = msg.content.match(/\[STABILITY\s*:\s*(\d+)\]/);
+                if (match) {
+                    history.push(parseInt(match[1], 10));
+                }
+            }
+        }
+    });
+
+    // If history is empty or only has one point (intro), ensure it has at least a start point
+    if (history.length === 0) history.push(100);
+    setStabilityHistory(history);
+  }, [messages]);
+  
+  const handleGenerateReview = async () => {
+    if (!scpData) return;
+    setIsGenerating(true);
+    try {
+        const review = await generateGameReview(scpData, role, endingType, language);
+        setReviewData(review);
+        setTimeout(() => {
+            reviewRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+    } catch (e) {
+        console.error("Review generation failed", e);
+    } finally {
+        setIsGenerating(false);
+    }
+  };
+
   // Filter messages to create nodes. 
-  // We treat Narrator messages as "Nodes" and User messages as the "Edges" leading to them.
   const timelineEvents: {trigger: string, response: string, image?: string, id: string}[] = [];
   
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     if (msg.sender === 'narrator') {
-       // Look back for the user input that caused this
        const prevMsg = messages[i-1];
        const trigger = prevMsg?.sender === 'user' ? prevMsg.content : "INITIAL CONTAINMENT";
        
@@ -52,7 +98,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
     const title = `${scpData?.designation || 'SCP'}_Incident_Report`;
     const dateStr = new Date().toLocaleString(language === 'zh' ? 'zh-CN' : 'en-US');
     
-    // Labels for print report (fetched from current language)
+    // Labels for print report
     const lbl = {
         header: t('report.header_title'),
         item: t('report.item'),
@@ -62,20 +108,183 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
         attachment: t('report.attachment'),
         node_id: t('report.node_id'),
         motto: t('report.scp_motto'),
-        confidential: t('report.confidential')
+        confidential: t('report.confidential'),
+        
+        // Review Labels (i18n)
+        dept_analytics: t('report.dept_analytics'),
+        rank: t('report.rank'),
+        score: t('report.score'),
+        summary: t('report.summary'),
+        key_moments: t('report.key_moments'),
+        psych_profile: t('report.psych_profile'),
+        strat_advice: t('report.strat_advice'),
+        perspectives: t('report.perspectives'),
+        turn: t('report.turn'),
+        stability_chart: t('report.stability_chart'),
+        start: "START (100%)",
+        end: `END (${stabilityHistory[stabilityHistory.length - 1]}%)`
     };
 
-    // Inject styles and fonts
+    // Construct Review HTML if available
+    let reviewHtml = '';
+    if (reviewData) {
+        // Simple HTML construction for the review part in the PDF
+        const getRankColor = (rank: string) => {
+            if (rank === 'S' || rank === 'A') return 'color: #33ff00;';
+            if (rank === 'F') return 'color: #c32e2e;';
+            return 'color: #e0e0e0;';
+        };
+        
+        const timelineHtml = reviewData.timelineAnalysis.map(item => `
+            <div style="margin-bottom: 12px; padding-left: 12px; border-left: 2px solid #333;">
+                <div style="display: flex; justify-content: space-between; font-size: 10px; color: #888;">
+                   <span>${lbl.turn} ${item.turn}</span>
+                   <span style="font-weight: bold; ${item.impact === 'POSITIVE' ? 'color:#33ff00' : item.impact === 'NEGATIVE' ? 'color:#c32e2e' : 'color:#888'}">${item.impact}</span>
+                </div>
+                <div style="font-weight: bold; margin-bottom: 2px;">${item.event}</div>
+                <div style="font-style: italic; color: #aaa; font-size: 11px;">"${item.analysis}"</div>
+            </div>
+        `).join('');
+
+        // Generate Perspectives HTML
+        let perspectivesHtml = '';
+        if (reviewData.perspectiveEvaluations && reviewData.perspectiveEvaluations.length > 0) {
+            const itemsHtml = reviewData.perspectiveEvaluations.map(item => `
+                <div style="background: rgba(0,0,0,0.4); border: 1px solid #333; padding: 12px; margin-bottom: 8px;">
+                     <div style="border-bottom: 1px solid #444; padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: flex-end;">
+                        <span style="font-size: 11px; font-weight: bold; text-transform: uppercase;">${item.sourceName}</span>
+                        <span style="font-size: 9px; color: #888; border: 1px solid #555; padding: 0 4px;">${item.stance}</span>
+                     </div>
+                     <p style="font-size: 11px; font-style: italic; color: #ccc;">"${item.comment}"</p>
+                </div>
+            `).join('');
+            
+            perspectivesHtml = `
+                <div style="margin-bottom: 24px;">
+                    <div style="font-size: 12px; font-weight: bold; border-bottom: 1px solid #333; margin-bottom: 12px; padding-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                        <span style="width: 4px; height: 12px; background: #a855f7; display: inline-block;"></span>
+                        ${lbl.perspectives}
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                        ${itemsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Generate Chart SVG string - Matches GameReviewReport logic
+        let chartHtml = '';
+        if (stabilityHistory && stabilityHistory.length >= 2) {
+            const width = 800;
+            const height = 150;
+            const maxVal = 100;
+            const padding = 10;
+            
+            const points = stabilityHistory.map((val, i) => {
+                const x = (i / (stabilityHistory.length - 1)) * width;
+                const y = height - (val / maxVal) * (height - padding); 
+                return `${x},${y}`;
+            }).join(' ');
+
+            const areaPoints = `${points} ${width},${height} 0,${height}`;
+            
+            const circlesHtml = stabilityHistory.map((val, i) => {
+                 const x = (i / (stabilityHistory.length - 1)) * width;
+                 const y = height - (val / maxVal) * (height - padding);
+                 const isCritical = val < 30;
+                 const fill = isCritical ? "#c32e2e" : "#33ff00";
+                 const r = isCritical ? 4 : 2;
+                 return `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" stroke="#000" stroke-width="1" />`;
+            }).join('');
+
+            chartHtml = `
+                <div style="margin-bottom: 24px; border: 1px solid #333; background: rgba(0,0,0,0.4); padding: 16px;">
+                    <h3 style="font-size: 14px; font-weight: bold; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; text-transform: uppercase;">
+                       <span style="display:inline-block; width: 4px; height: 16px; background: #33ff00; margin-right: 8px;"></span>
+                       ${lbl.stability_chart}
+                    </h3>
+                    <div style="width: 100%; overflow: hidden;">
+                        <svg viewBox="0 0 ${width} ${height}" style="width: 100%; height: auto; display: block; filter: drop-shadow(0 0 5px rgba(51,255,0,0.3));">
+                             <defs>
+                                <linearGradient id="grid-grad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="rgba(51, 255, 0, 0.2)" />
+                                    <stop offset="100%" stop-color="rgba(51, 255, 0, 0)" />
+                                </linearGradient>
+                             </defs>
+                             
+                             <!-- Grid Lines -->
+                             <line x1="0" y1="${height * 0.3}" x2="${width}" y2="${height * 0.3}" stroke="#333" stroke-dasharray="4" stroke-width="1" />
+                             <line x1="0" y1="${height * 0.7}" x2="${width}" y2="${height * 0.7}" stroke="#333" stroke-dasharray="4" stroke-width="1" />
+                             <line x1="0" y1="${height - 1}" x2="${width}" y2="${height - 1}" stroke="#666" stroke-width="1" />
+
+                             <polygon points="${areaPoints}" fill="url(#grid-grad)" />
+                             <polyline points="${points}" fill="none" stroke="#33ff00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+                             ${circlesHtml}
+                        </svg>
+                    </div>
+                     <div style="display: flex; justify-content: space-between; font-size: 10px; color: #888; font-family: monospace; margin-top: 8px; text-transform: uppercase;">
+                        <span>${lbl.start}</span>
+                        <span>TIME</span>
+                        <span>${lbl.end}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        reviewHtml = `
+            <div style="page-break-before: always; margin-top: 40px; border: 2px solid #333; padding: 24px; position: relative;">
+                <div style="position: absolute; top: 0; right: 0; padding: 4px 8px; background: #000; color: #fff; font-size: 10px; border-bottom: 1px solid #333; border-left: 1px solid #333;">${lbl.dept_analytics}</div>
+                
+                <h2 style="font-family: 'Special Elite', cursive; font-size: 24px; margin-bottom: 4px; text-transform: uppercase;">${reviewData.operationName}</h2>
+                <div style="color: #c32e2e; font-size: 12px; font-weight: bold; margin-bottom: 24px;">${reviewData.clearanceLevel}</div>
+
+                <div style="display: flex; gap: 24px; margin-bottom: 24px;">
+                    <div style="border: 1px solid #333; padding: 12px; text-align: center; width: 120px;">
+                        <div style="font-size: 10px; color: #888;">${lbl.rank}</div>
+                        <div style="font-family: 'Special Elite', cursive; font-size: 48px; font-weight: bold; ${getRankColor(reviewData.evaluation.rank)}">${reviewData.evaluation.rank}</div>
+                        <div style="font-size: 10px; margin-top: 4px; color: #888;">${lbl.score}: ${reviewData.evaluation.score}</div>
+                        <div style="font-size: 10px; border-top: 1px solid #333; margin-top: 8px; padding-top: 4px;">${reviewData.evaluation.verdict}</div>
+                    </div>
+                    <div style="flex: 1; border: 1px solid #333; padding: 12px;">
+                        <div style="font-size: 10px; color: #888; border-bottom: 1px solid #333; margin-bottom: 8px; padding-bottom: 4px;">${lbl.summary}</div>
+                        <div style="font-size: 12px; line-height: 1.4; text-align: justify;">${reviewData.summary}</div>
+                    </div>
+                </div>
+
+                ${chartHtml}
+
+                <div style="margin-bottom: 24px;">
+                    <div style="font-size: 12px; font-weight: bold; border-bottom: 1px solid #333; margin-bottom: 12px; padding-bottom: 4px;">${lbl.key_moments}</div>
+                    ${timelineHtml}
+                </div>
+
+                ${perspectivesHtml}
+
+                <div style="display: flex; gap: 24px; border-top: 1px solid #333; padding-top: 16px;">
+                    <div style="flex: 1;">
+                        <div style="font-size: 10px; color: #888; margin-bottom: 4px;">${lbl.psych_profile}</div>
+                        <div style="font-size: 11px; background: #111; padding: 8px;">${reviewData.psychProfile}</div>
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 10px; color: #888; margin-bottom: 4px;">${lbl.strat_advice}</div>
+                        <div style="font-size: 11px; background: #111; padding: 8px;">${reviewData.strategicAdvice}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
     const styles = `
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Special+Elite&display=swap" rel="stylesheet">
         <style>
            @page { size: A4; margin: 0; }
-           /* Remove body background to allow our custom fixed bg to show */
            body { 
              margin: 0;
              -webkit-print-color-adjust: exact; 
              print-color-adjust: exact;
+             background-color: #050505;
+             color: #e0e0e0;
            }
            .break-inside-avoid { page-break-inside: avoid; }
         </style>
@@ -109,16 +318,13 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
         <title>${title}</title>
         ${styles}
       </head>
-      <body class="min-h-screen p-8 md:p-12 font-mono selection:bg-scp-accent selection:text-white relative text-gray-200">
+      <body class="min-h-screen p-8 md:p-12 font-mono relative text-gray-200">
         
         <!-- Fixed Background Container -->
-        <!-- Placed at z-index -10 to sit behind everything. Added pointer-events: none just in case. -->
         <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -10; background-color: #050505; pointer-events: none;">
             ${backgroundImage ? `
-                <img src="${backgroundImage}" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.4;" />
+                <img src="${backgroundImage}" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.2;" />
             ` : ''}
-            <!-- Subtle overlay for readability -->
-            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6);"></div>
         </div>
 
         <!-- Report Header -->
@@ -134,22 +340,18 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
 
         <!-- World Line Content -->
         <div class="relative space-y-6 z-10">
-            <!-- Continuous Vertical Line -->
             <div class="absolute left-3 top-2 bottom-0 w-0.5 bg-scp-gray/40"></div>
             
             ${timelineEvents.map((event, idx) => `
                 <div class="relative pl-10 break-inside-avoid mb-6">
-                    <!-- Node Dot -->
                     <div class="absolute left-[9px] top-1.5 w-2.5 h-2.5 rounded-full bg-scp-term border-2 border-scp-dark z-10"></div>
                     
-                    <!-- Trigger Action Box -->
                     <div class="mb-2">
                         <span class="inline-block bg-scp-dark border border-scp-accent/50 text-scp-accent text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider shadow-sm">
                             > ${event.trigger}
                         </span>
                     </div>
 
-                    <!-- Narrative & Evidence Box -->
                     <div class="bg-black/50 border border-scp-gray/30 p-4 rounded-sm shadow-sm text-sm leading-relaxed text-gray-300 backdrop-blur-sm">
                         ${event.image ? `
                             <div class="mb-4 overflow-hidden rounded border border-scp-gray/20 bg-black">
@@ -165,6 +367,9 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
                 </div>
             `).join('')}
         </div>
+        
+        <!-- Review Section -->
+        ${reviewHtml}
 
         <!-- Footer -->
         <div class="mt-12 pt-6 border-t border-scp-gray/50 text-center relative z-10">
@@ -173,7 +378,6 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
         </div>
 
         <script>
-            // Wait for images to load before printing
             window.onload = () => {
                 setTimeout(() => {
                     window.print();
@@ -196,49 +400,27 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
       let title = t(`report.outcome_titles.${typeKey}`);
       let text = t(`report.outcome_texts.${typeKey}`);
 
-      // Fallback
       if (!title) title = fallbackTitle;
       if (!text) text = fallbackSub;
 
       switch(endingType) {
           case EndingType.CONTAINED:
-              return {
-                  title, text,
-                  color: "text-scp-term",
-                  border: "border-scp-term",
-                  bg: "bg-green-900/10"
-              };
+              return { title, text, color: "text-scp-term", border: "border-scp-term", bg: "bg-green-900/10" };
           case EndingType.DEATH:
-              return {
-                  title, text,
-                  color: "text-gray-400",
-                  border: "border-gray-500",
-                  bg: "bg-gray-900/10"
-              };
+              return { title, text, color: "text-gray-400", border: "border-gray-500", bg: "bg-gray-900/10" };
           case EndingType.ESCAPED:
-              return {
-                  title, text,
-                  color: "text-yellow-500",
-                  border: "border-yellow-500",
-                  bg: "bg-yellow-900/10"
-              };
+              return { title, text, color: "text-yellow-500", border: "border-yellow-500", bg: "bg-yellow-900/10" };
           case EndingType.COLLAPSE:
           default:
-              return {
-                  title, text,
-                  color: "text-red-500",
-                  border: "border-red-500",
-                  bg: "bg-red-900/10"
-              };
+              return { title, text, color: "text-red-500", border: "border-red-500", bg: "bg-red-900/10" };
       }
   };
 
   const endConfig = getEndingDisplay();
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-scp-dark text-scp-text overflow-y-auto crt border-t border-scp-gray/50">
+    <div className="absolute inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-md text-scp-text overflow-y-auto crt border-t border-scp-gray/50">
       
-      {/* Background Layer */}
       {backgroundImage && (
         <div className="fixed inset-0 z-0 opacity-20 pointer-events-none">
             <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${backgroundImage})` }}></div>
@@ -275,22 +457,18 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
       </div>
 
       <div className="p-4 md:p-8 max-w-4xl mx-auto w-full relative z-10 flex-1" ref={containerRef}>
-         {/* Vertical Timeline Line */}
          <div className="absolute left-4 md:left-1/2 top-10 bottom-10 w-0.5 bg-gradient-to-b from-scp-term via-scp-gray to-scp-accent opacity-30"></div>
 
-         <div className="space-y-12">
+         <div className="space-y-12 mb-20">
             {timelineEvents.map((event, index) => (
                 <div key={event.id} className={`relative flex flex-col md:flex-row gap-8 items-center ${index % 2 === 0 ? 'md:flex-row-reverse' : ''}`}>
                     
-                    {/* Trigger (User Input) - Placed on the "Edge" */}
                     <div className="absolute left-4 md:left-1/2 -translate-x-[18px] md:-translate-x-1/2 -top-6 z-10 bg-scp-dark border border-scp-gray/50 px-2 py-1 rounded text-[10px] font-mono text-scp-accent max-w-[200px] truncate text-center shadow-lg">
                         {event.trigger}
                     </div>
 
-                    {/* Node Point */}
                     <div className={`absolute left-4 md:left-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 z-10 ${index === timelineEvents.length - 1 ? 'bg-red-500 border-red-900 animate-pulse' : 'bg-scp-term border-scp-dark'}`}></div>
 
-                    {/* Content Box */}
                     <div className="w-full md:w-[45%] pl-10 md:pl-0">
                         <div className="bg-black/80 border border-scp-gray/30 p-4 rounded hover:border-scp-term/50 transition-colors group backdrop-blur-sm">
                             {event.image && (
@@ -304,16 +482,13 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
                             <span className="text-[9px] text-scp-gray mt-2 block font-mono">{t('report.node_id')}: {event.id.slice(-6)}</span>
                         </div>
                     </div>
-
-                    {/* Spacer for the other side */}
                     <div className="hidden md:block w-[45%]"></div>
                 </div>
             ))}
          </div>
 
-         {/* End Node */}
-         <div className="flex justify-center mt-12 mb-20">
-            <div className={`${endConfig.bg} ${endConfig.border} border p-4 text-center rounded max-w-md backdrop-blur-sm shadow-lg`}>
+         <div className="flex flex-col items-center justify-center mt-12 mb-20 space-y-8">
+            <div className={`${endConfig.bg} ${endConfig.border} border p-4 text-center rounded max-w-md backdrop-blur-sm shadow-lg w-full`}>
                 <h3 className={`font-report text-xl ${endConfig.color} mb-2 uppercase`}>{endConfig.title}</h3>
                 <p className="font-mono text-xs text-gray-300">
                     {endConfig.text}
@@ -321,6 +496,33 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
                     {t('report.archived')}
                 </p>
             </div>
+
+            {/* Generate Review Section */}
+            {!reviewData ? (
+                 <button 
+                    onClick={handleGenerateReview}
+                    disabled={isGenerating}
+                    className="group relative px-8 py-3 bg-scp-dark border border-scp-accent/50 hover:border-scp-accent transition-all overflow-hidden"
+                 >
+                    <div className="absolute inset-0 bg-scp-accent/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                    <span className="relative font-mono font-bold text-scp-accent text-sm flex items-center gap-2">
+                        {isGenerating ? (
+                            <>
+                                <span className="w-3 h-3 border-2 border-scp-accent border-t-transparent rounded-full animate-spin"></span>
+                                {t('report.generating_review')}
+                            </>
+                        ) : (
+                            <>
+                                <span className="text-lg">✇</span> {t('report.generate_review')}
+                            </>
+                        )}
+                    </span>
+                 </button>
+            ) : (
+                <div ref={reviewRef} className="w-full animate-in fade-in duration-1000 slide-in-from-bottom-8">
+                    <GameReviewReport data={reviewData} scpData={scpData} stabilityHistory={stabilityHistory} />
+                </div>
+            )}
          </div>
       </div>
     </div>

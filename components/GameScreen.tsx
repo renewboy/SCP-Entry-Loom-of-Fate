@@ -265,7 +265,12 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         stability: updatedStability,
         endingType: detectedEndingType,
         messages: prev.messages.map(m => 
-          m.id === aiMsgId ? { ...m, content: finalText, isTyping: false } : m
+          m.id === aiMsgId ? { 
+              ...m, 
+              content: finalText, 
+              isTyping: false,
+              stabilitySnapshot: updatedStability 
+          } : m
         )
       }));
 
@@ -728,6 +733,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
             onMinimize={() => setIsReportOpen(false)}
             backgroundImage={gameState.backgroundImage}
             endingType={gameState.endingType || EndingType.UNKNOWN}
+            role={gameState.role}
           />
       )}
 
