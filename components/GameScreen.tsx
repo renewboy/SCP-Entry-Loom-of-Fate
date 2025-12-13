@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { GameState, GameStatus, Message, EndingType } from '../types';
 import { sendAction, extractVisualPrompt, extractStability, extractEnding, generateImage } from '../services/geminiService';
@@ -44,6 +43,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   const [isEndingOverlayCollapsed, setIsEndingOverlayCollapsed] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Auto scroll to bottom of chat
   useEffect(() => {
@@ -206,7 +206,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
       console.log("[GameScreen] Invoking sendAction stream...");
       let fullResponse = '';
       
-      const stream = sendAction(userMsg.content, currentStability, language);
+      const stream = sendAction(userMsg.content, currentStability, newTurnCount, language);
       const iterator = stream[Symbol.asyncIterator]();
       
       // 30 seconds timeout limit for response stream
@@ -332,6 +332,14 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
   const handleCancelCountdown = () => {
       setIsCountdownActive(false);
+  };
+
+  // Handler for clicking options in Typewriter
+  const handleOptionClick = (text: string) => {
+    setInput(text);
+    if (inputRef.current) {
+        inputRef.current.focus();
+    }
   };
 
   const getStabilityColor = () => {
@@ -539,7 +547,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         {/* Center: Title */}
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           <h1 className="text-lg sm:text-2xl font-report tracking-widest text-scp-text uppercase shadow-black drop-shadow-md text-shadow-sm text-center truncate max-w-[90%] px-2">
-            {gameState.scpData?.name}
+             {gameState.scpData?.name}
           </h1>
           <span className="text-[10px] text-scp-accent/80 font-mono tracking-[0.2em] uppercase">
              {gameState.scpData?.designation} // {t('game.archive_access')}
@@ -594,7 +602,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
               
               <Typewriter 
                 content={msg.content} 
-                isStreaming={!!msg.isTyping} 
+                isStreaming={!!msg.isTyping}
+                onOptionClick={handleOptionClick} 
               />
 
               {msg.imageUrl && (
@@ -616,6 +625,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         <div className="flex gap-2 relative">
           <span className="absolute left-3 top-3 text-scp-term font-mono pointer-events-none"></span>
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -725,16 +735,18 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
       })()}
       
       {/* World Line Tree Overlay (Game Over State) */}
-      {gameState.status === GameStatus.GAME_OVER && isReportOpen && (
-          <WorldLineTree 
-            messages={gameState.messages} 
-            scpData={gameState.scpData} 
-            onRestart={handleAbort} 
-            onMinimize={() => setIsReportOpen(false)}
-            backgroundImage={gameState.backgroundImage}
-            endingType={gameState.endingType || EndingType.UNKNOWN}
-            role={gameState.role}
-          />
+      {gameState.status === GameStatus.GAME_OVER && (
+          <div className={isReportOpen ? 'contents' : 'hidden'}>
+            <WorldLineTree 
+                messages={gameState.messages} 
+                scpData={gameState.scpData} 
+                onRestart={handleAbort} 
+                onMinimize={() => setIsReportOpen(false)}
+                backgroundImage={gameState.backgroundImage}
+                endingType={gameState.endingType || EndingType.UNKNOWN}
+                role={gameState.role}
+            />
+          </div>
       )}
 
     </div>

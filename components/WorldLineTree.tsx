@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Message, SCPData, EndingType, GameReviewData } from '../types';
 import { useTranslation } from '../utils/i18n';
 import { generateGameReview } from '../services/geminiService';
-import GameReviewReport from './GameReviewReport';
+import GameReviewReport, { generateGameReviewHtml } from './GameReviewReport';
 
 interface WorldLineTreeProps {
   messages: Message[];
@@ -109,169 +109,12 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
         node_id: t('report.node_id'),
         motto: t('report.scp_motto'),
         confidential: t('report.confidential'),
-        
-        // Review Labels (i18n)
-        dept_analytics: t('report.dept_analytics'),
-        rank: t('report.rank'),
-        score: t('report.score'),
-        summary: t('report.summary'),
-        key_moments: t('report.key_moments'),
-        psych_profile: t('report.psych_profile'),
-        strat_advice: t('report.strat_advice'),
-        perspectives: t('report.perspectives'),
-        turn: t('report.turn'),
-        stability_chart: t('report.stability_chart'),
-        start: "START (100%)",
-        end: `END (${stabilityHistory[stabilityHistory.length - 1]}%)`
     };
 
-    // Construct Review HTML if available
+    // Construct Review HTML using shared generator if available
     let reviewHtml = '';
     if (reviewData) {
-        // Simple HTML construction for the review part in the PDF
-        const getRankColor = (rank: string) => {
-            if (rank === 'S' || rank === 'A') return 'color: #33ff00;';
-            if (rank === 'F') return 'color: #c32e2e;';
-            return 'color: #e0e0e0;';
-        };
-        
-        const timelineHtml = reviewData.timelineAnalysis.map(item => `
-            <div style="margin-bottom: 12px; padding-left: 12px; border-left: 2px solid #333;">
-                <div style="display: flex; justify-content: space-between; font-size: 10px; color: #888;">
-                   <span>${lbl.turn} ${item.turn}</span>
-                   <span style="font-weight: bold; ${item.impact === 'POSITIVE' ? 'color:#33ff00' : item.impact === 'NEGATIVE' ? 'color:#c32e2e' : 'color:#888'}">${item.impact}</span>
-                </div>
-                <div style="font-weight: bold; margin-bottom: 2px;">${item.event}</div>
-                <div style="font-style: italic; color: #aaa; font-size: 11px;">"${item.analysis}"</div>
-            </div>
-        `).join('');
-
-        // Generate Perspectives HTML
-        let perspectivesHtml = '';
-        if (reviewData.perspectiveEvaluations && reviewData.perspectiveEvaluations.length > 0) {
-            const itemsHtml = reviewData.perspectiveEvaluations.map(item => `
-                <div style="background: rgba(0,0,0,0.4); border: 1px solid #333; padding: 12px; margin-bottom: 8px;">
-                     <div style="border-bottom: 1px solid #444; padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: flex-end;">
-                        <span style="font-size: 11px; font-weight: bold; text-transform: uppercase;">${item.sourceName}</span>
-                        <span style="font-size: 9px; color: #888; border: 1px solid #555; padding: 0 4px;">${item.stance}</span>
-                     </div>
-                     <p style="font-size: 11px; font-style: italic; color: #ccc;">"${item.comment}"</p>
-                </div>
-            `).join('');
-            
-            perspectivesHtml = `
-                <div style="margin-bottom: 24px;">
-                    <div style="font-size: 12px; font-weight: bold; border-bottom: 1px solid #333; margin-bottom: 12px; padding-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-                        <span style="width: 4px; height: 12px; background: #a855f7; display: inline-block;"></span>
-                        ${lbl.perspectives}
-                    </div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
-                        ${itemsHtml}
-                    </div>
-                </div>
-            `;
-        }
-
-        // Generate Chart SVG string - Matches GameReviewReport logic
-        let chartHtml = '';
-        if (stabilityHistory && stabilityHistory.length >= 2) {
-            const width = 800;
-            const height = 150;
-            const maxVal = 100;
-            const padding = 10;
-            
-            const points = stabilityHistory.map((val, i) => {
-                const x = (i / (stabilityHistory.length - 1)) * width;
-                const y = height - (val / maxVal) * (height - padding); 
-                return `${x},${y}`;
-            }).join(' ');
-
-            const areaPoints = `${points} ${width},${height} 0,${height}`;
-            
-            const circlesHtml = stabilityHistory.map((val, i) => {
-                 const x = (i / (stabilityHistory.length - 1)) * width;
-                 const y = height - (val / maxVal) * (height - padding);
-                 const isCritical = val < 30;
-                 const fill = isCritical ? "#c32e2e" : "#33ff00";
-                 const r = isCritical ? 4 : 2;
-                 return `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" stroke="#000" stroke-width="1" />`;
-            }).join('');
-
-            chartHtml = `
-                <div style="margin-bottom: 24px; border: 1px solid #333; background: rgba(0,0,0,0.4); padding: 16px;">
-                    <h3 style="font-size: 14px; font-weight: bold; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; text-transform: uppercase;">
-                       <span style="display:inline-block; width: 4px; height: 16px; background: #33ff00; margin-right: 8px;"></span>
-                       ${lbl.stability_chart}
-                    </h3>
-                    <div style="width: 100%; overflow: hidden;">
-                        <svg viewBox="0 0 ${width} ${height}" style="width: 100%; height: auto; display: block; filter: drop-shadow(0 0 5px rgba(51,255,0,0.3));">
-                             <defs>
-                                <linearGradient id="grid-grad" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stop-color="rgba(51, 255, 0, 0.2)" />
-                                    <stop offset="100%" stop-color="rgba(51, 255, 0, 0)" />
-                                </linearGradient>
-                             </defs>
-                             
-                             <!-- Grid Lines -->
-                             <line x1="0" y1="${height * 0.3}" x2="${width}" y2="${height * 0.3}" stroke="#333" stroke-dasharray="4" stroke-width="1" />
-                             <line x1="0" y1="${height * 0.7}" x2="${width}" y2="${height * 0.7}" stroke="#333" stroke-dasharray="4" stroke-width="1" />
-                             <line x1="0" y1="${height - 1}" x2="${width}" y2="${height - 1}" stroke="#666" stroke-width="1" />
-
-                             <polygon points="${areaPoints}" fill="url(#grid-grad)" />
-                             <polyline points="${points}" fill="none" stroke="#33ff00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
-                             ${circlesHtml}
-                        </svg>
-                    </div>
-                     <div style="display: flex; justify-content: space-between; font-size: 10px; color: #888; font-family: monospace; margin-top: 8px; text-transform: uppercase;">
-                        <span>${lbl.start}</span>
-                        <span>TIME</span>
-                        <span>${lbl.end}</span>
-                    </div>
-                </div>
-            `;
-        }
-
-        reviewHtml = `
-            <div style="page-break-before: always; margin-top: 40px; border: 2px solid #333; padding: 24px; position: relative;">
-                <div style="position: absolute; top: 0; right: 0; padding: 4px 8px; background: #000; color: #fff; font-size: 10px; border-bottom: 1px solid #333; border-left: 1px solid #333;">${lbl.dept_analytics}</div>
-                
-                <h2 style="font-family: 'Special Elite', cursive; font-size: 24px; margin-bottom: 4px; text-transform: uppercase;">${reviewData.operationName}</h2>
-                <div style="color: #c32e2e; font-size: 12px; font-weight: bold; margin-bottom: 24px;">${reviewData.clearanceLevel}</div>
-
-                <div style="display: flex; gap: 24px; margin-bottom: 24px;">
-                    <div style="border: 1px solid #333; padding: 12px; text-align: center; width: 120px;">
-                        <div style="font-size: 10px; color: #888;">${lbl.rank}</div>
-                        <div style="font-family: 'Special Elite', cursive; font-size: 48px; font-weight: bold; ${getRankColor(reviewData.evaluation.rank)}">${reviewData.evaluation.rank}</div>
-                        <div style="font-size: 10px; margin-top: 4px; color: #888;">${lbl.score}: ${reviewData.evaluation.score}</div>
-                        <div style="font-size: 10px; border-top: 1px solid #333; margin-top: 8px; padding-top: 4px;">${reviewData.evaluation.verdict}</div>
-                    </div>
-                    <div style="flex: 1; border: 1px solid #333; padding: 12px;">
-                        <div style="font-size: 10px; color: #888; border-bottom: 1px solid #333; margin-bottom: 8px; padding-bottom: 4px;">${lbl.summary}</div>
-                        <div style="font-size: 12px; line-height: 1.4; text-align: justify;">${reviewData.summary}</div>
-                    </div>
-                </div>
-
-                ${chartHtml}
-
-                <div style="margin-bottom: 24px;">
-                    <div style="font-size: 12px; font-weight: bold; border-bottom: 1px solid #333; margin-bottom: 12px; padding-bottom: 4px;">${lbl.key_moments}</div>
-                    ${timelineHtml}
-                </div>
-
-                ${perspectivesHtml}
-
-                <div style="display: flex; gap: 24px; border-top: 1px solid #333; padding-top: 16px;">
-                    <div style="flex: 1;">
-                        <div style="font-size: 10px; color: #888; margin-bottom: 4px;">${lbl.psych_profile}</div>
-                        <div style="font-size: 11px; background: #111; padding: 8px;">${reviewData.psychProfile}</div>
-                    </div>
-                    <div style="flex: 1;">
-                        <div style="font-size: 10px; color: #888; margin-bottom: 4px;">${lbl.strat_advice}</div>
-                        <div style="font-size: 11px; background: #111; padding: 8px;">${reviewData.strategicAdvice}</div>
-                    </div>
-                </div>
-            </div>
-        `;
+        reviewHtml = generateGameReviewHtml(reviewData, scpData, stabilityHistory, t);
     }
 
     const styles = `
@@ -287,6 +130,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
              color: #e0e0e0;
            }
            .break-inside-avoid { page-break-inside: avoid; }
+           .break-before-page { page-break-before: always; }
         </style>
         <script>
             tailwind.config = {
@@ -368,7 +212,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
             `).join('')}
         </div>
         
-        <!-- Review Section -->
+        <!-- Review Section (Generated from GameReviewReport) -->
         ${reviewHtml}
 
         <!-- Footer -->

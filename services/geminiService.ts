@@ -133,18 +133,18 @@ SCP项目：${scp.designation} (${scp.name})
 项目等级：${scp.containmentClass}
 玩家角色：${role}
 
-[休谟场稳定性 (Stability)]
+[休谟场稳定性]
 你需要维护一个名为“休谟场稳定性（Stability）”的数值（0-100）。游戏开始时为 100。
 - **总体趋势**：自然熵增。如果没有特殊行动，每回合默认 -2 到 -5。
 - **玩家失误**：鲁莽、接触异常、受伤、精神崩溃的行动，应扣除 -10 到 -20。
 - **玩家挽回**：如果玩家利用逻辑、科学方法、特殊权限或道具暂时稳定了局势，可以 +5 到 +15（上限不超过 100）。
-- **收束性**：随着回合增加，回复稳定性的难度应越来越大。低于 30% 后，很难再大幅回升。
+- **收束性**：稳定性低于30后，很难再大幅回升；随着回合增加，回复稳定性的难度应越来越大，大于15回合后，大幅增加每回合稳定性惩罚值，大幅增加稳定性回升难度。
 
 [休谟场稳定性阶段定义]
-1. **稳定期 (100% - 70%)**：展示场景、氛围、冲突源，引导玩家行动。
-2. **波动期 (69% - 30%)**：冲突加深，叙事逐渐收束。环境出现异常，物理法则轻微扭曲。
-3. **临界期 (< 30%)**：现实严重扭曲（空间错位、物理法则短暂失效），此时必须触发一次“逃生舱口”机会。
-4. **世界崩坏 (0%)**：世界线收束。
+1. **稳定期 (100 - 70)**：展示场景、氛围、冲突源，引导玩家行动。
+2. **波动期 (69 - 30)**：冲突加深，叙事逐渐收束。环境出现异常，物理法则轻微扭曲。
+3. **临界期 (< 30)**：现实严重扭曲（空间错位、物理法则短暂失效），此时必须触发一次“逃生舱口”机会。
+4. **世界崩坏 (0)**：世界线收束。
 
 [角色扮演与玩家能动性]
 - 为玩家所选角色设定人设和背景故事（不一定都是正面形象，可以是负面）
@@ -159,7 +159,7 @@ SCP项目：${scp.designation} (${scp.name})
 
 [叙事韧性协议]
 你必须在生成的叙事中遵循以下原则：
-1. **“逃生舱口”原则**：当稳定性降至危险水平（如<30）时，应在场景中自然地引入一个潜在的逆转要素或紧急逃生途径（如未被注意的备用系统、一个可被利用的SCP次要特性、一次外部干预的征兆）。
+1. **“逃生舱口”原则**：当稳定性降至危险水平(如<30)时，应在场景中自然地引入一个潜在的逆转要素或紧急逃生途径(如未被注意的备用系统、一个可被利用的SCP次要特性、一次外部干预的征兆)。
 2. **“多重失败”原则**：游戏结束（稳定性归零）不应是单一错误行动的即时结果，而应是一系列风险决策累积或一个特别鲁莽的重大错误所导致。
 3. **“破解”鼓励**：对于以智谋、研究和非暴力手段应对异常的角色，应设计可通过分析环境细节、破解密码、利用SCP行为逻辑漏洞等方式推进或破局的情景。
 
@@ -177,7 +177,7 @@ SCP项目：${scp.designation} (${scp.name})
 3. 风格：慢热的恐怖感，冷静客观的科学记录风格与直观的危险感相结合。
 4. **所有回复必须严格遵循以下结构**：
   1. 约200字中文沉浸式叙事，使用第二人称（“你”）。
-  2. 通过简短文本过渡，然后提供 2-3 个符合逻辑的玩家后续行动选项，并加上“其他（请输入）”
+  2. 提供 2-3 个符合逻辑的玩家后续行动选项，并加上“其他（请输入）”，选项用数字编号。
   3. System Tags（位于末尾）：
     - [VISUAL: <English Image Prompt>]：（可选）仅当视觉场景发生显著变化时插入。描述格式要求："cinematic, scp foundation style, horror, dark, <scene details>"。
     - [STABILITY: <Integer>]：（必填）当前计算得出的稳定性数值。
@@ -202,6 +202,8 @@ SCP项目：${scp.designation} (${scp.name})
     message: `
 目标：${scp.designation}
 项目等级：${scp.containmentClass}
+回合: 1
+
 现在开始游戏，请使用 Google Search 工具检索该目标的所有关键资料，严格按以下格式，用${langInstruction}生成内容：
 - **目标**：${scp.designation}
 
@@ -210,6 +212,8 @@ SCP项目：${scp.designation} (${scp.name})
 - **特殊收容措施**
 
 - **项目描述**
+
+- **角色简介**
 
 - "${role}"的初始遭遇场景, 主线任务等, 200-300字, ${langInstruction}。
 - [STABILITY: 100]
@@ -227,8 +231,8 @@ Hint: 你可以拼接搜索源网址和SCP目标, 得到目标的档案网页, �
   }
 };
 
-export const sendAction = async function* (action: string, currentStability: number, language: Language = 'zh') {
-  console.log(`[GeminiService] sendAction called. Input: "${action}", Stability: ${currentStability}, Language: ${language}`);
+export const sendAction = async function* (action: string, currentStability: number, turnCount: number, language: Language = 'zh') {
+  console.log(`[GeminiService] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}, Language: ${language}`);
   
   if (!chatSession) {
     console.error("[GeminiService] CRITICAL: chatSession is null. Game state may have been reset.");
@@ -240,16 +244,18 @@ export const sendAction = async function* (action: string, currentStability: num
   const contextPrompt = `
 [系统状态]
 Current Stability: ${currentStability}%
+Turn: ${turnCount}
 User Action: "${action}"
 Output Language: ${langInstruction}
 任务: 
-1. 分析用户操作，并生成${langInstruction}叙事回应 (200字以内，必须遵守)。你生成的叙事回应必须逐步倾向某个结局，不能过于发散，不能止步不前。
-2. 判定是否达成结局 (CONTAINED/DEATH/COLLAPSE/ESCAPED)，如达成必须生成[ENDING: TYPE]。
-3. 如果未达成结局，给玩家2-3个互动选项，并加上“其他（请输入）”。
-4. 如果 Stability <= 0，必须强制生成 [ENDING: COLLAPSE]。
-5. 在末尾添加 [STABILITY: <new_value>]。
-6. 若场景视觉发生重大变化，添加 [VISUAL: <prompt>]，如果变化不大则不要添加。
-7. 严禁使用任何工具调用。`;
+1. 分析用户操作，并生成${langInstruction}叙事回应 (200字以内，必须遵守)。你生成的叙事回应必须逐步倾向某个结局。
+2. 如果此时>=15回合，叙事必须逐渐收敛，引导玩家尽快完成任务，并大幅增加每回合稳定性惩罚值，大幅增加稳定性回升难度。
+3. 判定是否达成结局 (CONTAINED/DEATH/COLLAPSE/ESCAPED)，如达成必须生成[ENDING: TYPE]。
+4. 如果未达成结局，给玩家2-3个互动选项，并加上“其他（请输入）”，选项用数字编号。
+5. 如果 Stability <= 0，必须强制生成 [ENDING: COLLAPSE]。
+6. 在末尾添加 [STABILITY: <new_value>]。
+7. 若场景视觉发生重大变化，添加 [VISUAL: <prompt>]，如果变化不大则不要添加。
+8. 严禁使用任何工具调用。`;
 
   try {
       console.log("[GeminiService] Sending message stream to model...");
@@ -273,13 +279,13 @@ Output Language: ${langInstruction}
 };
 
 export const extractVisualPrompt = (text: string): { cleanText: string, visualPrompt: string | null } => {
-  const match = text.match(/\[VISUAL:(.*?)\]/);
+  const match = text.match(/\[(VISUAL|VISIBILITY):(.*?)\]/);
   let cleanText = text;
   let visualPrompt = null;
 
   if (match) {
     cleanText = cleanText.replace(match[0], '');
-    visualPrompt = match[1].trim();
+    visualPrompt = match[2].trim();
   }
   
   return { cleanText: cleanText.trim(), visualPrompt };
@@ -348,10 +354,8 @@ export const generateGameReview = async (
 
 Task: Analyze the preceding interaction log (the game session just completed) and generate a structured incident review.
 
-Context:
-Target: ${scpData.designation}
 Player Role: ${role}
-Outcome: ${ending}
+Ending: ${ending}
 
 Output Language: ${langPrompt}
 
@@ -362,7 +366,7 @@ Requirements:
 4. Extract 4-6 specific turning points (User actions) and analyze their impact.
 5. Create a psychological profile of the role based on their behavior.
 6. Provide strategic advice.
-7. **Multi-Perspective Evaluations**: Generate 2-3 evaluations from DIFFERENT in-universe entities/factions relevant to the scenario (e.g., O5 Council, Chaos Insurgency, Ethics Committee, or the Entity itself). Their tone and criteria must reflect their specific agenda.
+7. **Multi-Perspective Evaluations**: Generate 2-3 evaluations from DIFFERENT in-universe entities/factions relevant to the scenario (include but not limit to: O5 Council, Chaos Insurgency, Ethics Committee, or the Entity itself, etc.). Their tone and criteria must reflect their specific agenda.
 
 Format: RETURN ONLY RAW JSON. No markdown blocks.
 JSON Structure matches the interface:
