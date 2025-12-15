@@ -77,6 +77,15 @@
       .text-shadow-sm {
         text-shadow: 0 0 3px rgba(224, 224, 224, 0.3);
       }
+      @keyframes scp-stroke {
+        0% { stroke-dasharray: 1000; stroke-dashoffset: 1000; }
+        100% { stroke-dasharray: 1000; stroke-dashoffset: 0; }
+      }
+      .scp-stroke-anim {
+        stroke-dasharray: 1000;
+        stroke-dashoffset: 1000;
+        animation: scp-stroke 1.2s linear infinite;
+      }
     </style>
   <script type="importmap">
 {

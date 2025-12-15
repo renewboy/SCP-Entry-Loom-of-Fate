@@ -174,7 +174,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
         <!-- Report Header -->
         <div class="border-b-4 border-scp-accent mb-8 pb-6 relative z-10">
             <h1 class="font-report text-4xl text-scp-text mb-4 tracking-widest text-shadow-sm">${lbl.header}</h1>
-            <div class="grid grid-cols-1 gap-2 text-sm font-mono bg-black/40 p-4 border border-scp-gray backdrop-blur-sm">
+            <div class="grid grid-cols-1 gap-2 text-sm font-mono bg-black/40 p-4 border border-scp-gray">
                 <div class="flex"><span class="w-32 text-scp-accent font-bold">${lbl.item}:</span> <span>${scpData?.designation || 'UNKNOWN'}</span></div>
                 <div class="flex"><span class="w-32 text-scp-accent font-bold">${lbl.name}:</span> <span>${scpData?.name || 'UNKNOWN'}</span></div>
                 <div class="flex"><span class="w-32 text-scp-accent font-bold">${lbl.cls}:</span> <span>${scpData?.containmentClass || 'UNKNOWN'}</span></div>
@@ -196,9 +196,9 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
                         </span>
                     </div>
 
-                    <div class="bg-black/50 border border-scp-gray/30 p-4 rounded-sm shadow-sm text-sm leading-relaxed text-gray-300 backdrop-blur-sm">
+                    <div class="bg-transparent border border-scp-gray/30 p-4 rounded-sm shadow-sm text-sm leading-relaxed text-gray-300">
                         ${event.image ? `
-                            <div class="mb-4 overflow-hidden rounded border border-scp-gray/20 bg-black">
+                            <div class="mb-4 overflow-hidden rounded border border-scp-gray/20 bg-transparent">
                                 <img src="${event.image}" class="w-full max-h-[400px] object-contain block mx-auto" alt="Visual Log" />
                                 <div class="text-[9px] text-scp-gray mt-1 font-mono text-center border-t border-scp-gray/20 pt-1">${lbl.attachment} // VISUAL_LOG_${idx + 1}</div>
                             </div>

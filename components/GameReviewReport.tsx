@@ -372,7 +372,7 @@ export const generateGameReviewHtml = (
 
     // Full Report HTML Construction
     return `
-    <div class="game-review-report w-full border-2 border-scp-gray bg-[#0a0a0a] relative p-8 font-mono text-gray-300 overflow-hidden mt-10 break-before-page">
+    <div class="game-review-report w-full border-2 border-scp-gray bg-transparent relative p-8 font-mono text-gray-300 overflow-hidden mt-10 break-before-page">
       <!-- Background Watermark -->
       <div class="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none z-0">
          <svg viewBox="0 0 135 135" class="w-96 h-96 text-gray-500" xmlns="http://www.w3.org/2000/svg">

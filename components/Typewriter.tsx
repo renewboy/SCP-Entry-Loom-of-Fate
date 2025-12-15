@@ -216,7 +216,7 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
 
   // Typing Loop
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
 
     const typeStep = () => {
         const target = contentRef.current;

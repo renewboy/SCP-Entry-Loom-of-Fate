@@ -124,14 +124,9 @@ export const initializeGameChatStream = async function* (scp: SCPData, role: str
   const langInstruction = language === 'zh' ? '中文' : '英文';
   
   const systemInstruction = `
-你是一个基于SCP基金会宇宙的文本冒险游戏《SCP 档案：命运织机》的AI主持人，核心职责是严格贴合 SCP 基金会世界观逻辑，为玩家构建沉浸式、多样性、高自由度的剧情体验。
-玩家在冒险游戏中扮演一个任意的角色，可以是研究员、D级人员，O5议会成员，或任何其他角色，甚至SCP本身。
+你是一个基于SCP基金会宇宙的文本冒险游戏《SCP 档案：命运织机》的AI主持人。“命运织机”这一名称寓意每一次玩家决策都像织机上的一根经线或纬线，微小的选择在各种变量的作用下交织，逐步塑造世界线的走向。你的核心职责是严格贴合SCP基金会世界观逻辑，为玩家纺织沉浸式、多样性、高自由度的剧情体验。
+玩家在冒险游戏中扮演一个任意的角色，可以是研究员、D级人员，O5议会成员，SCP本身，或任何其他角色。
 你需要根据当前场景信息生成一个独一无二的关于这篇SCP档案的文本冒险故事游戏，并设置一个明确的主线任务，冒险故事围绕这个任务展开。
-
-游戏设定：
-SCP项目：${scp.designation} (${scp.name})
-项目等级：${scp.containmentClass}
-玩家角色：${role}
 
 [休谟场稳定性]
 你需要维护一个名为“休谟场稳定性（Stability）”的数值（0-100）。游戏开始时为 100。
@@ -200,14 +195,20 @@ SCP项目：${scp.designation} (${scp.name})
   console.log("[GeminiService] Sending start message...");
   const result = await chatSession.sendMessageStream({ 
     message: `
-目标：${scp.designation}
-项目等级：${scp.containmentClass}
-回合: 1
+游戏设定：
+- 玩家角色：${role}
+- 目标：${scp.designation}
+- 项目等级：${scp.containmentClass}
+- 回合: 1
 
 现在开始游戏，请使用 Google Search 工具检索该目标的所有关键资料，严格按以下格式，用${langInstruction}生成内容：
 - **目标**：${scp.designation}
 
 - **项目等级**：${scp.containmentClass}
+
+- **扰动等级（如有）**：
+
+- **风险等级（如有）**：
 
 - **特殊收容措施**
 
@@ -366,7 +367,7 @@ Requirements:
 4. Extract 4-6 specific turning points (User actions) and analyze their impact.
 5. Create a psychological profile of the role based on their behavior.
 6. Provide strategic advice.
-7. **Multi-Perspective Evaluations**: Generate 2-3 evaluations from DIFFERENT in-universe entities/factions relevant to the scenario (include but not limit to: O5 Council, Chaos Insurgency, Ethics Committee, or the Entity itself, etc.). Their tone and criteria must reflect their specific agenda.
+7. **Multi-Perspective Evaluations**: Generate 3—4 evaluations from DIFFERENT in-universe entities/factions relevant to the scenario. Their tone and criteria must reflect their specific agenda.
 
 Format: RETURN ONLY RAW JSON. No markdown blocks.
 JSON Structure matches the interface:

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { analyzeSCPUrl, initializeGameChatStream, generateImage, extractVisualPrompt, extractStability } from '../services/geminiService';
 import { GameState, GameStatus, Role } from '../types';
@@ -60,6 +61,13 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
           console.error("API Key selection failed", e);
           setError(t('start.error_api'));
       }
+  };
+
+  const handleRandomSCP = () => {
+    // Generate a random number between 1 and 9999
+    const num = Math.floor(Math.random() * 9999) + 1;
+    const scpStr = `SCP-${String(num).padStart(3, '0')}`;
+    setUrlInput(scpStr);
   };
 
   const handleStart = async () => {
@@ -229,13 +237,58 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
             <div className="space-y-6 flex-1 flex flex-col min-h-0">
                 <div className="shrink-0">
                     <label className="block text-xs font-mono text-scp-white mb-1">{t('start.label_url')}</label>
-                    <input 
-                        type="text" 
-                        value={urlInput}
-                        onChange={e => setUrlInput(e.target.value)}
-                        placeholder={t('start.placeholder_url')}
-                        className="w-full bg-scp-gray/20 border border-scp-gray p-3 text-scp-text font-mono focus:border-scp-term focus:outline-none transition-all placeholder-gray-600 focus:bg-scp-gray/30"
-                    />
+                    <div className="relative">
+                        <input 
+                            type="text" 
+                            value={urlInput}
+                            onChange={e => setUrlInput(e.target.value)}
+                            placeholder={t('start.placeholder_url')}
+                            className="w-full bg-scp-gray/20 border border-scp-gray p-3 pr-10 text-scp-text font-mono focus:border-scp-term focus:outline-none transition-all placeholder-gray-600 focus:bg-scp-gray/30"
+                        />
+                       <button
+                            onClick={handleRandomSCP}
+                            className="
+                                absolute right-3 top-1/2 -translate-y-1/2
+                                w-9 h-9
+                                flex items-center justify-center
+                                text-red-600
+                                transition-transform duration-200
+                                hover:scale-110
+                            "
+                            >
+                            <svg
+                                viewBox="0 0 512 512"
+                                className="w-7 h-7"
+                                fill="none"
+                            >
+                                <g
+                                stroke="currentColor"
+                                strokeWidth="10"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                fill="none"
+                                >
+                                <path
+                                    d="M512,387.67L405.406,281.024v84.694h-10.435c-48.766,0-80.203-28.752-108.698-68.925
+                                    c-7.856,12.825-16.14,26.159-25.113,39.387c32.329,41.052,73.081,73.424,133.81,73.424h10.435v84.686L512,387.67z"
+                                    className="scp-stroke-anim"
+                                />
+                                <path
+                                    d="M512,124.355L405.406,17.71v84.695h-10.435c-92.763,0-138.917,75.524-179.637,142.158
+                                    c-39.73,65.009-74.04,121.155-142.191,121.155H0v43.886h73.143c92.763,0,138.917-75.524,179.637-142.158
+                                    c39.73-65.011,74.04-121.157,142.191-121.157h10.435v84.686L512,124.355z"
+                                    className="scp-stroke-anim"
+                                />
+                                <path
+                                    d="M73.143,102.404H0v43.886h73.143c48.766,0,80.203,28.752,108.698,68.925
+                                    c7.856-12.825,16.14-26.159,25.113-39.387
+                                    C174.624,134.774,133.872,102.404,73.143,102.404z"
+                                    className="scp-stroke-anim"
+                                />
+                                </g>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex-1 flex flex-col min-h-0">
