@@ -187,7 +187,7 @@ export const initializeGameChatStream = async function* (scp: SCPData, role: str
     model: 'gemini-2.5-flash',
     config: {
       systemInstruction,
-      temperature: 0.8,
+      temperature: 0.9,
       tools: [{ googleSearch: {} }],
     }
   });

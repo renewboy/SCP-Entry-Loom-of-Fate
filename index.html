@@ -78,13 +78,38 @@
         text-shadow: 0 0 3px rgba(224, 224, 224, 0.3);
       }
       @keyframes scp-stroke {
-        0% { stroke-dasharray: 1000; stroke-dashoffset: 1000; }
-        100% { stroke-dasharray: 1000; stroke-dashoffset: 0; }
+        from {
+          stroke-dashoffset: 0;
+        }
+        to {
+          stroke-dashoffset: -2000;
+        }
+      }
+      @keyframes scp-cycle {
+        0% {
+          stroke-dasharray: 0 1000;
+          opacity: 1;
+        }
+        45% {
+          stroke-dasharray: 1000 0;
+          opacity: 1;
+        }
+        55% {
+          stroke-dasharray: 1000 0;
+          opacity: 1;
+        }
+        100% {
+          stroke-dasharray: 1000 0;
+          opacity: 0;
+        }
       }
       .scp-stroke-anim {
-        stroke-dasharray: 1000;
-        stroke-dashoffset: 1000;
-        animation: scp-stroke 1.2s linear infinite;
+        fill: none;
+        stroke-width: 20;
+        stroke-linecap: round;
+        stroke-dasharray: 0 1000;
+        stroke-dashoffset: 500; /* 从中心开始 */
+        animation: scp-cycle 2s ease infinite;
       }
     </style>
   <script type="importmap">
