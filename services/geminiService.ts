@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Chat } from "@google/genai";
 import { SCPData, EndingType, Language, Message, GameReviewData } from "../types";
 
@@ -133,12 +134,12 @@ export const initializeGameChatStream = async function* (scp: SCPData, role: str
 - **总体趋势**：自然熵增。如果没有特殊行动，每回合默认 -2 到 -5。
 - **玩家失误**：鲁莽、接触异常、受伤、精神崩溃的行动，应扣除 -10 到 -20。
 - **玩家挽回**：如果玩家利用逻辑、科学方法、特殊权限或道具暂时稳定了局势，可以 +5 到 +15（上限不超过 100）。
-- **收束性**：稳定性低于30后，很难再大幅回升；随着回合增加，回复稳定性的难度应越来越大，大于15回合后，大幅增加每回合稳定性惩罚值，大幅增加稳定性回升难度。
+- **收束性**：稳定性低于30后，很难再大幅回升；随着回合增加，回复稳定性的难度应越来越大，
 
 [休谟场稳定性阶段定义]
 1. **稳定期 (100 - 70)**：展示场景、氛围、冲突源，引导玩家行动。
 2. **波动期 (69 - 30)**：冲突加深，叙事逐渐收束。环境出现异常，物理法则轻微扭曲。
-3. **临界期 (< 30)**：现实严重扭曲（空间错位、物理法则短暂失效），此时必须触发一次“逃生舱口”机会。
+3. **临界期 (< 30)**：现实严重扭曲（空间错位、物理法则短暂失效），此时必须触发一次“逃生舱口”机会（也有小概率可能是伪装的陷阱，彩蛋设计）。
 4. **世界崩坏 (0)**：世界线收束。
 
 [角色扮演与玩家能动性]
@@ -154,7 +155,7 @@ export const initializeGameChatStream = async function* (scp: SCPData, role: str
 
 [叙事韧性协议]
 你必须在生成的叙事中遵循以下原则：
-1. **“逃生舱口”原则**：当稳定性降至危险水平(如<30)时，应在场景中自然地引入一个潜在的逆转要素或紧急逃生途径(如未被注意的备用系统、一个可被利用的SCP次要特性、一次外部干预的征兆)。
+1. **“逃生舱口”原则**：当稳定性降至危险水平(如<30)时，应在场景中自然地引入一个潜在的逆转要素或紧急逃生途径(如未被注意的备用系统、一个可被利用的SCP次要特性、一次外部干预的征兆等)，逃生舱口也有小概率可能是陷阱。
 2. **“多重失败”原则**：游戏结束（稳定性归零）不应是单一错误行动的即时结果，而应是一系列风险决策累积或一个特别鲁莽的重大错误所导致。
 3. **“破解”鼓励**：对于以智谋、研究和非暴力手段应对异常的角色，应设计可通过分析环境细节、破解密码、利用SCP行为逻辑漏洞等方式推进或破局的情景。
 
@@ -188,7 +189,9 @@ export const initializeGameChatStream = async function* (scp: SCPData, role: str
     config: {
       systemInstruction,
       temperature: 0.9,
-      tools: [{ googleSearch: {} }],
+      tools: [
+        { googleSearch: {} }
+      ],
     }
   });
 
@@ -221,7 +224,7 @@ export const initializeGameChatStream = async function* (scp: SCPData, role: str
 - [VISUAL: prompt] (可选)
 
 主要搜索源: https://scp-wiki.wikidot.com/, https://scp-wiki-cn.wikidot.com/, google
-Hint: 你可以拼接搜索源网址和SCP目标, 得到目标的档案网页, 例如: https://scp-wiki.wikidot.com/[designation]
+Hint: 你可以拼接搜索源网址 and SCP目标, 得到目标的档案网页, 例如: https://scp-wiki.wikidot.com/[designation]
 给玩家2-3个初始互动选项, 并加上“其他（请输入）”。` 
   });
   
@@ -249,7 +252,7 @@ Turn: ${turnCount}
 User Action: "${action}"
 Output Language: ${langInstruction}
 任务: 
-1. 分析用户操作，并生成${langInstruction}叙事回应 (200字以内，必须遵守)。你生成的叙事回应必须逐步倾向某个结局。
+1. 分析用户操作，并生成${langInstruction}叙事回应 (200字以内，必须遵守)。你生成的叙事回应必须逐步倾向某个结局向结局收拢。
 2. 如果此时>=15回合，叙事必须逐渐收敛，引导玩家尽快完成任务，并大幅增加每回合稳定性惩罚值，大幅增加稳定性回升难度。
 3. 判定是否达成结局 (CONTAINED/DEATH/COLLAPSE/ESCAPED)，如达成必须生成[ENDING: TYPE]。
 4. 如果未达成结局，给玩家2-3个互动选项，并加上“其他（请输入）”，选项用数字编号。
@@ -343,7 +346,8 @@ export const generateGameReview = async (
       timelineAnalysis: [],
       psychProfile: "N/A",
       strategicAdvice: "Ensure stable connection for future operations.",
-      perspectiveEvaluations: []
+      perspectiveEvaluations: [],
+      achievements: []
     };
   }
     
@@ -367,7 +371,8 @@ Requirements:
 4. Extract 4-6 specific turning points (User actions) and analyze their impact.
 5. Create a psychological profile of the role based on their behavior.
 6. Provide strategic advice.
-7. **Multi-Perspective Evaluations**: Generate 3—4 evaluations from DIFFERENT in-universe entities/factions relevant to the scenario. Their tone and criteria must reflect their specific agenda.
+7. **Multi-Perspective Evaluations**: Generate ~3 evaluations from DIFFERENT in-universe entities/factions relevant to the scenario. Their tone and criteria must reflect their specific agenda.
+8. **Achievements/Titles**: Generate 1-3 unique and creative titles/achievements earned by the player based on their performance and narrative impact (e.g., "The Butcher of Site-19", "Ethics Committee Favorite"). Provide a brief description for each.
 
 Format: RETURN ONLY RAW JSON. No markdown blocks.
 JSON Structure matches the interface:
@@ -381,6 +386,9 @@ JSON Structure matches the interface:
   "strategicAdvice": "string",
   "perspectiveEvaluations": [
     { "sourceName": "string", "stance": "string", "comment": "string" }
+  ],
+  "achievements": [
+    { "title": "string", "description": "string" }
   ]
 }
 `;
@@ -405,7 +413,35 @@ JSON Structure matches the interface:
       timelineAnalysis: [],
       psychProfile: "N/A",
       strategicAdvice: "Contact IT.",
-      perspectiveEvaluations: []
+      perspectiveEvaluations: [],
+      achievements: []
     };
+  }
+};
+
+// --- Post-Game Q&A ---
+
+export const askNarratorQuestion = async (question: string, language: Language): Promise<string> => {
+  if (!chatSession) {
+    return language === 'zh' ? "会话连接已丢失。" : "Session connection lost.";
+  }
+
+  const langPrompt = language === 'zh' ? '中文' : 'English';
+  const prompt = `
+[SYSTEM COMMAND: AS THE NARRATOR/ARCHIVIST, ANSWER THE PLAYER'S META-QUESTION ABOUT THE STORY OR WORLD.]
+Question: "${question}"
+Language: ${langPrompt}
+Requirements:
+1. Stay in character as the cold, observant AI Narrator.
+2. Provide a concise, insightful answer (max 150 words).
+3. Base the answer on the events that actually occurred in the session or official SCP lore.
+`;
+
+  try {
+    const response = await chatSession.sendMessage({ message: prompt });
+    return response.text || (language === 'zh' ? "无回应。" : "No response.");
+  } catch (error) {
+    console.error("Q&A failed:", error);
+    return language === 'zh' ? "因果同步超时。" : "Causal sync timeout.";
   }
 };

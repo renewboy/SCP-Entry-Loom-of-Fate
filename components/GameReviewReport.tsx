@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { GameReviewData, SCPData } from '../types';
 import { useTranslation } from '../utils/i18n';
@@ -173,6 +174,26 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
       {/* Stability Chart */}
       {renderStabilityChart()}
 
+      {/* Achievements/Titles */}
+      {data.achievements && data.achievements.length > 0 && (
+         <div className="relative z-10 mb-8">
+            <h3 className="text-sm text-scp-text font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
+               <span className="w-1 h-4 bg-yellow-500 block"></span>
+               {t('report.achievements')}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+               {data.achievements.map((item, idx) => (
+                  <div key={idx} className="bg-black/60 border border-yellow-900/50 p-4 rounded-sm flex items-start gap-3 hover:border-yellow-500 transition-colors group">
+                     <div>
+                        <p className="text-xs font-bold text-yellow-500 uppercase mb-1">{item.title}</p>
+                        <p className="text-[10px] text-gray-400 leading-tight">{item.description}</p>
+                     </div>
+                  </div>
+               ))}
+            </div>
+         </div>
+      )}
+
       {/* Timeline Analysis */}
       <div className="relative z-10 mb-8">
         <h3 className="text-sm text-scp-text font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -324,6 +345,30 @@ export const generateGameReviewHtml = (
         `;
     }
 
+    // Achievements HTML
+    let achievementsHtml = '';
+    if (data.achievements && data.achievements.length > 0) {
+        const items = data.achievements.map(a => `
+            <div style="background: rgba(0,0,0,0.6); border: 1px solid rgba(133, 77, 14, 0.5); padding: 10px; margin-bottom: 5px; display: flex; align-items: flex-start; gap: 10px;">
+                <div>
+                    <p style="font-size: 10px; font-weight: bold; color: #eab308; margin: 0 0 2px 0;">${a.title}</p>
+                    <p style="font-size: 9px; color: #9ca3af; margin: 0;">${a.description}</p>
+                </div>
+            </div>
+        `).join('');
+        achievementsHtml = `
+            <div class="relative z-10 mb-8 break-inside-avoid">
+                <h3 class="text-sm text-scp-text font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
+                   <span class="w-1 h-4 bg-yellow-500 block"></span>
+                   ${t('report.achievements')}
+                </h3>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                    ${items}
+                </div>
+            </div>
+        `;
+    }
+
     // Timeline Rows Generation
     const timelineHtml = data.timelineAnalysis.map(item => `
         <div class="flex gap-4 p-3 border-l-2 border-scp-gray/20">
@@ -446,6 +491,7 @@ export const generateGameReviewHtml = (
       </div>
 
       ${chartHtml}
+      ${achievementsHtml}
 
       <!-- Timeline Analysis -->
       <div class="relative z-10 mb-8 break-inside-avoid">

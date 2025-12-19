@@ -1,7 +1,8 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { Message, SCPData, EndingType, GameReviewData } from '../types';
 import { useTranslation } from '../utils/i18n';
-import { generateGameReview } from '../services/geminiService';
+import { generateGameReview, askNarratorQuestion } from '../services/geminiService';
 import GameReviewReport, { generateGameReviewHtml } from './GameReviewReport';
 
 interface WorldLineTreeProps {
@@ -22,6 +23,11 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
   const [isGenerating, setIsGenerating] = useState(false);
   const reviewRef = useRef<HTMLDivElement>(null);
 
+  // Q&A States
+  const [qaList, setQaList] = useState<{question: string, answer: string}[]>([]);
+  const [qaInput, setQaInput] = useState('');
+  const [isQaLoading, setIsQaLoading] = useState(false);
+  const qaCount = qaList.length;
 
   // Extract Stability History
   const [stabilityHistory, setStabilityHistory] = useState<number[]>([100]);
@@ -67,6 +73,23 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
         console.error("Review generation failed", e);
     } finally {
         setIsGenerating(false);
+    }
+  };
+
+  const handleQaSubmit = async () => {
+    if (!qaInput.trim() || isQaLoading || qaCount >= 3) return;
+    
+    const question = qaInput;
+    setQaInput('');
+    setIsQaLoading(true);
+
+    try {
+        const answer = await askNarratorQuestion(question, language);
+        setQaList(prev => [...prev, { question, answer }]);
+    } catch (e) {
+        console.error("Q&A Error:", e);
+    } finally {
+        setIsQaLoading(false);
     }
   };
 
@@ -363,8 +386,66 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
                     </span>
                  </button>
             ) : (
-                <div ref={reviewRef} className="w-full animate-in fade-in duration-1000 slide-in-from-bottom-8">
+                <div ref={reviewRef} className="w-full animate-in fade-in duration-1000 slide-in-from-bottom-8 space-y-8">
                     <GameReviewReport data={reviewData} scpData={scpData} stabilityHistory={stabilityHistory} />
+                    
+                    {/* Q&A Section */}
+                    <div className="bg-black/40 border border-scp-gray/30 p-6 rounded-sm shadow-xl backdrop-blur-md">
+                        <div className="flex items-center justify-between mb-4 border-b border-scp-gray/50 pb-2">
+                            <h3 className="font-report text-lg text-scp-text uppercase flex items-center gap-2">
+                                <span className="text-scp-term">?</span> {t('report.qa_title')}
+                            </h3>
+                            <span className="font-mono text-[10px] text-gray-500 uppercase">
+                                {t('report.qa_remaining')}: {3 - qaCount}
+                            </span>
+                        </div>
+
+                        <div className="space-y-4 mb-6">
+                            {qaList.map((qa, i) => (
+                                <div key={i} className="space-y-2 animate-in fade-in slide-in-from-left-2">
+                                    <div className="flex gap-2">
+                                        <span className="text-scp-term font-bold font-mono text-xs">U:</span>
+                                        <p className="text-xs text-gray-200 font-mono italic">{qa.question}</p>
+                                    </div>
+                                    <div className="flex gap-2 pl-4 border-l border-scp-gray/30">
+                                        <span className="text-scp-accent font-bold font-mono text-xs">A:</span>
+                                        <p className="text-xs text-gray-400 font-mono leading-relaxed">{qa.answer}</p>
+                                    </div>
+                                </div>
+                            ))}
+                            {isQaLoading && (
+                                <div className="text-[10px] font-mono text-scp-term animate-pulse">
+                                    {t('report.qa_loading')}
+                                </div>
+                            )}
+                        </div>
+
+                        {qaCount < 3 && (
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text"
+                                    value={qaInput}
+                                    onChange={e => setQaInput(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleQaSubmit()}
+                                    placeholder={t('report.qa_placeholder')}
+                                    disabled={isQaLoading}
+                                    className="flex-1 bg-scp-dark border border-scp-gray p-2 text-xs font-mono text-scp-text focus:border-scp-term outline-none transition-colors"
+                                />
+                                <button 
+                                    onClick={handleQaSubmit}
+                                    disabled={!qaInput.trim() || isQaLoading}
+                                    className="px-4 py-2 bg-scp-gray/30 hover:bg-scp-term hover:text-black border border-scp-gray text-xs font-mono transition-all disabled:opacity-50"
+                                >
+                                    {t('report.qa_btn')}
+                                </button>
+                            </div>
+                        )}
+                        {qaCount >= 3 && (
+                            <div className="text-center py-2 border border-dashed border-scp-gray/30 text-[10px] font-mono text-gray-600 uppercase">
+                                {t('report.qa_finished')}
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
          </div>

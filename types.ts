@@ -1,5 +1,4 @@
 
-
 export enum GameStatus {
   IDLE = 'IDLE',
   ANALYZING = 'ANALYZING', // Analyzing the SCP URL
@@ -106,6 +105,10 @@ export interface GameReviewData {
   psychProfile: string;
   strategicAdvice: string;
   perspectiveEvaluations: PerspectiveEvaluation[];
+  achievements: {
+    title: string;
+    description: string;
+  }[];
 }
 
 export interface GameState {

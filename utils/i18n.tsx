@@ -1,5 +1,4 @@
 
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { Language } from '../types';
 
@@ -130,7 +129,14 @@ export const translations = {
       impact_pos: "正面",
       impact_neg: "负面",
       impact_neu: "中立",
-      stability_chart: "休谟场稳定性趋势"
+      stability_chart: "休谟场稳定性趋势",
+      achievements: "获得称号 / 成就",
+      qa_title: "自由质询环节",
+      qa_placeholder: "提问关于本次游戏的细节...",
+      qa_btn: "提交质询",
+      qa_loading: "正在同步因果解释...",
+      qa_remaining: "剩余质询次数",
+      qa_finished: "质询环节已关闭",
     }
   },
   en: {
@@ -259,7 +265,14 @@ export const translations = {
       impact_pos: "POSITIVE",
       impact_neg: "NEGATIVE",
       impact_neu: "NEUTRAL",
-      stability_chart: "Hume Field Stability Trend"
+      stability_chart: "Hume Field Stability Trend",
+      achievements: "TITLES / ACHIEVEMENTS",
+      qa_title: "FREE Q&A SESSION",
+      qa_placeholder: "Ask about game details...",
+      qa_btn: "SUBMIT",
+      qa_loading: "SYNCING CAUSAL EXPLANATION...",
+      qa_remaining: "REMAINING QUESTIONS",
+      qa_finished: "Q&A SESSION CLOSED",
     }
   }
 };

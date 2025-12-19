@@ -20,12 +20,13 @@ Experience the horror, mystery, and scientific coldness of the Foundation throug
 
 ## 🎮 Features
 
-*   **Infinite Narrative Generation**: Enter *any* SCP number (e.g., SCP-173, SCP-682) or URL. The AI analyzes the official documentation and generates a unique containment breach or exploration scenario.
-*   **Role-Playing System**: Play as a Researcher, D-Class Personnel, MTF Operative, or even the SCP object itself. The narrative adapts to your clearance level and perspective.
-*   **Hume Field Stability Mechanic**: Monitor the reality stability of your session. Low stability triggers visual hallucinations, audio anomalies, and eventually, reality collapse.
-*   **Immersive Terminal UI**: CRT scanlines, particle text effects, glitch art artifacts, and screen shattering animations create a tense atmosphere.
-*   **Real-time Visuals**: The game dynamically generates atmospheric background images and visual logs of entities using Gemini's image generation capabilities.
-*   **World Line Causal Graph**: At the end of a session, review a branching timeline of your choices and export the generated Incident Report as a PDF.
+*   **Infinite Narrative Generation**: Enter *any* SCP number (e.g., SCP-173, SCP-682) or URL. The AI conducts real-time research to generate unique containment breach or exploration scenarios.
+*   **Role-Playing System**: Choose from over 30 roles including Researcher, D-Class, MTF Operative, Site Director, or even a Reality Bender. The narrative adapts to your clearance level and professional knowledge.
+*   **Hume Field Stability Mechanic**: Monitor reality stability. Low stability triggers visual hallucinations, chromatic aberration glitches, audio sirens, and eventually, "Reality Collapse."
+*   **Comprehensive After-Action Report (AAR)**: Upon completion, receive a detailed evaluation including operational rank (S to F), numerical score, psychological profiling, and feedback from in-universe factions like the GOC or O5 Council.
+*   **Post-Game Inquiry**: Utilize the remaining neural link to ask the Narrator up to 3 follow-up questions about the session's events or hidden lore.
+*   **Incident Documentation**: Export your entire adventure, including the stability chart and performance analysis, as a professional PDF "Incident Report."
+*   **Immersive Sensory Feedback**: Features CRT scanlines, interactive particle text, procedural audio, and dynamic glitch art that intensifies as stability drops.
 *   **Bilingual Support**: Fully localized for English and Chinese.
 
 ## 🚀 Getting Started
@@ -64,10 +65,9 @@ Experience the horror, mystery, and scientific coldness of the Foundation throug
 
 ## 🕹️ How to Play
 
-1.  **Initialize**: Enter a target SCP designation (e.g., "SCP-096") in the input field.
-2.  **Assign Role**: Select your character archetype (e.g., "Researcher", "MTF").
+1.  **Initialize**: Enter a target SCP (e.g., "SCP-173") or click the **Randomize** icon to select an anomaly from the database.
+2.  **Assign Role**: Select your character archetype from the grid.
 3.  **Initiate Weave**: Click Start. The system will retrieve data and generate the scenario.
-4.  **Survive**: Type your actions or choose from suggested options. Watch your **Stability** meter.
-5.  **Endings**: Attempt to Contain, Escape, or Survive. Beware of **Reality Collapse** (Stability 0).
-
----
+4.  **Survive**: Type your actions or click suggestions. Watch your **Stability** meter; reckless actions will fray the fabric of reality.
+5.  **Review**: After the ending, generate an **AAR** to see your performance metrics and ask the Narrator for clarifications.
+6.  **Archive**: Click **Export PDF** to save your unique story for Foundation archives.
