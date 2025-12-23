@@ -17,11 +17,36 @@ export interface SaveGameMetadata {
   created_at: string;
   summary?: string;
   turn_count?: number;
+  background_thumbnail?: string;
 }
 
 export interface SaveGame extends SaveGameMetadata {
   game_state: GameState;
 }
+
+// Helper to create a thumbnail from base64 image
+const createThumbnail = async (base64Image: string, maxWidth: number = 300): Promise<string> => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ratio = maxWidth / img.width;
+            canvas.width = maxWidth;
+            canvas.height = img.height * ratio;
+            
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                // Compress to JPEG with 0.6 quality
+                resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+            } else {
+                resolve(base64Image); // Fallback
+            }
+        };
+        img.onerror = () => resolve(''); // Fail gracefully
+        img.src = base64Image;
+    });
+};
 
 // Helper to compress data
 const compressGameState = (gameState: GameState): { compressed: boolean; data: string } => {
@@ -65,21 +90,31 @@ const decompressGameState = (data: any): GameState => {
 
 export const saveGame = async (gameState: GameState, id?: string): Promise<{ data: any; error: any }> => {
   // Construct a summary for the save
-  const summary = `Turn ${gameState.turnCount} - ${gameState.scpData?.designation || 'Unknown SCP'} - ${gameState.role}`;
+  const summary = `Turn ${gameState.turnCount}\n${gameState.scpData?.designation || 'Unknown SCP'} - ${gameState.role}`;
 
   const compressedState = compressGameState(gameState);
+  
+  let thumbnail = null;
+  if (gameState.backgroundImage) {
+      try {
+        thumbnail = await createThumbnail(gameState.backgroundImage);
+      } catch (e) {
+        console.warn("Failed to create thumbnail", e);
+      }
+  }
 
   const payload = { 
     game_state: compressedState,
     summary: summary,
     turn_count: gameState.turnCount,
+    background_thumbnail: thumbnail,
     ...(id ? { id, created_at: new Date().toISOString() } : {})
   };
 
   const { data, error } = await supabase
     .from('save_games')
     .upsert([payload])
-    .select('id, created_at, summary, turn_count'); // Return minimal data
+    .select('id, created_at, summary, turn_count, background_thumbnail'); // Return minimal data
 
   return { data, error };
 };
@@ -87,7 +122,7 @@ export const saveGame = async (gameState: GameState, id?: string): Promise<{ dat
 export const loadGames = async (): Promise<{ data: SaveGameMetadata[] | null; error: any }> => {
   const { data, error } = await supabase
     .from('save_games')
-    .select('id, created_at, summary, turn_count') // Only select metadata
+    .select('id, created_at, summary, turn_count, background_thumbnail') // Only select metadata
     .order('created_at', { ascending: false });
 
   return { data, error };

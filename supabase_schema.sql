@@ -4,7 +4,8 @@ create table save_games (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   game_state jsonb not null,
   summary text,
-  turn_count integer
+  turn_count integer,
+  background_thumbnail text
 );
 
 -- Set up Row Level Security (RLS)

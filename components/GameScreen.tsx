@@ -80,7 +80,7 @@ const SettingsMenu: React.FC<{
 
             <button 
                 onClick={() => { onTerminate(); setIsOpen(false); }}
-                className="w-full text-left bg-red-900/20 hover:bg-red-900/40 text-red-300 border border-red-900/30 px-3 py-2 font-mono text-xs transition-colors flex items-center gap-2"
+                className="w-full text-left bg-red-900/40 hover:bg-red-900/60 text-red-200 border border-red-900/50 px-3 py-2 font-mono text-xs transition-colors flex items-center gap-2"
             >
                 <span className="text-lg">⚠️</span> {t('game.terminate')}
             </button>
