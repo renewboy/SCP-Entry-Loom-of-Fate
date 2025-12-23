@@ -12,22 +12,23 @@
 ![Tech](https://img.shields.io/badge/Powered%20By-Google%20Gemini-4285F4.svg)
 ![React](https://img.shields.io/badge/Built%20With-React%20%2B%20Tailwind-61DAFB.svg)
 
-## 立即体验
-
-[SCP Entry: Loom of Fate](https://ai.studio/apps/drive/1u4Gc2F84hVihQGYAxOxXrwqHJhMacJ2l)
-
-![Start Screen](docs/start_screen.jpg)
-
 ## 🎮 游戏特色
 
 *   **无限流叙事生成**: 输入任意 SCP 编号（如 SCP-173, SCP-682）或 Wiki 链接。AI 将实时检索并分析官方档案，生成独特的收容失效或探索剧本。
 *   **多视角角色扮演**: 扮演研究员、D级人员、机动特遣队(MTF)、站点主管，甚至扮演现实扭曲者或 SCP 项目本身。剧情将根据你的视角动态调整。
+*   **交互式选项集成**: 通过键入行动指令或直接点击叙事文本中的编号选项、SCP 编号来快速推进剧情。
 *   **休谟场稳定性机制 (Stability)**: 监控当前现实维度的稳定性。低稳定性将触发视觉幻觉、色彩偏移故障艺术 (Glitch Art)、警报音效，最终导致“现实崩溃”。
 *   **深度行动后报告 (AAR)**: 游戏结束后生成详细评估，包括操作等级（S-F）、量化评分、心理侧写以及来自 GOC、蛇之手等不同阵营的评价。
 *   **自由质询环节**: 利用剩余的神经链接，在游戏结束后向 AI 主持人提出最多 3 个关于本次故事细节或隐藏设定。
 *   **档案导出**: 将完整的冒险历程、休谟场趋势图和表现评估导出为排版精美的 PDF 格式《官方事故报告》。
 *   **沉浸式感官反馈**: 包含 CRT 扫描线、交互式粒子文字特效、程序化音频报警以及随稳定性下降而加剧的动态屏幕破碎效果。
 *   **双语支持**: 完美支持中文和英文界面及剧情生成。
+
+## 立即体验
+
+[SCP Entry: Loom of Fate](https://ai.studio/apps/drive/1u4Gc2F84hVihQGYAxOxXrwqHJhMacJ2l)
+
+![Start Screen](docs/start_screen.jpg)
 
 ## 🚀 快速开始
 

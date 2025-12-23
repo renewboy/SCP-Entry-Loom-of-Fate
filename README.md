@@ -12,22 +12,23 @@ Experience the horror, mystery, and scientific coldness of the Foundation throug
 ![Tech](https://img.shields.io/badge/Powered%20By-Google%20Gemini-4285F4.svg)
 ![React](https://img.shields.io/badge/Built%20With-React%20%2B%20Tailwind-61DAFB.svg)
 
-## Try It Now
-
-[SCP Entry: Loom of Fate](https://ai.studio/apps/drive/1u4Gc2F84hVihQGYAxOxXrwqHJhMacJ2l)
-
-![Start Screen](docs/start_screen.jpg)
-
 ## 🎮 Features
 
 *   **Infinite Narrative Generation**: Enter *any* SCP number (e.g., SCP-173, SCP-682) or URL. The AI conducts real-time research to generate unique containment breach or exploration scenarios.
 *   **Role-Playing System**: Choose from over 30 roles including Researcher, D-Class, MTF Operative, Site Director, or even a Reality Bender. The narrative adapts to your clearance level and professional knowledge.
+*   **Interactive Choice Integration**: Navigate the story by typing your actions or simply clicking on the numbered options and SCP designations within the narrative text.
 *   **Hume Field Stability Mechanic**: Monitor reality stability. Low stability triggers visual hallucinations, chromatic aberration glitches, audio sirens, and eventually, "Reality Collapse."
 *   **Comprehensive After-Action Report (AAR)**: Upon completion, receive a detailed evaluation including operational rank (S to F), numerical score, psychological profiling, and feedback from in-universe factions like the GOC or O5 Council.
 *   **Post-Game Inquiry**: Utilize the remaining neural link to ask the Narrator up to 3 follow-up questions about the session's events or hidden lore.
 *   **Incident Documentation**: Export your entire adventure, including the stability chart and performance analysis, as a professional PDF "Incident Report."
 *   **Immersive Sensory Feedback**: Features CRT scanlines, interactive particle text, procedural audio, and dynamic glitch art that intensifies as stability drops.
 *   **Bilingual Support**: Fully localized for English and Chinese.
+
+## Try It Now
+
+[SCP Entry: Loom of Fate](https://ai.studio/apps/drive/1u4Gc2F84hVihQGYAxOxXrwqHJhMacJ2l)
+
+![Start Screen](docs/start_screen.jpg)
 
 ## 🚀 Getting Started
 

@@ -283,7 +283,7 @@ Output Language: ${langInstruction}
 };
 
 export const extractVisualPrompt = (text: string): { cleanText: string, visualPrompt: string | null } => {
-  const match = text.match(/\[(VISUAL|VISIBILITY):(.*?)\]/);
+  const match = text.match(/\[(VISUAL|VISIBILITY|VISABILITY):(.*?)\]/);
   let cleanText = text;
   let visualPrompt = null;
 
