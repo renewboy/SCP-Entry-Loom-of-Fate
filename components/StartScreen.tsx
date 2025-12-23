@@ -1,9 +1,10 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { analyzeSCPUrl, initializeGameChatStream, generateImage, extractVisualPrompt, extractStability } from '../services/geminiService';
+import { analyzeSCPUrl, initializeGameChatStream, generateImage, extractVisualPrompt, extractStability, restoreChatSession } from '../services/geminiService';
 import { GameState, GameStatus, Role } from '../types';
 import ParticleText from './ParticleText';
+import SaveLoadModal from './SaveLoadModal';
 import { useTranslation, ROLE_TRANSLATIONS } from '../utils/i18n';
 import GameLogo from './GameLogo';
 
@@ -21,6 +22,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [saveLoadModalOpen, setSaveLoadModalOpen] = useState(false);
 
   useEffect(() => {
     // Check for API key on mount
@@ -310,8 +312,28 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
                 >
                     {t('start.btn_start')}
                 </button>
+
+                <button 
+                    onClick={() => setSaveLoadModalOpen(true)}
+                    className="w-full py-3 bg-scp-gray/20 hover:bg-scp-gray/40 text-gray-300 hover:text-white font-mono text-lg border border-scp-gray hover:border-gray-400 transition-all shrink-0 tracking-widest uppercase backdrop-blur-sm"
+                >
+                    {t('save_load.load')}
+                </button>
             </div>
         )}
+
+      <SaveLoadModal
+        isOpen={saveLoadModalOpen}
+        onClose={() => setSaveLoadModalOpen(false)}
+        mode="load"
+        onLoadGame={async (gameState) => {
+            if (gameState.chatHistory) {
+                await restoreChatSession(gameState.chatHistory, gameState.role, language);
+            }
+            setGameState(gameState);
+            setSaveLoadModalOpen(false);
+        }}
+      />
     </div>
   );
 };

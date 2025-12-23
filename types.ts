@@ -121,4 +121,6 @@ export interface GameState {
   stability: number; // 0-100, Hume Field Stability
   turnCount: number;
   endingType: EndingType | null; // The type of ending reached
+  chatHistory?: any[]; // Raw chat history from Gemini model
+  language?: Language; // Language setting at the time of save
 }

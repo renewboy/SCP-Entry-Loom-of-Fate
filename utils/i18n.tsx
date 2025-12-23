@@ -36,6 +36,7 @@ export const translations = {
       role_custom_opt: "> 自定义..."
     },
     game: {
+      settings: "设置",
       stability_label: "Hume Field Stability",
       stability: "稳定性",
       stable: "稳定 (STABLE)",
@@ -137,6 +138,24 @@ export const translations = {
       qa_loading: "正在同步因果解释...",
       qa_remaining: "剩余质询次数",
       qa_finished: "质询环节已关闭",
+    },
+    save_load: {
+      save: "保存游戏",
+      load: "读取游戏",
+      save_success: "游戏保存成功",
+      save_error: "保存失败",
+      load_error: "读取失败",
+      delete_error: "删除失败",
+      no_saves: "暂无存档",
+      save_title: "存档列表",
+      create_new: "新建存档",
+      delete: "删除",
+      load_btn: "读取",
+      overwrite: "覆盖",
+      loading: "加载中...",
+      confirm_overwrite: "确认覆盖当前进度？",
+      confirm_delete: "确认删除该存档？此操作不可逆。",
+      turn: "回合"
     }
   },
   en: {
@@ -172,6 +191,7 @@ export const translations = {
       role_custom_opt: "> Custom..."
     },
     game: {
+      settings: "Settings",
       stability_label: "Hume Field Stability",
       stability: "Stability",
       stable: "STABLE",
@@ -273,6 +293,24 @@ export const translations = {
       qa_loading: "SYNCING CAUSAL EXPLANATION...",
       qa_remaining: "REMAINING QUESTIONS",
       qa_finished: "Q&A SESSION CLOSED",
+    },
+    save_load: {
+      save: "Save Game",
+      load: "Load Game",
+      save_success: "Game Saved Successfully",
+      save_error: "Save Failed",
+      load_error: "Load Failed",
+      delete_error: "Delete Failed",
+      no_saves: "No Saves Found",
+      save_title: "Save Files",
+      create_new: "Create New Save",
+      delete: "Delete",
+      load_btn: "Load",
+      overwrite: "Overwrite",
+      loading: "Loading...",
+      confirm_overwrite: "Overwrite current progress?",
+      confirm_delete: "Delete this save? This action is irreversible.",
+      turn: "Turn"
     }
   }
 };

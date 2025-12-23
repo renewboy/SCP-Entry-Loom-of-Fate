@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Chat } from "@google/genai";
+import { GoogleGenAI, Chat, Content } from "@google/genai";
 import { SCPData, EndingType, Language, Message, GameReviewData } from "../types";
 
 // Helper to get client with current key
@@ -119,12 +119,7 @@ Preferred Output Language for 'name': ${langInstruction}.`;
 
 let chatSession: Chat | null = null;
 
-export const initializeGameChatStream = async function* (scp: SCPData, role: string, language: Language = 'zh') {
-  console.log(`[GeminiService] Initializing chat stream for ${scp.designation} as ${role} in ${language}`);
-  const ai = getClient();
-  const langInstruction = language === 'zh' ? '中文' : '英文';
-  
-  const systemInstruction = `
+const getSystemInstruction = (role: string, language: Language) => `
 你是一个基于SCP基金会宇宙的文本冒险游戏《SCP 档案：命运织机》的AI主持人。“命运织机”这一名称寓意每一次玩家决策都像织机上的一根经线或纬线，微小的选择在各种变量的作用下交织，逐步塑造世界线的走向。你的核心职责是严格贴合SCP基金会世界观逻辑，为玩家纺织沉浸式、多样性、高自由度的剧情体验。
 玩家在冒险游戏中扮演一个任意的角色，可以是研究员、D级人员，O5议会成员，SCP本身，或任何其他角色。
 你需要根据当前场景信息生成一个独一无二的关于这篇SCP档案的文本冒险故事游戏，并设置一个明确的主线任务，冒险故事围绕这个任务展开。
@@ -168,7 +163,7 @@ export const initializeGameChatStream = async function* (scp: SCPData, role: str
 4. **COLLAPSE (现实崩溃)**: 只有当 Stability<=0 时触发，世界线彻底毁灭。
 
 [输出格式规范]
-1. 语言：${langInstruction}。
+1. 语言：${language === 'zh' ? '中文' : '英文'}。
 2. 视角：第二人称。
 3. 风格：慢热的恐怖感，冷静客观的科学记录风格与直观的危险感相结合。
 4. **所有回复必须严格遵循以下结构**：
@@ -180,9 +175,15 @@ export const initializeGameChatStream = async function* (scp: SCPData, role: str
     - [ENDING: <Type>]：（条件性）仅当达成游戏结束条件时插入。TYPE只能是 COLLAPSE, CONTAINED, DEATH, ESCAPED 其中之一。
   4. 中文回复示例："...你听到门后传来了沉重的呼吸声。[VISUAL: dark metal door, scratching marks, cinematic lighting][STABILITY: 85]"   
   5. 中文结尾示例："...你成功关闭了隔离门，警报声逐渐远去。[VISUAL: steel blast doors closing, sparks][STABILITY: 45][ENDING: CONTAINED]"
-5. 在首次生成内容之前，**必须使用 Google Search 工具**检索关于 ${scp.designation} 的详细资料，包括但不限于wiki, 解密文档等。
+5. 在首次生成内容之前，**必须使用 Google Search 工具**检索关于目标的详细资料，包括但不限于wiki, 解密文档等。
 6. 格式：使用Markdown。
 `;
+
+export const initializeGameChatStream = async function* (scp: SCPData, role: string, language: Language = 'zh') {
+  console.log(`[GeminiService] Initializing chat stream for ${scp.designation} as ${role} in ${language}`);
+  const ai = getClient();
+  const langInstruction = language === 'zh' ? '中文' : '英文';
+  const systemInstruction = getSystemInstruction(role, language);
 
   chatSession = ai.chats.create({
     model: 'gemini-2.5-flash',
@@ -280,6 +281,35 @@ Output Language: ${langInstruction}
       console.error("[GeminiService] Error during sendAction stream:", err);
       throw err;
   }
+};
+
+export const getChatHistory = async (): Promise<Content[]> => {
+    if (!chatSession) return [];
+    try {
+        const history = await chatSession.getHistory();
+        return history;
+    } catch (e) {
+        console.error("Failed to get chat history", e);
+        return [];
+    }
+};
+
+export const restoreChatSession = async (history: Content[], role: string, language: Language = 'zh') => {
+    console.log("[GeminiService] Restoring chat session with history length:", history.length);
+    const ai = getClient();
+    const systemInstruction = getSystemInstruction(role, language);
+    
+    chatSession = ai.chats.create({
+        model: 'gemini-2.5-flash',
+        config: {
+            systemInstruction,
+            temperature: 0.9,
+            tools: [
+                { googleSearch: {} }
+            ],
+        },
+        history: history
+    });
 };
 
 export const extractVisualPrompt = (text: string): { cleanText: string, visualPrompt: string | null } => {
