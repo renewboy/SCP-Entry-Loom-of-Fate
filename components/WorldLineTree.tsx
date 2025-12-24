@@ -83,9 +83,23 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
     setQaInput('');
     setIsQaLoading(true);
 
+    // Initial empty answer
+    setQaList(prev => [...prev, { question, answer: '' }]);
+
     try {
-        const answer = await askNarratorQuestion(question, language);
-        setQaList(prev => [...prev, { question, answer }]);
+        const stream = askNarratorQuestion(question, language);
+        let fullAnswer = '';
+        
+        for await (const chunk of stream) {
+            fullAnswer += chunk;
+            setQaList(prev => {
+                const newList = [...prev];
+                if (newList.length > 0) {
+                    newList[newList.length - 1] = { question, answer: fullAnswer };
+                }
+                return newList;
+            });
+        }
     } catch (e) {
         console.error("Q&A Error:", e);
     } finally {

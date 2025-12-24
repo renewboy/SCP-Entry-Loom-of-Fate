@@ -451,16 +451,17 @@ JSON Structure matches the interface:
 
 // --- Post-Game Q&A ---
 
-export const askNarratorQuestion = async (question: string, language: Language): Promise<string> => {
+export const askNarratorQuestion = async function* (question: string, language: Language): AsyncGenerator<string> {
   if (!chatSession) {
-    return language === 'zh' ? "会话连接已丢失。" : "Session connection lost.";
+    yield language === 'zh' ? "会话连接已丢失。" : "Session connection lost.";
+    return;
   }
 
   const langPrompt = language === 'zh' ? '中文' : 'English';
   const prompt = `
 [SYSTEM COMMAND: AS THE NARRATOR/ARCHIVIST, ANSWER THE PLAYER'S META-QUESTION ABOUT THE STORY OR WORLD.]
 Question: "${question}"
-Language: ${langPrompt}
+Output Language: ${langPrompt}
 Requirements:
 1. Stay in character as the cold, observant AI Narrator.
 2. Provide a concise, insightful answer (max 150 words).
@@ -468,10 +469,14 @@ Requirements:
 `;
 
   try {
-    const response = await chatSession.sendMessage({ message: prompt });
-    return response.text || (language === 'zh' ? "无回应。" : "No response.");
+    const result = await chatSession.sendMessageStream({ message: prompt });
+    for await (const chunk of result) {
+      if (chunk.text) {
+        yield chunk.text;
+      }
+    }
   } catch (error) {
     console.error("Q&A failed:", error);
-    return language === 'zh' ? "因果同步超时。" : "Causal sync timeout.";
+    yield language === 'zh' ? "因果同步超时。" : "Causal sync timeout.";
   }
 };
