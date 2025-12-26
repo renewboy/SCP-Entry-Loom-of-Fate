@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Chat } from "@google/genai";
+import { GoogleGenAI, Chat, Content } from "@google/genai";
 import { SCPData, EndingType, Language, Message, GameReviewData } from "../types";
 
 // Helper to get client with current key
@@ -119,12 +119,7 @@ Preferred Output Language for 'name': ${langInstruction}.`;
 
 let chatSession: Chat | null = null;
 
-export const initializeGameChatStream = async function* (scp: SCPData, role: string, language: Language = 'zh') {
-  console.log(`[GeminiService] Initializing chat stream for ${scp.designation} as ${role} in ${language}`);
-  const ai = getClient();
-  const langInstruction = language === 'zh' ? '中文' : '英文';
-  
-  const systemInstruction = `
+const getSystemInstruction = (role: string, language: Language) => `
 你是一个基于SCP基金会宇宙的文本冒险游戏《SCP 档案：命运织机》的AI主持人。“命运织机”这一名称寓意每一次玩家决策都像织机上的一根经线或纬线，微小的选择在各种变量的作用下交织，逐步塑造世界线的走向。你的核心职责是严格贴合SCP基金会世界观逻辑，为玩家纺织沉浸式、多样性、高自由度的剧情体验。
 玩家在冒险游戏中扮演一个任意的角色，可以是研究员、D级人员，O5议会成员，SCP本身，或任何其他角色。
 你需要根据当前场景信息生成一个独一无二的关于这篇SCP档案的文本冒险故事游戏，并设置一个明确的主线任务，冒险故事围绕这个任务展开。
@@ -168,11 +163,11 @@ export const initializeGameChatStream = async function* (scp: SCPData, role: str
 4. **COLLAPSE (现实崩溃)**: 只有当 Stability<=0 时触发，世界线彻底毁灭。
 
 [输出格式规范]
-1. 语言：${langInstruction}。
+1. 语言：${language === 'zh' ? '中文' : '英文'}。
 2. 视角：第二人称。
 3. 风格：慢热的恐怖感，冷静客观的科学记录风格与直观的危险感相结合。
 4. **所有回复必须严格遵循以下结构**：
-  1. 约200字中文沉浸式叙事，使用第二人称（“你”）。
+  1. 约250字中文沉浸式叙事，使用第二人称（“你”）。
   2. 提供 2-3 个符合逻辑的玩家后续行动选项，并加上“其他（请输入）”，选项用数字编号。
   3. System Tags（位于末尾）：
     - [VISUAL: <English Image Prompt>]：（可选）仅当视觉场景发生显著变化时插入。描述格式要求："cinematic, scp foundation style, horror, dark, <scene details>"。
@@ -180,9 +175,15 @@ export const initializeGameChatStream = async function* (scp: SCPData, role: str
     - [ENDING: <Type>]：（条件性）仅当达成游戏结束条件时插入。TYPE只能是 COLLAPSE, CONTAINED, DEATH, ESCAPED 其中之一。
   4. 中文回复示例："...你听到门后传来了沉重的呼吸声。[VISUAL: dark metal door, scratching marks, cinematic lighting][STABILITY: 85]"   
   5. 中文结尾示例："...你成功关闭了隔离门，警报声逐渐远去。[VISUAL: steel blast doors closing, sparks][STABILITY: 45][ENDING: CONTAINED]"
-5. 在首次生成内容之前，**必须使用 Google Search 工具**检索关于 ${scp.designation} 的详细资料，包括但不限于wiki, 解密文档等。
+5. 在首次生成内容之前，**必须使用 Google Search 工具**检索关于目标的详细资料，包括但不限于wiki, 解密文档等。
 6. 格式：使用Markdown。
 `;
+
+export const initializeGameChatStream = async function* (scp: SCPData, role: string, language: Language = 'zh') {
+  console.log(`[GeminiService] Initializing chat stream for ${scp.designation} as ${role} in ${language}`);
+  const ai = getClient();
+  const langInstruction = language === 'zh' ? '中文' : '英文';
+  const systemInstruction = getSystemInstruction(role, language);
 
   chatSession = ai.chats.create({
     model: 'gemini-2.5-flash',
@@ -252,7 +253,7 @@ Turn: ${turnCount}
 User Action: "${action}"
 Output Language: ${langInstruction}
 任务: 
-1. 分析用户操作，并生成${langInstruction}叙事回应 (200字以内，必须遵守)。你生成的叙事回应必须逐步倾向某个结局向结局收拢。
+1. 分析用户操作，并生成${langInstruction}叙事回应 (250字以内，必须遵守)。你生成的叙事回应必须逐步倾向某个结局向结局收拢。
 2. 如果此时>=15回合，叙事必须逐渐收敛，引导玩家尽快完成任务，并大幅增加每回合稳定性惩罚值，大幅增加稳定性回升难度。
 3. 判定是否达成结局 (CONTAINED/DEATH/COLLAPSE/ESCAPED)，如达成必须生成[ENDING: TYPE]。
 4. 如果未达成结局，给玩家2-3个互动选项，并加上“其他（请输入）”，选项用数字编号。
@@ -280,6 +281,35 @@ Output Language: ${langInstruction}
       console.error("[GeminiService] Error during sendAction stream:", err);
       throw err;
   }
+};
+
+export const getChatHistory = async (): Promise<Content[]> => {
+    if (!chatSession) return [];
+    try {
+        const history = await chatSession.getHistory();
+        return history;
+    } catch (e) {
+        console.error("Failed to get chat history", e);
+        return [];
+    }
+};
+
+export const restoreChatSession = async (history: Content[], role: string, language: Language = 'zh') => {
+    console.log("[GeminiService] Restoring chat session with history length:", history.length);
+    const ai = getClient();
+    const systemInstruction = getSystemInstruction(role, language);
+    
+    chatSession = ai.chats.create({
+        model: 'gemini-2.5-flash',
+        config: {
+            systemInstruction,
+            temperature: 0.9,
+            tools: [
+                { googleSearch: {} }
+            ],
+        },
+        history: history
+    });
 };
 
 export const extractVisualPrompt = (text: string): { cleanText: string, visualPrompt: string | null } => {
@@ -328,11 +358,74 @@ export const extractEnding = (text: string): { cleanText: string, endingType: En
 
 // --- Game Review ---
 
+const extractJsonObject = (text: string) => {
+  const first = text.indexOf('{');
+  const last = text.lastIndexOf('}');
+  if (first === -1 || last === -1 || last <= first) return null;
+  return text.slice(first, last + 1);
+};
+
+const safeParseJson = (text: string): any | null => {
+  const raw = text.replace(/```json/g, '').replace(/```/g, '').trim();
+  const candidates = [raw, extractJsonObject(raw)].filter(Boolean) as string[];
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      try {
+        const cleaned = candidate.replace(/,\s*([}\]])/g, '$1');
+        return JSON.parse(cleaned);
+      } catch {
+        continue;
+      }
+    }
+  }
+  return null;
+};
+
+const normalizeGameReviewData = (value: any): GameReviewData => {
+  const fallback: GameReviewData = {
+    operationName: 'OPERATION [ERROR]',
+    clearanceLevel: 'LEVEL 0',
+    evaluation: { rank: 'F', score: 0, verdict: 'PARSING ERROR' },
+    summary: 'The analyst failed to compile the report correctly.',
+    timelineAnalysis: [],
+    psychProfile: 'N/A',
+    strategicAdvice: 'Contact IT.',
+    perspectiveEvaluations: [],
+    achievements: []
+  };
+
+  if (!value || typeof value !== 'object') return fallback;
+
+  const { highlights: _highlights, professionalTakeaways: _professionalTakeaways, ...rest } = value;
+  const evaluation = value.evaluation && typeof value.evaluation === 'object' ? value.evaluation : {};
+
+  return {
+    ...fallback,
+    ...rest,
+    evaluation: {
+      ...fallback.evaluation,
+      ...evaluation
+    },
+    timelineAnalysis: Array.isArray(value.timelineAnalysis) ? value.timelineAnalysis : [],
+    objectiveBreakdown: Array.isArray(value.objectiveBreakdown) ? value.objectiveBreakdown : undefined,
+    riskAssessment: value.riskAssessment && typeof value.riskAssessment === 'object' ? value.riskAssessment : undefined,
+    tacticsMatrix: Array.isArray(value.tacticsMatrix) ? value.tacticsMatrix : undefined,
+    counterfactuals: Array.isArray(value.counterfactuals) ? value.counterfactuals : undefined,
+    perspectiveEvaluations: Array.isArray(value.perspectiveEvaluations) ? value.perspectiveEvaluations : [],
+    achievements: Array.isArray(value.achievements) ? value.achievements : []
+  };
+};
+
 export const generateGameReview = async (
   scpData: SCPData,
   role: string,
   ending: EndingType,
-  language: Language
+  language: Language,
+  messages: Message[] = [],
+  stabilityHistory: number[] = []
 ): Promise<GameReviewData> => {
   console.log(`[GeminiService] Generating Game Review from active session...`);
   
@@ -373,6 +466,9 @@ Requirements:
 6. Provide strategic advice.
 7. **Multi-Perspective Evaluations**: Generate ~3 evaluations from DIFFERENT in-universe entities/factions relevant to the scenario. Their tone and criteria must reflect their specific agenda.
 8. **Achievements/Titles**: Generate 1-3 unique and creative titles/achievements earned by the player based on their performance and narrative impact (e.g., "The Butcher of Site-19", "Ethics Committee Favorite"). Provide a brief description for each.
+9. Provide a professional, analyst-style breakdown with explicit evidence referencing turns.
+10. Provide quantified assessments wherever possible (0-100 or 0-5 scales).
+11. Output must be valid JSON with no trailing commas.
 
 Format: RETURN ONLY RAW JSON. No markdown blocks.
 JSON Structure matches the interface:
@@ -382,6 +478,22 @@ JSON Structure matches the interface:
   "evaluation": { "rank": "string", "score": number, "verdict": "string" },
   "summary": "string",
   "timelineAnalysis": [{ "turn": number, "event": "string", "analysis": "string", "impact": "POSITIVE"|"NEGATIVE"|"NEUTRAL" }],
+  "objectiveBreakdown": [
+    { "objective": "string", "completion": number, "evidence": "string", "missedOpportunity": "string" }
+  ],
+  "riskAssessment": {
+    "overall": number,
+    "volatilityComment": "string",
+    "riskByTurn": [
+      { "turn": number, "risk": number, "reason": "string", "betterMove": "string" }
+    ]
+  },
+  "tacticsMatrix": [
+    { "tactic": "string", "count": number, "effectiveness": "HIGH"|"MEDIUM"|"LOW", "note": "string" }
+  ],
+  "counterfactuals": [
+    { "title": "string", "change": "string", "expectedOutcome": "string", "tradeoff": "string" }
+  ],
   "psychProfile": "string",
   "strategicAdvice": "string",
   "perspectiveEvaluations": [
@@ -399,38 +511,29 @@ JSON Structure matches the interface:
     const text = response.text;
     
     if (!text) throw new Error("Empty response for review");
-    
-    // Clean potential markdown
-    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(cleanJson) as GameReviewData;
+
+    const parsed = safeParseJson(text);
+    if (!parsed) throw new Error('Failed to parse review JSON');
+    return normalizeGameReviewData(parsed);
   } catch (error) {
     console.error("Failed to generate review:", error);
-    return {
-      operationName: "OPERATION [ERROR]",
-      clearanceLevel: "LEVEL 0",
-      evaluation: { rank: "F", score: 0, verdict: "PARSING ERROR" },
-      summary: "The analyst failed to compile the report correctly.",
-      timelineAnalysis: [],
-      psychProfile: "N/A",
-      strategicAdvice: "Contact IT.",
-      perspectiveEvaluations: [],
-      achievements: []
-    };
+    return normalizeGameReviewData(null);
   }
 };
 
 // --- Post-Game Q&A ---
 
-export const askNarratorQuestion = async (question: string, language: Language): Promise<string> => {
+export const askNarratorQuestion = async function* (question: string, language: Language): AsyncGenerator<string> {
   if (!chatSession) {
-    return language === 'zh' ? "会话连接已丢失。" : "Session connection lost.";
+    yield language === 'zh' ? "会话连接已丢失。" : "Session connection lost.";
+    return;
   }
 
   const langPrompt = language === 'zh' ? '中文' : 'English';
   const prompt = `
 [SYSTEM COMMAND: AS THE NARRATOR/ARCHIVIST, ANSWER THE PLAYER'S META-QUESTION ABOUT THE STORY OR WORLD.]
 Question: "${question}"
-Language: ${langPrompt}
+Output Language: ${langPrompt}
 Requirements:
 1. Stay in character as the cold, observant AI Narrator.
 2. Provide a concise, insightful answer (max 150 words).
@@ -438,10 +541,14 @@ Requirements:
 `;
 
   try {
-    const response = await chatSession.sendMessage({ message: prompt });
-    return response.text || (language === 'zh' ? "无回应。" : "No response.");
+    const result = await chatSession.sendMessageStream({ message: prompt });
+    for await (const chunk of result) {
+      if (chunk.text) {
+        yield chunk.text;
+      }
+    }
   } catch (error) {
     console.error("Q&A failed:", error);
-    return language === 'zh' ? "因果同步超时。" : "Causal sync timeout.";
+    yield language === 'zh' ? "因果同步超时。" : "Causal sync timeout.";
   }
 };

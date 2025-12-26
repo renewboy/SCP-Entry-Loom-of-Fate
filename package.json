@@ -15,7 +15,9 @@
     "react": "^19.2.0",
     "rehype-raw": "^7.0.0",
     "rehype-sanitize": "^6.0.0",
-    "hast-util-sanitize": "^5.0.2"
+    "hast-util-sanitize": "^5.0.2",
+    "@supabase/supabase-js": "^2.89.0",
+    "pako": "^2.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

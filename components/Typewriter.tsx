@@ -216,6 +216,15 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
 
   // Typing Loop
   useEffect(() => {
+    // If not streaming and content is already full (e.g. loaded from save), skip typing
+    if (!isStreaming && displayedLengthRef.current === 0 && content.length > 0) {
+        setDisplayedContent(content);
+        displayedLengthRef.current = content.length;
+        setIsVisualTyping(false);
+        if (onComplete) onComplete();
+        return;
+    }
+
     let timeoutId: ReturnType<typeof setTimeout>;
 
     const typeStep = () => {

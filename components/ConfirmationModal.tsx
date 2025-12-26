@@ -15,7 +15,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, onConfirm
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="bg-scp-dark border-2 border-scp-accent w-full max-w-md shadow-[0_0_30px_rgba(195,46,46,0.3)] relative overflow-hidden">
         {/* Striped warning header */}
         <div className="bg-scp-accent/20 h-8 w-full flex items-center px-4 border-b border-scp-accent relative">
@@ -32,13 +32,13 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, onConfirm
           <div className="flex gap-4 justify-center">
             <button
               onClick={onCancel}
-              className="px-6 py-2 border border-scp-gray text-scp-gray hover:text-white hover:border-white font-mono text-xs transition-colors"
+              className="px-6 py-2 border border-scp-gray bg-scp-gray/10 text-gray-300 hover:text-white hover:bg-scp-gray/30 hover:border-gray-300 font-mono text-xs transition-colors"
             >
               {t('modal.cancel')}
             </button>
             <button
               onClick={onConfirm}
-              className="px-6 py-2 bg-scp-accent text-white font-mono text-xs font-bold hover:bg-red-700 shadow-[0_0_10px_rgba(195,46,46,0.5)] transition-all"
+              className="px-6 py-2 border border-scp-accent text-scp-accent hover:bg-scp-accent hover:text-white font-mono text-xs font-bold shadow-[0_0_10px_rgba(195,46,46,0.2)] hover:shadow-[0_0_20px_rgba(195,46,46,0.6)] transition-all"
             >
               {t('modal.confirm')}
             </button>
