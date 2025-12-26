@@ -167,7 +167,7 @@ const getSystemInstruction = (role: string, language: Language) => `
 2. 视角：第二人称。
 3. 风格：慢热的恐怖感，冷静客观的科学记录风格与直观的危险感相结合。
 4. **所有回复必须严格遵循以下结构**：
-  1. 约200字中文沉浸式叙事，使用第二人称（“你”）。
+  1. 约250字中文沉浸式叙事，使用第二人称（“你”）。
   2. 提供 2-3 个符合逻辑的玩家后续行动选项，并加上“其他（请输入）”，选项用数字编号。
   3. System Tags（位于末尾）：
     - [VISUAL: <English Image Prompt>]：（可选）仅当视觉场景发生显著变化时插入。描述格式要求："cinematic, scp foundation style, horror, dark, <scene details>"。
@@ -253,7 +253,7 @@ Turn: ${turnCount}
 User Action: "${action}"
 Output Language: ${langInstruction}
 任务: 
-1. 分析用户操作，并生成${langInstruction}叙事回应 (200字以内，必须遵守)。你生成的叙事回应必须逐步倾向某个结局向结局收拢。
+1. 分析用户操作，并生成${langInstruction}叙事回应 (250字以内，必须遵守)。你生成的叙事回应必须逐步倾向某个结局向结局收拢。
 2. 如果此时>=15回合，叙事必须逐渐收敛，引导玩家尽快完成任务，并大幅增加每回合稳定性惩罚值，大幅增加稳定性回升难度。
 3. 判定是否达成结局 (CONTAINED/DEATH/COLLAPSE/ESCAPED)，如达成必须生成[ENDING: TYPE]。
 4. 如果未达成结局，给玩家2-3个互动选项，并加上“其他（请输入）”，选项用数字编号。
@@ -358,11 +358,74 @@ export const extractEnding = (text: string): { cleanText: string, endingType: En
 
 // --- Game Review ---
 
+const extractJsonObject = (text: string) => {
+  const first = text.indexOf('{');
+  const last = text.lastIndexOf('}');
+  if (first === -1 || last === -1 || last <= first) return null;
+  return text.slice(first, last + 1);
+};
+
+const safeParseJson = (text: string): any | null => {
+  const raw = text.replace(/```json/g, '').replace(/```/g, '').trim();
+  const candidates = [raw, extractJsonObject(raw)].filter(Boolean) as string[];
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      try {
+        const cleaned = candidate.replace(/,\s*([}\]])/g, '$1');
+        return JSON.parse(cleaned);
+      } catch {
+        continue;
+      }
+    }
+  }
+  return null;
+};
+
+const normalizeGameReviewData = (value: any): GameReviewData => {
+  const fallback: GameReviewData = {
+    operationName: 'OPERATION [ERROR]',
+    clearanceLevel: 'LEVEL 0',
+    evaluation: { rank: 'F', score: 0, verdict: 'PARSING ERROR' },
+    summary: 'The analyst failed to compile the report correctly.',
+    timelineAnalysis: [],
+    psychProfile: 'N/A',
+    strategicAdvice: 'Contact IT.',
+    perspectiveEvaluations: [],
+    achievements: []
+  };
+
+  if (!value || typeof value !== 'object') return fallback;
+
+  const { highlights: _highlights, professionalTakeaways: _professionalTakeaways, ...rest } = value;
+  const evaluation = value.evaluation && typeof value.evaluation === 'object' ? value.evaluation : {};
+
+  return {
+    ...fallback,
+    ...rest,
+    evaluation: {
+      ...fallback.evaluation,
+      ...evaluation
+    },
+    timelineAnalysis: Array.isArray(value.timelineAnalysis) ? value.timelineAnalysis : [],
+    objectiveBreakdown: Array.isArray(value.objectiveBreakdown) ? value.objectiveBreakdown : undefined,
+    riskAssessment: value.riskAssessment && typeof value.riskAssessment === 'object' ? value.riskAssessment : undefined,
+    tacticsMatrix: Array.isArray(value.tacticsMatrix) ? value.tacticsMatrix : undefined,
+    counterfactuals: Array.isArray(value.counterfactuals) ? value.counterfactuals : undefined,
+    perspectiveEvaluations: Array.isArray(value.perspectiveEvaluations) ? value.perspectiveEvaluations : [],
+    achievements: Array.isArray(value.achievements) ? value.achievements : []
+  };
+};
+
 export const generateGameReview = async (
   scpData: SCPData,
   role: string,
   ending: EndingType,
-  language: Language
+  language: Language,
+  messages: Message[] = [],
+  stabilityHistory: number[] = []
 ): Promise<GameReviewData> => {
   console.log(`[GeminiService] Generating Game Review from active session...`);
   
@@ -403,6 +466,9 @@ Requirements:
 6. Provide strategic advice.
 7. **Multi-Perspective Evaluations**: Generate ~3 evaluations from DIFFERENT in-universe entities/factions relevant to the scenario. Their tone and criteria must reflect their specific agenda.
 8. **Achievements/Titles**: Generate 1-3 unique and creative titles/achievements earned by the player based on their performance and narrative impact (e.g., "The Butcher of Site-19", "Ethics Committee Favorite"). Provide a brief description for each.
+9. Provide a professional, analyst-style breakdown with explicit evidence referencing turns.
+10. Provide quantified assessments wherever possible (0-100 or 0-5 scales).
+11. Output must be valid JSON with no trailing commas.
 
 Format: RETURN ONLY RAW JSON. No markdown blocks.
 JSON Structure matches the interface:
@@ -412,6 +478,22 @@ JSON Structure matches the interface:
   "evaluation": { "rank": "string", "score": number, "verdict": "string" },
   "summary": "string",
   "timelineAnalysis": [{ "turn": number, "event": "string", "analysis": "string", "impact": "POSITIVE"|"NEGATIVE"|"NEUTRAL" }],
+  "objectiveBreakdown": [
+    { "objective": "string", "completion": number, "evidence": "string", "missedOpportunity": "string" }
+  ],
+  "riskAssessment": {
+    "overall": number,
+    "volatilityComment": "string",
+    "riskByTurn": [
+      { "turn": number, "risk": number, "reason": "string", "betterMove": "string" }
+    ]
+  },
+  "tacticsMatrix": [
+    { "tactic": "string", "count": number, "effectiveness": "HIGH"|"MEDIUM"|"LOW", "note": "string" }
+  ],
+  "counterfactuals": [
+    { "title": "string", "change": "string", "expectedOutcome": "string", "tradeoff": "string" }
+  ],
   "psychProfile": "string",
   "strategicAdvice": "string",
   "perspectiveEvaluations": [
@@ -429,23 +511,13 @@ JSON Structure matches the interface:
     const text = response.text;
     
     if (!text) throw new Error("Empty response for review");
-    
-    // Clean potential markdown
-    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(cleanJson) as GameReviewData;
+
+    const parsed = safeParseJson(text);
+    if (!parsed) throw new Error('Failed to parse review JSON');
+    return normalizeGameReviewData(parsed);
   } catch (error) {
     console.error("Failed to generate review:", error);
-    return {
-      operationName: "OPERATION [ERROR]",
-      clearanceLevel: "LEVEL 0",
-      evaluation: { rank: "F", score: 0, verdict: "PARSING ERROR" },
-      summary: "The analyst failed to compile the report correctly.",
-      timelineAnalysis: [],
-      psychProfile: "N/A",
-      strategicAdvice: "Contact IT.",
-      perspectiveEvaluations: [],
-      achievements: []
-    };
+    return normalizeGameReviewData(null);
   }
 };
 

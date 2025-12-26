@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Message, SCPData, EndingType, GameReviewData } from '../types';
 import { useTranslation } from '../utils/i18n';
 import { generateGameReview, askNarratorQuestion } from '../services/geminiService';
-import GameReviewReport, { generateGameReviewHtml } from './GameReviewReport';
+import GameReviewReport from './GameReviewReport';
 
 interface WorldLineTreeProps {
   messages: Message[];
@@ -18,6 +18,7 @@ interface WorldLineTreeProps {
 const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRestart, onMinimize, backgroundImage, endingType, role }) => {
   const { t, language } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
+  const reviewPrintRef = useRef<HTMLDivElement>(null);
   
   const [reviewData, setReviewData] = useState<GameReviewData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -64,7 +65,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
     if (!scpData) return;
     setIsGenerating(true);
     try {
-        const review = await generateGameReview(scpData, role, endingType, language);
+        const review = await generateGameReview(scpData, role, endingType, language, messages, stabilityHistory);
         setReviewData(review);
         setTimeout(() => {
             reviewRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -148,11 +149,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
         confidential: t('report.confidential'),
     };
 
-    // Construct Review HTML using shared generator if available
-    let reviewHtml = '';
-    if (reviewData) {
-        reviewHtml = generateGameReviewHtml(reviewData, scpData, stabilityHistory, t);
-    }
+    const reviewHtml = reviewPrintRef.current?.innerHTML || '';
 
     const styles = `
         <script src="https://cdn.tailwindcss.com"></script>
@@ -168,6 +165,13 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
            }
            .break-inside-avoid { page-break-inside: avoid; }
            .break-before-page { page-break-before: always; }
+           .game-review-report {
+             background: transparent !important;
+             max-width: 100% !important;
+             margin-left: 0 !important;
+             margin-right: 0 !important;
+             box-shadow: none !important;
+           }
         </style>
         <script>
             tailwind.config = {
@@ -247,10 +251,19 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
                     </div>
                 </div>
             `).join('')}
+
+            ${reviewHtml ? `
+                <div class="relative pl-10 break-inside-avoid mt-10">
+                    <div class="absolute left-[9px] top-4 w-2.5 h-2.5 rounded-full bg-scp-accent border-2 border-scp-dark z-10"></div>
+                    <div class="mb-2">
+                        <span class="inline-block bg-scp-dark border border-scp-accent/50 text-scp-accent text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider shadow-sm">
+                            > ${t('report.review_title')}
+                        </span>
+                    </div>
+                    ${reviewHtml}
+                </div>
+            ` : ''}
         </div>
-        
-        <!-- Review Section (Generated from GameReviewReport) -->
-        ${reviewHtml}
 
         <!-- Footer -->
         <div class="mt-12 pt-6 border-t border-scp-gray/50 text-center relative z-10">
@@ -401,7 +414,9 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
                  </button>
             ) : (
                 <div ref={reviewRef} className="w-full animate-in fade-in duration-1000 slide-in-from-bottom-8 space-y-8">
-                    <GameReviewReport data={reviewData} scpData={scpData} stabilityHistory={stabilityHistory} />
+                    <div ref={reviewPrintRef}>
+                        <GameReviewReport data={reviewData} scpData={scpData} stabilityHistory={stabilityHistory} messages={messages} />
+                    </div>
                     
                     {/* Q&A Section */}
                     <div className="bg-black/40 border border-scp-gray/30 p-6 rounded-sm shadow-xl backdrop-blur-md">

@@ -87,6 +87,40 @@ export interface PerspectiveEvaluation {
   comment: string;
 }
 
+export interface GameReviewObjective {
+  objective: string;
+  completion: number;
+  evidence: string;
+  missedOpportunity: string;
+}
+
+export interface GameReviewRiskByTurn {
+  turn: number;
+  risk: number;
+  reason: string;
+  betterMove: string;
+}
+
+export interface GameReviewRiskAssessment {
+  overall: number;
+  volatilityComment: string;
+  riskByTurn: GameReviewRiskByTurn[];
+}
+
+export interface GameReviewTacticStat {
+  tactic: string;
+  count: number;
+  effectiveness: 'HIGH' | 'MEDIUM' | 'LOW';
+  note: string;
+}
+
+export interface GameReviewCounterfactual {
+  title: string;
+  change: string;
+  expectedOutcome: string;
+  tradeoff: string;
+}
+
 export interface GameReviewData {
   operationName: string;
   clearanceLevel: string;
@@ -102,6 +136,10 @@ export interface GameReviewData {
     analysis: string;
     impact: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
   }[];
+  objectiveBreakdown?: GameReviewObjective[];
+  riskAssessment?: GameReviewRiskAssessment;
+  tacticsMatrix?: GameReviewTacticStat[];
+  counterfactuals?: GameReviewCounterfactual[];
   psychProfile: string;
   strategicAdvice: string;
   perspectiveEvaluations: PerspectiveEvaluation[];
