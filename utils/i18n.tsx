@@ -1,6 +1,7 @@
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Language } from '../types';
+import { saveSetting, loadSetting } from '../services/indexedDBService';
 
 export const translations = {
   zh: {
@@ -182,7 +183,16 @@ export const translations = {
       loading: "加载中...",
       confirm_overwrite: "确认覆盖当前进度？",
       confirm_delete: "确认删除该存档？此操作不可逆。",
-      turn: "回合"
+      turn: "回合",
+      local_tab: "本地存储",
+      cloud_tab: "云端存储",
+      sync_to_cloud: "同步至云端",
+      load_cloud_saves: "加载云存档",
+      synced_success: "已同步至云端",
+      sync_error: "同步失败",
+      download_success: "云存档下载成功",
+      refresh_cloud: "刷新云存档列表",
+      aistudio_sandbox_mode: "沙盒模式：共享云存储 (AI Studio)"
     }
   },
   en: {
@@ -364,7 +374,16 @@ export const translations = {
       loading: "Loading...",
       confirm_overwrite: "Overwrite current progress?",
       confirm_delete: "Delete this save? This action is irreversible.",
-      turn: "Turn"
+      turn: "Turn",
+      local_tab: "Local Storage",
+      cloud_tab: "Cloud Storage",
+      sync_to_cloud: "Sync to Cloud",
+      load_cloud_saves: "Load Cloud Saves",
+      synced_success: "Synced to Cloud",
+      sync_error: "Sync Failed",
+      download_success: "Cloud Save Downloaded",
+      refresh_cloud: "Refresh Cloud Saves",
+      aistudio_sandbox_mode: "Sandbox Mode: Shared Cloud Storage (AI Studio)"
     }
   }
 };
@@ -413,7 +432,22 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('en');
+  const [language, setLanguageState] = useState<Language>('en');
+
+  useEffect(() => {
+    const initLanguage = async () => {
+      const savedLang = await loadSetting('language');
+      if (savedLang && (savedLang === 'en' || savedLang === 'zh')) {
+        setLanguageState(savedLang);
+      }
+    };
+    initLanguage();
+  }, []);
+
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    saveSetting('language', lang);
+  };
 
   const t = (path: string, params?: Record<string, string | number>) => {
     const keys = path.split('.');

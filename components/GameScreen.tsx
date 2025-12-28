@@ -394,7 +394,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   const handleOpenSaveModal = async () => {
     try {
         const history = await getChatHistory();
-        setGameState(prev => ({ ...prev, chatHistory: history, language }));
+        setGameState(prev => ({ ...prev, chatHistory: history, language:language }));
         setSaveLoadMode('save');
         setSaveLoadModalOpen(true);
     } catch (e) {

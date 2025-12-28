@@ -1,94 +1,62 @@
+import { createClient, User } from '@supabase/supabase-js';
+import { GameState, SaveGameMetadata } from '../types';
+import { compressGameState, createThumbnail, decompressGameState } from '../utils/saveHelpers';
 
-import { createClient } from '@supabase/supabase-js';
-import { GameState } from '../types';
-import pako from 'pako';
+const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || 'https://kyeypgnhavzyibyhqulf.supabase.co';
+const supabaseKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5ZXlwZ25oYXZ6eWlieWhxdWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0ODEzMjksImV4cCI6MjA4MjA1NzMyOX0.LZf3Zok3HWZjLcduGXGbCZunL5XSaYkri12bp-SLNBg';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+export const supabase = createClient(supabaseUrl, supabaseKey);
 
-if (!supabaseUrl || !supabaseKey) {
-  console.warn('Supabase URL or Key is missing. Save/Load functionality will be disabled.');
-}
+export const SANDBOX_USER_ID = '00000000-0000-0000-0000-000000000000';
+const SANDBOX_STORAGE_KEY = 'scp_sandbox_auth';
 
-export const supabase = createClient(supabaseUrl || '', supabaseKey || '');
-
-export interface SaveGameMetadata {
-  id: string;
-  created_at: string;
-  summary?: string;
-  turn_count?: number;
-  background_thumbnail?: string;
-}
-
-export interface SaveGame extends SaveGameMetadata {
-  game_state: GameState;
-}
-
-// Helper to create a thumbnail from base64 image
-const createThumbnail = async (base64Image: string, maxWidth: number = 300): Promise<string> => {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ratio = maxWidth / img.width;
-            canvas.width = maxWidth;
-            canvas.height = img.height * ratio;
-            
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                // Compress to JPEG with 0.6 quality
-                resolve(canvas.toDataURL('image/jpeg', 0.7)); 
-            } else {
-                resolve(base64Image); // Fallback
-            }
-        };
-        img.onerror = () => resolve(''); // Fail gracefully
-        img.src = base64Image;
-    });
+export const loginAsSandboxUser = () => {
+    localStorage.setItem(SANDBOX_STORAGE_KEY, 'true');
 };
 
-// Helper to compress data
-const compressGameState = (gameState: GameState): { compressed: boolean; data: string } => {
-  const jsonString = JSON.stringify(gameState);
-  const compressed = pako.deflate(jsonString);
-  
-  // Optimize: Use chunk-based processing (32KB chunks)
-  // 1. Prevents "Maximum call stack size exceeded" error by avoiding massive spread operators.
-  // 2. Significantly faster than byte-by-byte looping.
-  // 3. Allows the JS engine (V8) to utilize internal vectorized/SIMD optimizations for bulk string creation.
-  const CHUNK_SIZE = 0x8000; 
-  const chunks = [];
-  for (let i = 0; i < compressed.length; i += CHUNK_SIZE) {
-    chunks.push(String.fromCharCode.apply(null, compressed.subarray(i, i + CHUNK_SIZE) as any));
-  }
-  
-  const base64 = btoa(chunks.join(''));
-  return { compressed: true, data: base64 };
+export const isSandboxUser = () => {
+    return localStorage.getItem(SANDBOX_STORAGE_KEY) === 'true';
 };
 
-// Helper to decompress data
-const decompressGameState = (data: any): GameState => {
-  if (data && data.compressed && typeof data.data === 'string') {
-    try {
-      // Decode Base64 to Uint8Array
-      const charData = atob(data.data);
-      const uint8Array = new Uint8Array(charData.length);
-      for (let i = 0; i < charData.length; i++) {
-        uint8Array[i] = charData.charCodeAt(i);
-      }
-      const decompressed = pako.inflate(uint8Array, { to: 'string' });
-      return JSON.parse(decompressed);
-    } catch (e) {
-      console.error("Failed to decompress game state:", e);
-      throw new Error("Corrupted save data");
+// --- Auth Functions ---
+
+export const signInWithGoogle = async () => {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin
     }
-  }
-  // Fallback for legacy uncompressed saves
-  return data as GameState;
+  });
+  return { error };
 };
 
-export const saveGame = async (gameState: GameState, id?: string): Promise<{ data: any; error: any }> => {
+export const signOut = async () => {
+  if (isSandboxUser()) {
+      localStorage.removeItem(SANDBOX_STORAGE_KEY);
+      return { error: null };
+  }
+  const { error } = await supabase.auth.signOut();
+  return { error };
+};
+
+export const getCurrentUser = async (): Promise<User | null> => {
+  if (isSandboxUser()) {
+      return {
+          id: SANDBOX_USER_ID,
+          email: 'sandbox@ai.studio',
+          app_metadata: {},
+          user_metadata: {},
+          aud: 'authenticated',
+          created_at: new Date().toISOString()
+      } as User;
+  }
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+};
+
+// --- Save/Load Logic ---
+
+export const saveGame = async (gameState: GameState, id?: string, userId?: string, createdAtOverride?: string): Promise<{ data: any; error: any }> => {
   // Construct a summary for the save
   const summary = `Turn ${gameState.turnCount}\n${gameState.scpData?.designation || 'Unknown SCP'} - ${gameState.role}`;
 
@@ -103,27 +71,50 @@ export const saveGame = async (gameState: GameState, id?: string): Promise<{ dat
       }
   }
 
+  // Note: user_id is automatically handled by RLS (auth.uid() default)
+  // However, for UPSERT to work with RLS policies that check (auth.uid() = user_id),
+  // we must sometimes explicitly include user_id if the default isn't picking it up 
+  // or if the policy requires the new row to explicitly match.
+  const { data: { user } } = await supabase.auth.getUser();
+  const targetUserId = userId || user?.id;
+  
   const payload = { 
     game_state: compressedState,
     summary: summary,
     turn_count: gameState.turnCount,
     background_thumbnail: thumbnail,
-    ...(id ? { id, created_at: new Date().toISOString() } : {})
+    user_id: targetUserId, // Explicitly set user_id
+    ...(id ? { id, created_at: createdAtOverride || new Date().toISOString() } : {})
   };
 
   const { data, error } = await supabase
     .from('save_games')
     .upsert([payload])
-    .select('id, created_at, summary, turn_count, background_thumbnail'); // Return minimal data
+    .select('id, created_at, summary, turn_count, background_thumbnail');
 
   return { data, error };
 };
 
-export const loadGames = async (): Promise<{ data: SaveGameMetadata[] | null; error: any }> => {
-  const { data, error } = await supabase
+export const loadGames = async (userId?: string): Promise<{ data: SaveGameMetadata[] | null; error: any }> => {
+  // RLS ensures users only see their own saves
+  let query = supabase
     .from('save_games')
-    .select('id, created_at, summary, turn_count, background_thumbnail') // Only select metadata
+    .select('id, created_at, summary, turn_count, background_thumbnail, user_id')
     .order('created_at', { ascending: false });
+    
+  if (userId) {
+      query = query.eq('user_id', userId);
+  }
+
+  const { data, error } = await query;
+
+  if (data) {
+      // Mark these as cloud saves
+      return { 
+          data: data.map(d => ({ ...d, is_cloud_synced: true })), 
+          error 
+      };
+  }
 
   return { data, error };
 };

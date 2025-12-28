@@ -15,7 +15,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, onConfirm
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="bg-scp-dark border-2 border-scp-accent w-full max-w-md shadow-[0_0_30px_rgba(195,46,46,0.3)] relative overflow-hidden">
         {/* Striped warning header */}
         <div className="bg-scp-accent/20 h-8 w-full flex items-center px-4 border-b border-scp-accent relative">

@@ -162,3 +162,17 @@ export interface GameState {
   chatHistory?: any[]; // Raw chat history from Gemini model
   language?: Language; // Language setting at the time of save
 }
+
+export interface SaveGameMetadata {
+  id: string;
+  created_at: string;
+  summary?: string;
+  turn_count?: number;
+  background_thumbnail?: string;
+  is_cloud_synced?: boolean;
+  user_id?: string;
+}
+
+export interface SaveGame extends SaveGameMetadata {
+  game_state: GameState;
+}
