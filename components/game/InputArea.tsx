@@ -15,7 +15,7 @@ const InputArea: React.FC<InputAreaProps> = ({
     input, setInput, handleSend, isProcessing, gameState, t, inputRef 
 }) => {
   return (
-      <div className="p-4 bg-black/50 border-t border-scp-gray/30">
+      <div className="p-4 bg-black/50 border-t border-scp-gray/30" id="input-area">
         <div className="flex gap-2 relative">
           <span className="absolute left-3 top-3 text-scp-term font-mono pointer-events-none"></span>
           <input

@@ -196,6 +196,21 @@ export const translations = {
       limit_reached_title: "存档数量已达上限",
       limit_reached_message: "您已达到最大存档数量限制 (10)。请先删除旧存档后再创建新存档。",
       understand: "知道了"
+    },
+    tutorial: {
+      welcome_title: "欢迎来到命运织机",
+      welcome_desc: "你已接入 SCP 基金会世界线模拟终端。这是一个高自由度的文本冒险系统，你的每一个选择都将编织新的因果。",
+      stability_title: "休谟场稳定性",
+      stability_desc: "这是你的生命线。随时间自然衰减，危险行动会加剧跌落。低于 30% 将引发严重的现实扭曲。请保持理性。",
+      narrative_title: "叙事流",
+      narrative_desc: "观察环境，收集情报。这里记录了你与异常实体的所有交互。注意视觉描述，那可能是破局的关键。",
+      input_title: "行动指令",
+      input_desc: "输入你想做的任何事。不仅仅是选项——你可以尝试任何符合逻辑的行动。",
+      tips_title: "生存建议",
+      tips_desc: "并非所有异常都能被暴力对抗。利用科学知识、逻辑分析和环境细节来寻找“逃生舱口”。祝你好运。",
+      next: "下一步",
+      skip: "跳过教程",
+      finish: "开始编织"
     }
   },
   en: {
@@ -390,6 +405,21 @@ export const translations = {
       limit_reached_title: "STORAGE LIMIT REACHED",
       limit_reached_message: "You have reached the maximum of 10 save files. Please delete older saves to create new ones.",
       understand: "UNDERSTAND"
+    },
+    tutorial: {
+      welcome_title: "Welcome to Loom of Fate",
+      welcome_desc: "You have accessed the SCP Foundation World Line Simulation Terminal. This is a high-freedom text adventure system where every choice weaves new causality.",
+      stability_title: "Hume Field Stability",
+      stability_desc: "This is your lifeline. It decays naturally over time, and dangerous actions accelerate the drop. Below 30% will trigger severe reality bending. Stay rational.",
+      narrative_title: "Narrative Flow",
+      narrative_desc: "Observe the environment, gather intelligence. All your interactions with anomalous entities are recorded here. Pay attention to visual descriptions; they may be the key to breaking through.",
+      input_title: "Action Input",
+      input_desc: "Type whatever you want to do. Not just options—try any logical action.",
+      tips_title: "Survival Tips",
+      tips_desc: "Not all anomalies can be fought with force. Use scientific knowledge, logic, and environmental details to find the 'Escape Hatch'. Good luck.",
+      next: "Next Step",
+      skip: "Skip Tutorial",
+      finish: "INITIATE WEAVE"
     }
   }
 };

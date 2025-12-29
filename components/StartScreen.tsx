@@ -53,18 +53,6 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
     }
   }, [loadingStep, LOADING_MESSAGES]);
 
-  const handleSelectKey = async () => {
-      try {
-          if (window.aistudio && window.aistudio.openSelectKey) {
-              await window.aistudio.openSelectKey();
-              setHasApiKey(true);
-          }
-      } catch (e) {
-          console.error("API Key selection failed", e);
-          setError(t('start.error_api'));
-      }
-  };
-
   const handleRandomSCP = () => {
     // Generate a random number between 1 and 9999
     const num = Math.floor(Math.random() * 9999) + 1;

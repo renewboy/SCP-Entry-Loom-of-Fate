@@ -14,6 +14,8 @@ import GameHeader from './game/GameHeader';
 import ChatArea from './game/ChatArea';
 import InputArea from './game/InputArea';
 import EndingOverlay from './game/EndingOverlay';
+import TutorialOverlay from './game/TutorialOverlay';
+import { loadSetting, saveSetting } from '../services/indexedDBService';
 
 interface GameScreenProps {
   gameState: GameState;
@@ -28,6 +30,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   const [saveLoadModalOpen, setSaveLoadModalOpen] = useState(false);
   const [saveLoadMode, setSaveLoadMode] = useState<'save' | 'load'>('save');
   
+  // Tutorial State
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+
   // Game Over Countdown States
   const [gameOverCountdown, setGameOverCountdown] = useState<number | null>(null);
   const [isCountdownActive, setIsCountdownActive] = useState(false);
@@ -38,6 +43,21 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Check for tutorial on mount
+  useEffect(() => {
+    const checkTutorial = async () => {
+      // Only show tutorial if game is just starting (turn 0 or 1)
+      if (gameState.turnCount <= 1) {
+        const hasSeenTutorial = await loadSetting('hasSeenTutorial');
+        if (!hasSeenTutorial) {
+          setIsTutorialOpen(true);
+          await saveSetting('hasSeenTutorial', true);
+        }
+      }
+    };
+    checkTutorial();
+  }, [gameState.turnCount]);
 
   // Auto scroll to bottom of chat
   useEffect(() => {
@@ -384,6 +404,12 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         onConfirm={handleAbort}
         title={t('modal.title')}
         message={t('modal.message')}
+    />
+
+    <TutorialOverlay 
+        isVisible={isTutorialOpen}
+        onClose={() => setIsTutorialOpen(false)}
+        t={t}
     />
 
     <SaveLoadModal

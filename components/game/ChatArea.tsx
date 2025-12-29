@@ -13,6 +13,7 @@ interface ChatAreaProps {
 const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollRef, onOptionClick }) => {
   return (
       <div 
+        id="chat-area"
         ref={scrollRef}
         className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scroll-smooth text-shadow-sm"
       >

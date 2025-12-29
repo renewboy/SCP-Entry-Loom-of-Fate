@@ -45,7 +45,7 @@ const GameHeader: React.FC<GameHeaderProps> = ({
            <div className="hidden sm:block">
               <GameLogo className="h-10 w-10 text-scp-text opacity-90" />
            </div>
-           <div className="flex flex-col">
+           <div className="flex flex-col" id="stability-meter">
               <span className="text-[10px] text-scp-gray font-mono uppercase tracking-tighter">{t('game.stability_label')}</span>
               <div className="flex items-center gap-2">
                 <span className={`text-xl font-bold font-mono ${getStabilityColor()} ${isCritical ? 'animate-pulse' : ''}`}>
