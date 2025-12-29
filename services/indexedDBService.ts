@@ -1,6 +1,11 @@
 import { GameState, SaveGameMetadata } from '../types';
 import { compressGameState, createThumbnail, decompressGameState } from '../utils/saveHelpers';
 
+export const ERROR_CODES = {
+    SAVE_LIMIT_REACHED: 'SAVE_LIMIT_REACHED'
+};
+
+const MAX_SAVES = 10;
 const DB_NAME = 'scp_saves';
 const DB_VERSION = 3; // Increment version
 const STORE_NAME = 'saves';
@@ -54,18 +59,10 @@ export const saveGame = async (gameState: GameState, id?: string, createdAtOverr
             countRequest.onerror = reject;
         });
         
-        if (countRequest.result >= 10) {
-            // Find oldest save to delete
-            const keysRequest = store.getAllKeys();
-            await new Promise((resolve, reject) => {
-                keysRequest.onsuccess = resolve;
-                keysRequest.onerror = reject;
-            });
-            
-            // This is a simple count check. 
-            // For strict LRU (Least Recently Used) or Oldest Created, we need to load metadata.
-            // Since getAllKeys doesn't give order reliably, let's load all metadata to sort.
-            // Re-open transaction for reading metadata if needed, but let's do it properly below.
+        if (countRequest.result >= MAX_SAVES) {
+             const error: any = new Error('Save limit reached');
+             error.code = ERROR_CODES.SAVE_LIMIT_REACHED;
+             return { data: null, error };
         }
     }
 
@@ -80,18 +77,10 @@ export const saveGame = async (gameState: GameState, id?: string, createdAtOverr
             allSavesRequest.onerror = () => reject(allSavesRequest.error);
         });
 
-        if (allSaves.length >= 10) {
-             // Sort by created_at ascending (oldest first)
-             allSaves.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-             
-             // Delete oldest
-             const deleteTx = db.transaction(STORE_NAME, 'readwrite');
-             const deleteStore = deleteTx.objectStore(STORE_NAME);
-             await new Promise((resolve, reject) => {
-                 const req = deleteStore.delete(allSaves[0].id);
-                 req.onsuccess = resolve;
-                 req.onerror = reject;
-             });
+        if (allSaves.length >= MAX_SAVES) {
+             const error: any = new Error('Save limit reached');
+             error.code = ERROR_CODES.SAVE_LIMIT_REACHED;
+             return { data: null, error };
         }
     }
     

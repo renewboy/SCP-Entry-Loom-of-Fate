@@ -34,3 +34,33 @@ with check (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000
 create policy "Users can delete their own saves" 
 on save_games for delete 
 using (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000000'::uuid);
+
+-- Function to check max save count per user
+create or replace function check_max_saves()
+returns trigger as $$
+declare
+  save_count int;
+  max_saves int := 10; -- Configurable limit
+begin
+  -- If ID is provided and exists, it's an update, skip count check
+  if NEW.id is not null and exists (select 1 from save_games where id = NEW.id) then
+    return NEW;
+  end if;
+
+  -- Check current count for this user
+  select count(*) into save_count from save_games where user_id = NEW.user_id;
+  
+  if save_count >= max_saves then
+    raise exception 'Save limit reached. Maximum allowed saves is %.', max_saves;
+  end if;
+  
+  return NEW;
+end;
+$$ language plpgsql;
+
+-- Trigger to enforce limit on insert
+drop trigger if exists enforce_max_saves on save_games;
+create trigger enforce_max_saves
+before insert on save_games
+for each row
+execute function check_max_saves();

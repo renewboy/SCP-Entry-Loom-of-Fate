@@ -7,6 +7,7 @@ import { SaveGameMetadata } from '../types';
 import { GameState } from '../types';
 import ConfirmationModal from './ConfirmationModal';
 import { User } from '@supabase/supabase-js';
+import { ERROR_CODES } from '../services/indexedDBService';
 
 interface SaveLoadModalProps {
   isOpen: boolean;
@@ -30,6 +31,8 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'overwrite' | 'delete' | null>(null);
   const [targetId, setTargetId] = useState<string | null>(null);
+
+  const [limitAlertOpen, setLimitAlertOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -307,7 +310,11 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
     const { data: savedData, error } = await IDB.saveGame(currentGameState, overwriteId);
     
     if (error) {
-      setError(t('save_load.save_error') + ': ' + error.message);
+      if ((error as any).code === ERROR_CODES.SAVE_LIMIT_REACHED || error.message === 'SAVE_LIMIT_REACHED') {
+          setLimitAlertOpen(true);
+      } else {
+          setError(t('save_load.save_error') + ': ' + error.message);
+      }
     } else {
       // 2. If logged in, Auto-Sync to Cloud
       if (user && savedData && savedData.id) {
@@ -695,6 +702,16 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
         onConfirm={handleConfirmAction}
         title={confirmAction === 'overwrite' ? t('save_load.overwrite') : t('save_load.delete')}
         message={confirmAction === 'overwrite' ? t('save_load.confirm_overwrite') : t('save_load.confirm_delete')}
+    />
+
+    <ConfirmationModal
+        isOpen={limitAlertOpen}
+        onCancel={() => setLimitAlertOpen(false)}
+        onConfirm={() => setLimitAlertOpen(false)}
+        title={t('save_load.limit_reached_title')}
+        message={t('save_load.limit_reached_message')}
+        confirmText={t('save_load.understand')}
+        singleButton={true}
     />
     </>
   );

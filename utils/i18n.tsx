@@ -192,7 +192,10 @@ export const translations = {
       sync_error: "同步失败",
       download_success: "云存档下载成功",
       refresh_cloud: "刷新云存档列表",
-      aistudio_sandbox_mode: "沙盒模式：共享云存储 (AI Studio)"
+      aistudio_sandbox_mode: "沙盒模式：共享云存储 (AI Studio)",
+      limit_reached_title: "存档数量已达上限",
+      limit_reached_message: "您已达到最大存档数量限制 (10)。请先删除旧存档后再创建新存档。",
+      understand: "知道了"
     }
   },
   en: {
@@ -383,7 +386,10 @@ export const translations = {
       sync_error: "Sync Failed",
       download_success: "Cloud Save Downloaded",
       refresh_cloud: "Refresh Cloud Saves",
-      aistudio_sandbox_mode: "Sandbox Mode: Shared Cloud Storage (AI Studio)"
+      aistudio_sandbox_mode: "Sandbox Mode: Shared Cloud Storage (AI Studio)",
+      limit_reached_title: "STORAGE LIMIT REACHED",
+      limit_reached_message: "You have reached the maximum of 10 save files. Please delete older saves to create new ones.",
+      understand: "UNDERSTAND"
     }
   }
 };

@@ -8,9 +8,11 @@ interface ConfirmationModalProps {
   onCancel: () => void;
   title: string;
   message: string;
+  confirmText?: string;
+  singleButton?: boolean;
 }
 
-const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, onConfirm, onCancel, title, message }) => {
+const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, onConfirm, onCancel, title, message, confirmText, singleButton }) => {
   const { t } = useTranslation();
   if (!isOpen) return null;
 
@@ -30,17 +32,19 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, onConfirm
           </p>
 
           <div className="flex gap-4 justify-center">
-            <button
-              onClick={onCancel}
-              className="px-6 py-2 border border-scp-gray bg-scp-gray/10 text-gray-300 hover:text-white hover:bg-scp-gray/30 hover:border-gray-300 font-mono text-xs transition-colors"
-            >
-              {t('modal.cancel')}
-            </button>
+            {!singleButton && (
+              <button
+                onClick={onCancel}
+                className="px-6 py-2 border border-scp-gray bg-scp-gray/10 text-gray-300 hover:text-white hover:bg-scp-gray/30 hover:border-gray-300 font-mono text-xs transition-colors"
+              >
+                {t('modal.cancel')}
+              </button>
+            )}
             <button
               onClick={onConfirm}
               className="px-6 py-2 border border-scp-accent text-scp-accent hover:bg-scp-accent hover:text-white font-mono text-xs font-bold shadow-[0_0_10px_rgba(195,46,46,0.2)] hover:shadow-[0_0_20px_rgba(195,46,46,0.6)] transition-all"
             >
-              {t('modal.confirm')}
+              {confirmText || t('modal.confirm')}
             </button>
           </div>
         </div>
