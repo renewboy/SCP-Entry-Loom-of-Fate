@@ -42,7 +42,7 @@ The process described here has several goals:
 
 1.  Clone the repository.
 2.  Install dependencies: `npm install`.
-3.  Create a `.env` file with your `API_KEY` (see README).
+3.  Create a `.env` file with your `GEMINI_API_KEY` (see README).
 4.  Run the development server: `npm start`.
 
 ## Styleguides

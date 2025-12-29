@@ -1,0 +1,66 @@
+import pako from 'pako';
+import { GameState } from '../types';
+
+// Helper to create a thumbnail from base64 image
+export const createThumbnail = async (base64Image: string, maxWidth: number = 300): Promise<string> => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ratio = maxWidth / img.width;
+            canvas.width = maxWidth;
+            canvas.height = img.height * ratio;
+            
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                // Compress to JPEG with 0.7 quality
+                resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+            } else {
+                resolve(base64Image); // Fallback
+            }
+        };
+        img.onerror = () => resolve(''); // Fail gracefully
+        img.src = base64Image;
+    });
+};
+
+// Helper to compress data
+export const compressGameState = (gameState: GameState): { compressed: boolean; data: string } => {
+  const jsonString = JSON.stringify(gameState);
+  const compressed = pako.deflate(jsonString);
+  
+  // Optimize: Use chunk-based processing (32KB chunks)
+  // 1. Prevents "Maximum call stack size exceeded" error by avoiding massive spread operators.
+  // 2. Significantly faster than byte-by-byte looping.
+  // 3. Allows the JS engine (V8) to utilize internal vectorized/SIMD optimizations for bulk string creation.
+  const CHUNK_SIZE = 0x8000; 
+  const chunks = [];
+  for (let i = 0; i < compressed.length; i += CHUNK_SIZE) {
+    chunks.push(String.fromCharCode.apply(null, compressed.subarray(i, i + CHUNK_SIZE) as any));
+  }
+  
+  const base64 = btoa(chunks.join(''));
+  return { compressed: true, data: base64 };
+};
+
+// Helper to decompress data
+export const decompressGameState = (data: any): GameState => {
+  if (data && data.compressed && typeof data.data === 'string') {
+    try {
+      // Decode Base64 to Uint8Array
+      const charData = atob(data.data);
+      const uint8Array = new Uint8Array(charData.length);
+      for (let i = 0; i < charData.length; i++) {
+        uint8Array[i] = charData.charCodeAt(i);
+      }
+      const decompressed = pako.inflate(uint8Array, { to: 'string' });
+      return JSON.parse(decompressed);
+    } catch (e) {
+      console.error("Failed to decompress game state:", e);
+      throw new Error("Corrupted save data");
+    }
+  }
+  // Fallback for legacy uncompressed saves
+  return data as GameState;
+};

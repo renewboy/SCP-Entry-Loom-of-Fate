@@ -4,7 +4,7 @@
 
 > **SECURE. CONTAIN. PROTECT.**
 
-**SCP Entry: Loom of Fate** is an immersive, generative text adventure game set in the SCP Foundation universe. Powered by Google's **Gemini 2.5** models, it creates unique, non-linear narratives based on any SCP designation you input.
+**SCP Entry: Loom of Fate** is an immersive, generative text adventure game set in the SCP Foundation universe. Powered by Google's **Gemini** models, it creates unique, non-linear narratives based on any SCP designation you input.
 
 Experience the horror, mystery, and scientific coldness of the Foundation through a retro-futuristic terminal interface.
 
@@ -23,6 +23,7 @@ Experience the horror, mystery, and scientific coldness of the Foundation throug
 *   **Incident Documentation**: Export your entire adventure, including the stability chart and performance analysis, as a professional PDF "Incident Report."
 *   **Immersive Sensory Feedback**: Features CRT scanlines, interactive particle text, procedural audio, and dynamic glitch art that intensifies as stability drops.
 *   **Bilingual Support**: Fully localized for English and Chinese.
+*   **Cloud Save & Sync**: Seamlessly save your progress to the cloud using Google Authentication. Supports automatic background synchronization, local caching (IndexedDB) for offline access, and cross-device progression.
 
 ## Try It Now
 
@@ -50,13 +51,16 @@ Experience the horror, mystery, and scientific coldness of the Foundation throug
     npm install
     ```
 
-3.  **Configure API Key**
+3.  **Configure API Keys**
     *   Create a `.env` file in the root directory.
     *   Add your Google GenAI API key:
         ```env
-        API_KEY=your_google_api_key_here
+        GEMINI_API_KEY=your_google_api_key_here
+        # Optional: Supabase credentials (defaults are provided for demo)
+        # VITE_SUPABASE_URL=your_supabase_project_url
+        # VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
         ```
-    *   *Note: In the web demo version, the app supports user-provided keys via a secure dialog.*
+    *   *Note: In the web demo version, the app supports user-provided Gemini keys via a secure dialog. Supabase is pre-configured for cloud saves, but you can override it with your own project.*
 
 4.  **Run the Application**
     ```bash
@@ -69,6 +73,7 @@ Experience the horror, mystery, and scientific coldness of the Foundation throug
 1.  **Initialize**: Enter a target SCP (e.g., "SCP-173") or click the **Randomize** icon to select an anomaly from the database.
 2.  **Assign Role**: Select your character archetype from the grid.
 3.  **Initiate Weave**: Click Start. The system will retrieve data and generate the scenario.
-4.  **Survive**: Type your actions or click suggestions. Watch your **Stability** meter; reckless actions will fray the fabric of reality.
-5.  **Review**: After the ending, generate an **AAR** to see your performance metrics and ask the Narrator for clarifications.
-6.  **Archive**: Click **Export PDF** to save your unique story for Foundation archives.
+4.  **Save/Load**: Access the menu to save your progress locally or sync to the cloud (requires login).
+5.  **Survive**: Type your actions or click suggestions. Watch your **Stability** meter; reckless actions will fray the fabric of reality.
+6.  **Review**: After the ending, generate an **AAR** to see your performance metrics and ask the Narrator for clarifications.
+7.  **Archive**: Click **Export PDF** to save your unique story for Foundation archives.
