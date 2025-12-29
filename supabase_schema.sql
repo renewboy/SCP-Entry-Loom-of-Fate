@@ -1,12 +1,13 @@
 -- Create a table for storing save games
 create table save_games (
-  id uuid default gen_random_uuid() primary key,
+  id uuid default gen_random_uuid(),
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   game_state jsonb not null,
   summary text,
   turn_count integer,
   background_thumbnail text,
-  user_id uuid default auth.uid()
+  user_id uuid default auth.uid(),
+  primary key (id, user_id)
 );
 
 -- Set up Row Level Security (RLS)
