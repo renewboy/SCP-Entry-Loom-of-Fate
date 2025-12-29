@@ -12,6 +12,10 @@ Experience the horror, mystery, and scientific coldness of the Foundation throug
 ![Tech](https://img.shields.io/badge/Powered%20By-Google%20Gemini-4285F4.svg)
 ![React](https://img.shields.io/badge/Built%20With-React%20%2B%20Tailwind-61DAFB.svg)
 
+## License
+
+This project is licensed under **Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0)**. See [LICENSE](LICENSE).
+
 ## 🎮 Features
 
 *   **Infinite Narrative Generation**: Enter *any* SCP number (e.g., SCP-173, SCP-682) or URL. The AI conducts real-time research to generate unique containment breach or exploration scenarios.

@@ -12,6 +12,10 @@
 ![Tech](https://img.shields.io/badge/Powered%20By-Google%20Gemini-4285F4.svg)
 ![React](https://img.shields.io/badge/Built%20With-React%20%2B%20Tailwind-61DAFB.svg)
 
+## 许可协议
+
+本项目采用 **Creative Commons Attribution-ShareAlike 3.0 Unported（CC BY-SA 3.0）** 许可协议。详见 [LICENSE](LICENSE)。
+
 ## 🎮 游戏特色
 
 *   **无限流叙事生成**: 输入任意 SCP 编号（如 SCP-173, SCP-682）或 Wiki 链接。AI 将实时检索并分析官方档案，生成独特的收容失效或探索剧本。

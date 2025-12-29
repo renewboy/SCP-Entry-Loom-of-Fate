@@ -80,6 +80,17 @@ const AppContent: React.FC = () => {
         {t('app.footer')}
       </div>
 
+      <div className="absolute bottom-2 right-4 text-[10px] text-gray-600 font-mono z-20 mix-blend-difference">
+        <a
+          href="https://creativecommons.org/licenses/by-sa/3.0/"
+          target="_blank"
+          rel="noreferrer"
+          className="pointer-events-auto underline decoration-dotted hover:text-gray-300"
+        >
+          {t('app.license')}
+        </a>
+      </div>
+
       {/* Global CRT Scanline Overlay */}
        <div className="pointer-events-none absolute inset-0 z-50 mix-blend-overlay opacity-10 bg-[url('https://www.transparenttextures.com/patterns/black-linen.png')]"></div>
     </div>

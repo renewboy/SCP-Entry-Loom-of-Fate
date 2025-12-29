@@ -11,7 +11,8 @@ export const translations = {
     app: {
       switch_lang: "EN",
       appendix: "附录 A",
-      footer: "控制. 收容. 保护. // 终端_ID: 8829-AZ"
+      footer: "控制. 收容. 保护. // 终端_ID: 8829-AZ",
+      license: "许可协议：CC BY-SA 3.0"
     },
     start: {
       loading_msgs: [
@@ -220,7 +221,8 @@ export const translations = {
     app: {
       switch_lang: "中文",
       appendix: "Appendix A",
-      footer: "SECURE. CONTAIN. PROTECT. // TERMINAL_ID: 8829-AZ"
+      footer: "SECURE. CONTAIN. PROTECT. // TERMINAL_ID: 8829-AZ",
+      license: "License: CC BY-SA 3.0"
     },
     start: {
       loading_msgs: [
