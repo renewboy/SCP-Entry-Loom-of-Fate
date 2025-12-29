@@ -469,7 +469,7 @@ Requirements:
 8. **Achievements/Titles**: Generate 1-3 unique and creative titles/achievements earned by the player based on their performance and narrative impact (e.g., "The Butcher of Site-19", "Ethics Committee Favorite"). Provide a brief description for each.
 9. Provide a professional, analyst-style breakdown with explicit evidence referencing turns.
 10. Provide quantified assessments wherever possible (0-100 or 0-5 scales).
-11. Output must be valid JSON with no trailing commas.
+11. Language for all text must be ${langPrompt}
 
 Format: RETURN ONLY RAW JSON. No markdown blocks.
 JSON Structure matches the interface:

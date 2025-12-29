@@ -70,13 +70,13 @@ const EndingOverlay: React.FC<EndingOverlayProps> = ({
   
   if (isEndingOverlayCollapsed) {
       return (
-          <div className={`absolute bottom-0 left-0 right-0 z-50 p-2 flex items-center justify-between ${config.bg} border-t ${config.bar}`}>
-              <span className={`font-mono text-xs ${config.color} px-2`}>
+          <div className={`absolute bottom-0 left-0 right-0 z-[60] p-2 flex items-center justify-between ${config.bg} border-t ${config.bar}`}>
+              <span className="font-mono text-xs text-white px-2 text-shadow-sm font-bold tracking-wider">
                   {t('game.ending_reached')}: {config.title}
               </span>
               <button 
                   onClick={() => setIsEndingOverlayCollapsed(false)}
-                  className="px-4 py-1 border border-scp-gray text-xs font-mono text-gray-300 hover:text-white hover:border-white transition-colors"
+                  className="px-4 py-1 border border-scp-gray text-xs font-mono text-gray-200 hover:text-white hover:border-white transition-colors"
               >
                   {t('game.expand')}
               </button>
