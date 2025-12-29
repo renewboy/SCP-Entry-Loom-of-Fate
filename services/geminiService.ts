@@ -1,9 +1,10 @@
 
 import { GoogleGenAI, Chat, Content } from "@google/genai";
 import { SCPData, EndingType, Language, Message, GameReviewData } from "../types";
+import { geminiConfig } from "../config/geminiConfig";
 
 // Helper to get client with current key
-const getClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getClient = () => new GoogleGenAI({ apiKey: geminiConfig.apiKey });
 
 // --- Image Generation ---
 
@@ -12,7 +13,7 @@ export const generateImage = async (prompt: string, aspectRatio: "1:1" | "16:9" 
   try {
     const ai = getClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: geminiConfig.models.image,
       contents: { parts: [{ text: prompt }] },
       config: {
         imageConfig: {
@@ -86,7 +87,7 @@ Preferred Output Language for 'name': ${langInstruction}.`;
 
     console.log(`[GeminiService] Analyzing SCP: ${input}`);
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: geminiConfig.models.chat,
       contents: prompt,
       config: {
         tools: [
@@ -186,10 +187,10 @@ export const initializeGameChatStream = async function* (scp: SCPData, role: str
   const systemInstruction = getSystemInstruction(role, language);
 
   chatSession = ai.chats.create({
-    model: 'gemini-2.5-flash',
+    model: geminiConfig.models.chat,
     config: {
       systemInstruction,
-      temperature: 0.9,
+      temperature: geminiConfig.generation.temperature,
       tools: [
         { googleSearch: {} }
       ],
@@ -300,10 +301,10 @@ export const restoreChatSession = async (history: Content[], role: string, langu
     const systemInstruction = getSystemInstruction(role, language);
     
     chatSession = ai.chats.create({
-        model: 'gemini-2.5-flash',
+        model: geminiConfig.models.chat,
         config: {
             systemInstruction,
-            temperature: 0.9,
+            temperature: geminiConfig.generation.temperature,
             tools: [
                 { googleSearch: {} }
             ],
