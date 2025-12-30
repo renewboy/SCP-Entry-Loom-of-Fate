@@ -1,9 +1,11 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Message, SCPData, EndingType, GameReviewData } from '../types';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { Message, SCPData, EndingType, GameReviewData, QAPair } from '../types';
 import { useTranslation } from '../utils/i18n';
 import { generateGameReview, askNarratorQuestion } from '../services/geminiService';
 import GameReviewReport from './GameReviewReport';
+import QAHistory from './QAHistory';
 
 interface WorldLineTreeProps {
   messages: Message[];
@@ -13,22 +15,39 @@ interface WorldLineTreeProps {
   backgroundImage: string | null;
   endingType: EndingType;
   role: string;
+  gameReview: GameReviewData | null;
+  qaHistory: QAPair[] | undefined;
+  onReviewUpdate: (review: GameReviewData) => void;
+  onQAUpdate: (qa: QAPair) => void;
 }
 
-const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRestart, onMinimize, backgroundImage, endingType, role }) => {
+const WorldLineTree: React.FC<WorldLineTreeProps> = ({ 
+  messages, 
+  scpData, 
+  onRestart, 
+  onMinimize, 
+  backgroundImage, 
+  endingType, 
+  role,
+  gameReview,
+  qaHistory = [],
+  onReviewUpdate,
+  onQAUpdate
+}) => {
   const { t, language } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const reviewPrintRef = useRef<HTMLDivElement>(null);
   
-  const [reviewData, setReviewData] = useState<GameReviewData | null>(null);
+  // Use local state if not persisted yet, or sync with prop
+  // Ideally we trust props, but we need to know if we are generating
   const [isGenerating, setIsGenerating] = useState(false);
   const reviewRef = useRef<HTMLDivElement>(null);
 
   // Q&A States
-  const [qaList, setQaList] = useState<{question: string, answer: string}[]>([]);
   const [qaInput, setQaInput] = useState('');
   const [isQaLoading, setIsQaLoading] = useState(false);
-  const qaCount = qaList.length;
+  const [streamingAnswer, setStreamingAnswer] = useState('');
+  const qaCount = qaHistory.length;
 
   // Extract Stability History
   const [stabilityHistory, setStabilityHistory] = useState<number[]>([100]);
@@ -66,7 +85,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
     setIsGenerating(true);
     try {
         const review = await generateGameReview(scpData, role, endingType, language, messages, stabilityHistory);
-        setReviewData(review);
+        onReviewUpdate(review);
         setTimeout(() => {
             reviewRef.current?.scrollIntoView({ behavior: 'smooth' });
         }, 100);
@@ -84,8 +103,8 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
     setQaInput('');
     setIsQaLoading(true);
 
-    // Initial empty answer
-    setQaList(prev => [...prev, { question, answer: '' }]);
+    // Initial temporary timestamp
+    const timestamp = Date.now();
 
     try {
         const stream = askNarratorQuestion(question, language);
@@ -93,14 +112,16 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
         
         for await (const chunk of stream) {
             fullAnswer += chunk;
-            setQaList(prev => {
-                const newList = [...prev];
-                if (newList.length > 0) {
-                    newList[newList.length - 1] = { question, answer: fullAnswer };
-                }
-                return newList;
-            });
+            setStreamingAnswer(fullAnswer);
         }
+
+        onQAUpdate({
+            question,
+            answer: fullAnswer,
+            timestamp
+        });
+        setStreamingAnswer('');
+
     } catch (e) {
         console.error("Q&A Error:", e);
     } finally {
@@ -150,6 +171,8 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
     };
 
     const reviewHtml = reviewPrintRef.current?.innerHTML || '';
+
+    const qaHtml = (qaHistory && qaHistory.length > 0) ? renderToStaticMarkup(<QAHistory qaHistory={qaHistory} variant="print" qaTitle={t('report.qa_title')} />) : '';
 
     const styles = `
         <script src="https://cdn.tailwindcss.com"></script>
@@ -263,6 +286,8 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
                     ${reviewHtml}
                 </div>
             ` : ''}
+
+            ${qaHtml}
         </div>
 
         <!-- Footer -->
@@ -392,7 +417,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
             </div>
 
             {/* Generate Review Section */}
-            {!reviewData ? (
+            {!gameReview ? (
                  <button 
                     onClick={handleGenerateReview}
                     disabled={isGenerating}
@@ -415,7 +440,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
             ) : (
                 <div ref={reviewRef} className="w-full animate-in fade-in duration-1000 slide-in-from-bottom-8 space-y-8">
                     <div ref={reviewPrintRef}>
-                        <GameReviewReport data={reviewData} scpData={scpData} stabilityHistory={stabilityHistory} messages={messages} />
+                        <GameReviewReport data={gameReview} scpData={scpData} stabilityHistory={stabilityHistory} messages={messages} />
                     </div>
                     
                     {/* Q&A Section */}
@@ -430,20 +455,29 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({ messages, scpData, onRest
                         </div>
 
                         <div className="space-y-4 mb-6">
-                            {qaList.map((qa, i) => (
-                                <div key={i} className="space-y-2 animate-in fade-in slide-in-from-left-2">
+                            <QAHistory qaHistory={qaHistory} variant="ui" />
+                            
+                            {/* Streaming Answer Display */}
+                            {isQaLoading && streamingAnswer && (
+                                <div className="space-y-2 animate-in fade-in slide-in-from-left-2">
                                     <div className="flex gap-2">
-                                        <span className="text-scp-term font-bold font-mono text-xs">U:</span>
-                                        <p className="text-xs text-gray-200 font-mono italic">{qa.question}</p>
+                                        <span className="font-bold font-mono text-xs text-scp-accent">Q:</span>
+                                        <p className="text-xs font-mono italic text-gray-200">
+                                            ...
+                                        </p>
                                     </div>
                                     <div className="flex gap-2 pl-4 border-l border-scp-gray/30">
-                                        <span className="text-scp-accent font-bold font-mono text-xs">A:</span>
-                                        <p className="text-xs text-gray-400 font-mono leading-relaxed">{qa.answer}</p>
+                                        <span className="font-bold font-mono text-xs text-scp-term">A:</span>
+                                        <p className="text-xs text-gray-400 font-mono leading-relaxed">
+                                            {streamingAnswer}
+                                            <span className="inline-block w-1.5 h-3 bg-scp-term ml-1 animate-pulse"/>
+                                        </p>
                                     </div>
                                 </div>
-                            ))}
-                            {isQaLoading && (
-                                <div className="text-[10px] font-mono text-scp-term animate-pulse">
+                            )}
+
+                            {isQaLoading && !streamingAnswer && (
+                                <div className="text-[10px] font-mono text-scp-term animate-pulse whitespace-pre-wrap">
                                     {t('report.qa_loading')}
                                 </div>
                             )}

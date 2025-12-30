@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { GameState, GameStatus, Message, EndingType } from '../types';
+import { GameState, GameStatus, Message, EndingType, GameReviewData, QAPair } from '../types';
 import { sendAction, extractVisualPrompt, extractStability, extractEnding, generateImage, getChatHistory, restoreChatSession } from '../services/geminiService';
 import ConfirmationModal from './ConfirmationModal';
 import SaveLoadModal from './SaveLoadModal';
@@ -251,8 +251,10 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         backgroundImage: null,
         mainImage: null,
         stability: 100,
-        turnCount: 0,
-        endingType: null
+        turnCount: 1,
+        endingType: null,
+        gameReview: null,
+        qaHistory: []
     });
     setShowAbortModal(false);
   };
@@ -307,6 +309,18 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
     if (inputRef.current) {
         inputRef.current.focus();
     }
+  };
+
+  // --- Handlers for Updating Game State from Review/QA ---
+  const handleReviewUpdate = (review: GameReviewData) => {
+      setGameState(prev => ({ ...prev, gameReview: review }));
+  };
+
+  const handleQAUpdate = (qa: QAPair) => {
+      setGameState(prev => ({ 
+          ...prev, 
+          qaHistory: [...(prev.qaHistory || []), qa] 
+      }));
   };
 
   // --- Visual Effects Calculation ---
@@ -392,6 +406,10 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
                 backgroundImage={gameState.backgroundImage}
                 endingType={gameState.endingType || EndingType.UNKNOWN}
                 role={gameState.role}
+                gameReview={gameState.gameReview || null}
+                qaHistory={gameState.qaHistory}
+                onReviewUpdate={handleReviewUpdate}
+                onQAUpdate={handleQAUpdate}
             />
           </div>
       )}

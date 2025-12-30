@@ -149,6 +149,12 @@ export interface GameReviewData {
   }[];
 }
 
+export interface QAPair {
+  question: string;
+  answer: string;
+  timestamp: number;
+}
+
 export interface GameState {
   status: GameStatus;
   scpData: SCPData | null;
@@ -161,6 +167,8 @@ export interface GameState {
   endingType: EndingType | null; // The type of ending reached
   chatHistory?: any[]; // Raw chat history from Gemini model
   language?: Language; // Language setting at the time of save
+  gameReview?: GameReviewData | null; // Persisted game review
+  qaHistory?: QAPair[]; // Persisted Q&A history
 }
 
 export interface SaveGameMetadata {

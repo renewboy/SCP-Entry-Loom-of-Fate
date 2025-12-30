@@ -5,7 +5,7 @@ export const geminiConfig = {
 
   // Model names
   models: {
-    chat: 'gemini-2.5-flash',
+    chat: 'gemini-2.5-flash-lite',
     image: 'gemini-2.5-flash-image',
   },
 

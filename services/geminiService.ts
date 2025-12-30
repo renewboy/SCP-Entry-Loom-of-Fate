@@ -2,6 +2,8 @@
 import { GoogleGenAI, Chat, Content } from "@google/genai";
 import { SCPData, EndingType, Language, Message, GameReviewData } from "../types";
 import { geminiConfig } from "../config/geminiConfig";
+import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 // Helper to get client with current key
 const getClient = () => new GoogleGenAI({ apiKey: geminiConfig.apiKey });
@@ -146,8 +148,8 @@ const getSystemInstruction = (role: string, language: Language) => `
 
 [任务设计原则]
 - 主线任务要充分结合角色、SCP项目背景、角色人设等设计，保证任务的多样性。
-- 主线任务并不总是“正面、积极”的，要结合角色立场来设定
-- 特别注意：休谟场仅是游戏稳定性的机制，和游戏主线任务并不强相关，设计冒险故事时，不应该过多围绕休谟场进行设计。
+- 主线任务无需局限于“正面积极”导向，需严格贴合角色立场
+- 特别注意：休谟场仅为游戏稳定性判定机制，与主线任务无强关联。
 
 [叙事韧性协议]
 你必须在生成的叙事中遵循以下原则：
@@ -169,12 +171,12 @@ const getSystemInstruction = (role: string, language: Language) => `
 3. 风格：慢热的恐怖感，冷静客观的科学记录风格与直观的危险感相结合。
 4. **所有回复必须严格遵循以下结构**：
   1. 约250字中文沉浸式叙事，使用第二人称（“你”）。
-  2. 提供 2-3 个符合逻辑的玩家后续行动选项，并加上“其他（请输入）”，选项用数字编号。
+  2. 提供3个符合逻辑的玩家后续行动选项，并加上第四个选项：“其他（请输入）”，所有选项以数字编号。
   3. System Tags（位于末尾）：
     - [VISUAL: <English Image Prompt>]：（可选）仅当视觉场景发生显著变化时插入。描述格式要求："cinematic, scp foundation style, horror, dark, <scene details>"。
     - [STABILITY: <Integer>]：（必填）当前计算得出的稳定性数值。
     - [ENDING: <Type>]：（条件性）仅当达成游戏结束条件时插入。TYPE只能是 COLLAPSE, CONTAINED, DEATH, ESCAPED 其中之一。
-  4. 中文回复示例："...你听到门后传来了沉重的呼吸声。[VISUAL: dark metal door, scratching marks, cinematic lighting][STABILITY: 85]"   
+  4. 中文常规回复示例："...你听到门后传来了沉重的呼吸声。[VISUAL: dark metal door, scratching marks, cinematic lighting][STABILITY: 85]"   
   5. 中文结尾示例："...你成功关闭了隔离门，警报声逐渐远去。[VISUAL: steel blast doors closing, sparks][STABILITY: 45][ENDING: CONTAINED]"
 5. 在首次生成内容之前，**必须使用 Google Search 工具**检索关于目标的详细资料，包括但不限于wiki, 解密文档等。
 6. 格式：使用Markdown。
@@ -265,7 +267,12 @@ Output Language: ${langInstruction}
 
   try {
       console.log("[GeminiService] Sending message stream to model...");
-      const streamResult = await chatSession.sendMessageStream({ message: contextPrompt });
+      const streamResult = await chatSession.sendMessageStream({ 
+        message: contextPrompt,
+        config: {
+          tools: []
+        }
+      });
       console.log("[GeminiService] Stream connection established.");
 
       let chunkCount = 0;
@@ -444,7 +451,83 @@ export const generateGameReview = async (
       achievements: []
     };
   }
-    
+  const ImpactEnum = z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL"]);
+  const EffectivenessEnum = z.enum(["HIGH", "MEDIUM", "LOW"]);
+  const RankEnum = z.enum(["S", "A", "B", "C", "D", "F"]);
+  const EvaluationSchema = z.object({
+    rank: RankEnum,
+    score: z.number().min(0).max(100),
+    verdict: z.string()
+  });
+
+  const TimelineAnalysisSchema = z.object({
+    turn: z.number().min(0),
+    event: z.string(),
+    analysis: z.string(),
+    impact: ImpactEnum
+  });
+
+  const ObjectiveBreakdownSchema = z.object({
+    objective: z.string(),
+    completion: z.number().min(0).max(100),
+    evidence: z.string(),
+    missedOpportunity: z.string()
+  });
+
+  const RiskByTurnSchema = z.object({
+    turn: z.number().min(0),
+    risk: z.number().min(0),
+    reason: z.string(),
+    betterMove: z.string()
+  });
+
+  const RiskAssessmentSchema = z.object({
+    overall: z.number().min(0),
+    volatilityComment: z.string(),
+    riskByTurn: z.array(RiskByTurnSchema)
+  });
+
+  const TacticsMatrixSchema = z.object({
+    tactic: z.string(),
+    count: z.number().min(0),
+    effectiveness: EffectivenessEnum,
+    note: z.string()
+  });
+
+  const CounterfactualSchema = z.object({
+    title: z.string(),
+    change: z.string(),
+    expectedOutcome: z.string(),
+    tradeoff: z.string()
+  });
+
+  const PerspectiveEvaluationSchema = z.object({
+    sourceName: z.string(),
+    stance: z.string(),
+    comment: z.string()
+  });
+
+  const AchievementSchema = z.object({
+    title: z.string(),
+    description: z.string()
+  });
+
+  const OperationEvaluationSchema = z.object({
+    operationName: z.string(),
+    clearanceLevel: z.string(),
+    evaluation: EvaluationSchema,
+    summary: z.string(),
+    timelineAnalysis: z.array(TimelineAnalysisSchema),
+    objectiveBreakdown: z.array(ObjectiveBreakdownSchema),
+    riskAssessment: RiskAssessmentSchema,
+    tacticsMatrix: z.array(TacticsMatrixSchema),
+    counterfactuals: z.array(CounterfactualSchema),
+    psychProfile: z.string(),
+    strategicAdvice: z.string(),
+    perspectiveEvaluations: z.array(PerspectiveEvaluationSchema),
+    achievements: z.array(AchievementSchema)
+  });
+
   const langPrompt = language === 'zh' ? 'Chinese' : 'English';
   
   // Prompt to switch context from Narrator to Analyst using the existing history
@@ -469,46 +552,18 @@ Requirements:
 8. **Achievements/Titles**: Generate 1-3 unique and creative titles/achievements earned by the player based on their performance and narrative impact (e.g., "The Butcher of Site-19", "Ethics Committee Favorite"). Provide a brief description for each.
 9. Provide a professional, analyst-style breakdown with explicit evidence referencing turns.
 10. Provide quantified assessments wherever possible (0-100 or 0-5 scales).
-11. Language for all text must be ${langPrompt}
-
-Format: RETURN ONLY RAW JSON. No markdown blocks.
-JSON Structure matches the interface:
-{
-  "operationName": "string",
-  "clearanceLevel": "string",
-  "evaluation": { "rank": "string", "score": number, "verdict": "string" },
-  "summary": "string",
-  "timelineAnalysis": [{ "turn": number, "event": "string", "analysis": "string", "impact": "POSITIVE"|"NEGATIVE"|"NEUTRAL" }],
-  "objectiveBreakdown": [
-    { "objective": "string", "completion": number, "evidence": "string", "missedOpportunity": "string" }
-  ],
-  "riskAssessment": {
-    "overall": number,
-    "volatilityComment": "string",
-    "riskByTurn": [
-      { "turn": number, "risk": number, "reason": "string", "betterMove": "string" }
-    ]
-  },
-  "tacticsMatrix": [
-    { "tactic": "string", "count": number, "effectiveness": "HIGH"|"MEDIUM"|"LOW", "note": "string" }
-  ],
-  "counterfactuals": [
-    { "title": "string", "change": "string", "expectedOutcome": "string", "tradeoff": "string" }
-  ],
-  "psychProfile": "string",
-  "strategicAdvice": "string",
-  "perspectiveEvaluations": [
-    { "sourceName": "string", "stance": "string", "comment": "string" }
-  ],
-  "achievements": [
-    { "title": "string", "description": "string" }
-  ]
-}
+11. Format: RETURN ONLY RAW JSON. Language for all text must be ${langPrompt}.
 `;
 
   try {
     // Send message to existing history
-    const response = await chatSession.sendMessage({ message: prompt });
+    const response = await chatSession.sendMessage({ 
+      message: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseJsonSchema:  zodToJsonSchema(OperationEvaluationSchema)
+      }
+    });
     const text = response.text;
     
     if (!text) throw new Error("Empty response for review");

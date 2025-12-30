@@ -20,7 +20,9 @@
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
     "rehype-raw": "^7.0.0",
-    "rehype-sanitize": "^6.0.0"
+    "rehype-sanitize": "^6.0.0",
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
