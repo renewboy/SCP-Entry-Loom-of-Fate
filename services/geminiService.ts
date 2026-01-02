@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Chat, Content } from "@google/genai";
-import { SCPData, EndingType, Language, Message, GameReviewData } from "../types";
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript } from "../types";
 import { geminiConfig } from "../config/geminiConfig";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
@@ -256,14 +256,13 @@ Turn: ${turnCount}
 User Action: "${action}"
 Output Language: ${langInstruction}
 任务: 
-1. 分析用户操作，并生成${langInstruction}叙事回应 (250字以内，必须遵守)。你生成的叙事回应必须逐步倾向某个结局向结局收拢。
+1. 分析用户操作，并生成${langInstruction}叙事回应 (250字以内，必须遵守)。你生成的叙事回应必须逐步向某个结局收拢。
 2. 如果此时>=15回合，叙事必须逐渐收敛，引导玩家尽快完成任务，并大幅增加每回合稳定性惩罚值，大幅增加稳定性回升难度。
 3. 判定是否达成结局 (CONTAINED/DEATH/COLLAPSE/ESCAPED)，如达成必须生成[ENDING: TYPE]。
 4. 如果未达成结局，给玩家2-3个互动选项，并加上“其他（请输入）”，选项用数字编号。
 5. 如果 Stability <= 0，必须强制生成 [ENDING: COLLAPSE]。
 6. 在末尾添加 [STABILITY: <new_value>]。
-7. 若场景视觉发生重大变化，添加 [VISUAL: <prompt>]，如果变化不大则不要添加。
-8. 严禁使用任何工具调用。`;
+7. 若场景视觉发生重大变化，添加 [VISUAL: <prompt>]，如果变化不大则不要添加。`;
 
   try {
       console.log("[GeminiService] Sending message stream to model...");
@@ -362,6 +361,97 @@ export const extractEnding = (text: string): { cleanText: string, endingType: En
   }
 
   return { cleanText: cleanText.trim(), endingType };
+};
+
+export const generateAudioDramaScript = async (
+  messages: Message[],
+  role: string,
+  scpDesignation: string,
+  language: Language = 'zh'
+): Promise<AudioDramaScript | null> => {
+  console.log("[GeminiService] Generating Audio Drama Script (JSON)...");
+  const ai = getClient();
+  const langPrompt = language === 'zh' ? 'Chinese' : 'English';
+
+  // Filter messages to keep only story relevant parts, but include ID for referencing
+  const storyLog = messages
+    .filter(m => m.sender === 'user' || m.sender === 'narrator')
+    .map(m => `[ID:${m.id}] ${m.sender.toUpperCase()}: ${m.content}`)
+    .join('\n\n');
+
+  // Define Zod Schema for the script
+  const AudioDramaSchema = z.object({
+    title: z.string(),
+    cast: z.array(z.object({
+      name: z.string(),
+      role: z.string(),
+      voiceDesc: z.string(),
+      gender: z.enum(['male', 'female', 'neutral', 'robot'])
+    })),
+    scenes: z.array(z.object({
+      id: z.number(),
+      location: z.string(),
+      originalMessageId: z.string(),
+      bgmMood: z.string().optional(),
+      lines: z.array(z.object({
+        id: z.string(),
+        speaker: z.string(),
+        text: z.string().max(200),
+        emotion: z.string().optional(),
+        sfx: z.string().optional()
+      }))
+    }))
+  });
+
+  const prompt = `
+[SYSTEM COMMAND: ACT AS A PROFESSIONAL AUDIO DRAMA DIRECTOR AND SCRIPTWRITER.]
+
+Task: Convert the following interactive fiction game log into a structured **Audio Drama Script** JSON object.
+
+Game Context:
+- Role: ${role}
+- SCP Subject: ${scpDesignation}
+
+Input Log:
+${storyLog}
+
+Requirements:
+1. **Cast**: Extract all characters. Define their voice characteristics carefully for TTS (Text-to-Speech) matching.
+2. **Scenes**: Break the story into logical scenes based on location or time shifts.
+3. **Reference**: 
+    - For each scene, find the 'originalMessageId' that best represents the start or key moment of that scene.
+    - Simply copy the ID (e.g., "msg_123") from the input log.
+4. **Dialogue**: 
+    - Convert narrator text into dialogue or action cues where possible.
+    - Ensure lines are natural.
+    - 'speaker' should match one of the names in 'cast' or be "NARRATOR".
+5. **Language**: Script content (dialogue, text) must be in **${langPrompt}**.
+
+Output Format: JSON ONLY. Adhere to the schema.
+`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: geminiConfig.models.chat,
+      contents: prompt,
+      config: {
+        temperature: 0.7,
+        responseMimeType: "application/json",
+        responseJsonSchema: zodToJsonSchema(AudioDramaSchema as any)
+      }
+    });
+
+    const text = response.text;
+    if (!text) throw new Error("Empty response for audio script");
+    
+    // Parse JSON safely
+    const parsed = JSON.parse(text) as AudioDramaScript;
+    return parsed;
+
+  } catch (error) {
+    console.error("Failed to generate audio script:", error);
+    return null;
+  }
 };
 
 // --- Game Review ---
@@ -561,7 +651,7 @@ Requirements:
       message: prompt,
       config: {
         responseMimeType: "application/json",
-        responseJsonSchema:  zodToJsonSchema(OperationEvaluationSchema)
+        responseJsonSchema:  zodToJsonSchema(OperationEvaluationSchema as any)
       }
     });
     const text = response.text;

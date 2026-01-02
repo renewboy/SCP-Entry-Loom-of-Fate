@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
-import { GameState, GameStatus } from '../types';
 
-export const useGameAudio = (gameState: GameState) => {
-  const isCritical = gameState.stability <= 30 && gameState.stability > 0 && gameState.status === GameStatus.PLAYING;
+export const useGameAudio = (stability: number, isPlaying: boolean) => {
+  const isCritical = stability <= 30 && stability > 0 && isPlaying;
 
   useEffect(() => {
     let ctx: AudioContext | null = null;

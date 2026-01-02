@@ -67,8 +67,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   }, [gameState.messages, gameState.status]);
 
   // Use Custom Hooks
-  const isCritical = useGameAudio(gameState);
-  const isGlitching = useGlitchEffect(gameState);
+  const isPlaying = gameState.status === GameStatus.PLAYING;
+  const isCritical = useGameAudio(gameState.stability, isPlaying);
+  const isGlitching = useGlitchEffect(gameState.stability, isPlaying);
 
   // --- Game Over Trigger Logic ---
   useEffect(() => {

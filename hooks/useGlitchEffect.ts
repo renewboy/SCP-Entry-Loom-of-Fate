@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { GameState, GameStatus } from '../types';
 
-export const useGlitchEffect = (gameState: GameState) => {
+export const useGlitchEffect = (stability: number, isPlaying: boolean) => {
   const [isGlitching, setIsGlitching] = useState(false);
 
   useEffect(() => {
     // Only active when playing and unstable (stability < 70)
-    if (gameState.status !== GameStatus.PLAYING || gameState.stability > 70 || gameState.stability <= 0) return;
+    if (!isPlaying || stability > 70 || stability <= 0) return;
 
     let timeout: ReturnType<typeof setTimeout>;
     const triggerGlitch = () => {
@@ -23,7 +22,7 @@ export const useGlitchEffect = (gameState: GameState) => {
         // Normalize stability (0-70 range) to 0-1 ratio
         // ratio = 1 means stability is 70 (Max Delay)
         // ratio = 0 means stability is 0 (Min Delay)
-        const ratio = Math.max(0, Math.min(1, gameState.stability / 70));
+        const ratio = Math.max(0, Math.min(1, stability / 70));
         
         // Calculate delay
         const delay = minDelay + (ratio * (maxDelay - minDelay));
@@ -37,7 +36,7 @@ export const useGlitchEffect = (gameState: GameState) => {
     // Initial random start
     timeout = setTimeout(triggerGlitch, 2000);
     return () => clearTimeout(timeout);
-  }, [gameState.status, gameState.stability]);
+  }, [isPlaying, stability]);
 
   return isGlitching;
 };

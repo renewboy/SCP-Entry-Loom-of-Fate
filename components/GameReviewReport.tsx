@@ -1,14 +1,19 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { GameReviewData, Message, SCPData } from '../types';
 import { useTranslation } from '../utils/i18n';
 import GameLogo from './GameLogo';
+
+import { generateAudioDramaScript } from '../services/geminiService';
+import { AudioDramaScript } from '../types';
 
 interface GameReviewReportProps {
   data: GameReviewData;
   scpData: SCPData | null;
   stabilityHistory?: number[];
   messages?: Message[];
+  role?: string;
+  backgroundImage?: string | null;
 }
 
 // Shared Helper for Rank Colors
@@ -133,10 +138,47 @@ const computeSessionStats = (messages: Message[] = [], stabilityHistory: number[
   };
 };
 
-const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stabilityHistory = [], messages = [] }) => {
-  const { t } = useTranslation();
+import AudioDramaPlayer from './game/AudioDramaPlayer';
+import DebugAudioPlayer from './game/DebugAudioPlayer';
+
+const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stabilityHistory = [], messages = [], role = "Unknown", backgroundImage }) => {
+  const { t, language } = useTranslation();
+
+  const [script, setScript] = useState<AudioDramaScript | null>(null);
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [scriptCopied, setScriptCopied] = useState(false);
+  const [isPlayingDrama, setIsPlayingDrama] = useState(false);
+  const [isDebugOpen, setIsDebugOpen] = useState(true); // Default open for debug
 
   const stats = computeSessionStats(messages, stabilityHistory);
+
+  const handleGenerateScript = async () => {
+    if (isGeneratingScript) return;
+    setIsGeneratingScript(true);
+    try {
+        const result = await generateAudioDramaScript(
+            messages, 
+            role, 
+            scpData?.designation || "Unknown SCP",
+            language
+        );
+        console.log("Generated Script JSON:", result);
+        setScript(result);
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setIsGeneratingScript(false);
+    }
+  };
+
+  const handleCopyScript = () => {
+      if (script) {
+          // Serialize JSON for clipboard
+          navigator.clipboard.writeText(JSON.stringify(script, null, 2));
+          setScriptCopied(true);
+          setTimeout(() => setScriptCopied(false), 2000);
+      }
+  };
 
   // --- Chart Rendering Logic ---
   const renderStabilityChart = () => {
@@ -612,7 +654,7 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
       )}
 
       {/* Psych Profile & Strategy */}
-      <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-scp-gray/30 pt-8">
+      <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-scp-gray/30 pt-8 mb-12">
          <div>
             <h3 className="text-xs text-gray-500 uppercase tracking-widest mb-3">{t('report.psych_profile')}</h3>
             <p className="text-xs md:text-sm leading-relaxed text-gray-300 p-4 bg-black/20 border-l-2 border-blue-500/50">
@@ -626,6 +668,14 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
             </p>
          </div>
       </div>
+
+      {isDebugOpen && (
+          <DebugAudioPlayer 
+            onClose={() => setIsDebugOpen(false)}
+            messages={messages}
+            fallbackImage={backgroundImage}
+          />
+      )}
 
       {/* Stamp */}
       <div className="absolute bottom-8 right-8 pointer-events-none opacity-80 mix-blend-screen transform -rotate-12 border-4 border-red-800 p-2 rounded">

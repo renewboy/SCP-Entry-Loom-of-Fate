@@ -184,3 +184,31 @@ export interface SaveGameMetadata {
 export interface SaveGame extends SaveGameMetadata {
   game_state: GameState;
 }
+
+export interface AudioDramaLine {
+  id: string;
+  speaker: string; // Name of the character or "NARRATOR"
+  text: string;
+  emotion?: string; // e.g. "whispering", "shouting", "calm"
+  sfx?: string; // Sound effect cue, e.g., "footsteps", "alarm"
+}
+
+export interface AudioDramaScene {
+  id: number;
+  location: string;
+  originalMessageId?: string; // ID of the original message to link image
+  lines: AudioDramaLine[];
+}
+
+export interface AudioDramaCast {
+  name: string;
+  role: string;
+  voiceDesc: string; // Description for TTS selection
+  gender: 'male' | 'female' | 'neutral' | 'robot';
+}
+
+export interface AudioDramaScript {
+  title: string;
+  cast: AudioDramaCast[];
+  scenes: AudioDramaScene[];
+}

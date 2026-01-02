@@ -1,11 +1,14 @@
 
 import React, { useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Message, SCPData, EndingType, GameReviewData, QAPair } from '../types';
 import { useTranslation } from '../utils/i18n';
-import { generateGameReview, askNarratorQuestion } from '../services/geminiService';
+import { generateGameReview, askNarratorQuestion, generateAudioDramaScript } from '../services/geminiService';
 import GameReviewReport from './GameReviewReport';
 import QAHistory from './QAHistory';
+import DebugAudioPlayer from './game/DebugAudioPlayer';
+import { AudioDramaScript } from '../types';
 
 interface WorldLineTreeProps {
   messages: Message[];
@@ -95,6 +98,34 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
         setIsGenerating(false);
     }
   };
+
+  // Audio Drama State
+  const [showAudioDrama, setShowAudioDrama] = useState(true);
+  const [dramaScript, setDramaScript] = useState<AudioDramaScript | null>(null);
+  const [isGeneratingDrama, setIsGeneratingDrama] = useState(false);
+
+  const handleGenerateDrama = async () => {
+    if (isGeneratingDrama) return;
+    setIsGeneratingDrama(true);
+    
+    try {
+        const result = await generateAudioDramaScript(
+            messages, 
+            role, 
+            scpData?.designation || "Unknown SCP",
+            language
+        );
+        setDramaScript(result);
+        setShowAudioDrama(true); // Only show after generation
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setIsGeneratingDrama(false);
+    }
+  };
+
+  // Removed auto-generation effect to allow opening debug player without generating
+  // useEffect(() => { ... }, [showAudioDrama]);
 
   const handleQaSubmit = async () => {
     if (!qaInput.trim() || isQaLoading || qaCount >= 3) return;
@@ -354,6 +385,19 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
         </div>
         <div className="flex gap-2 md:gap-3">
              <button 
+                onClick={handleGenerateDrama}
+                disabled={isGeneratingDrama}
+                className="hidden sm:flex items-center gap-2 px-3 py-1.5 border border-scp-gray text-scp-term font-mono text-xs hover:border-scp-term hover:bg-scp-term/10 transition-colors shadow-lg"
+                title="GENERATE AUDIO DRAMA"
+            >
+                {isGeneratingDrama ? (
+                    <span className="w-3 h-3 border-2 border-scp-term border-t-transparent rounded-full animate-spin"></span>
+                ) : (
+                    <span>🎙️</span>
+                )}
+                <span className="hidden lg:inline">{t('report.generate_video_script')}</span>
+            </button>
+             <button 
                 onClick={onMinimize}
                 className="hidden sm:block px-3 py-1.5 border border-scp-gray text-scp-text font-mono text-xs hover:border-scp-term hover:text-scp-term transition-colors shadow-lg"
                 title="MINIMIZE"
@@ -416,31 +460,37 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                 </p>
             </div>
 
-            {/* Generate Review Section */}
-            {!gameReview ? (
-                 <button 
-                    onClick={handleGenerateReview}
-                    disabled={isGenerating}
-                    className="group relative px-8 py-3 bg-scp-dark border border-scp-accent/50 hover:border-scp-accent transition-all overflow-hidden"
-                 >
-                    <div className="absolute inset-0 bg-scp-accent/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-                    <span className="relative font-mono font-bold text-scp-accent text-sm flex items-center gap-2">
-                        {isGenerating ? (
-                            <>
-                                <span className="w-3 h-3 border-2 border-scp-accent border-t-transparent rounded-full animate-spin"></span>
-                                {t('report.generating_review')}
-                            </>
-                        ) : (
-                            <>
-                                <span className="text-lg">✇</span> {t('report.generate_review')}
-                            </>
-                        )}
-                    </span>
-                 </button>
-            ) : (
+            {/* Action Buttons Container */}
+            <div className="flex gap-4 flex-wrap justify-center">
+                {/* Generate Review Button */}
+                {!gameReview && (
+                     <button 
+                        onClick={handleGenerateReview}
+                        disabled={isGenerating}
+                        className="group relative px-8 py-3 bg-scp-dark border border-scp-accent/50 hover:border-scp-accent transition-all overflow-hidden"
+                     >
+                        <div className="absolute inset-0 bg-scp-accent/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                        <span className="relative font-mono font-bold text-scp-accent text-sm flex items-center gap-2">
+                            {isGenerating ? (
+                                <>
+                                    <span className="w-3 h-3 border-2 border-scp-accent border-t-transparent rounded-full animate-spin"></span>
+                                    {t('report.generating_review')}
+                                </>
+                            ) : (
+                                <>
+                                    <span className="text-lg">✇</span> {t('report.generate_review')}
+                                </>
+                            )}
+                        </span>
+                     </button>
+                )}
+            </div>
+
+            {/* Review Section */}
+            {gameReview && (
                 <div ref={reviewRef} className="w-full animate-in fade-in duration-1000 slide-in-from-bottom-8 space-y-8">
                     <div ref={reviewPrintRef}>
-                        <GameReviewReport data={gameReview} scpData={scpData} stabilityHistory={stabilityHistory} messages={messages} />
+                        <GameReviewReport data={gameReview} scpData={scpData} stabilityHistory={stabilityHistory} messages={messages} role={role} backgroundImage={backgroundImage} />
                     </div>
                     
                     {/* Q&A Section */}
@@ -512,6 +562,22 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                 </div>
             )}
          </div>
+
+      {/* Audio Drama Player Overlay - Rendered via Portal to escape containers */}
+      {showAudioDrama && !isGeneratingDrama && (
+          (() => {
+              const debugPlayer = (
+                  <DebugAudioPlayer 
+                      initialJson={dramaScript ? JSON.stringify(dramaScript, null, 2) : ''}
+                      messages={messages}
+                      onClose={() => { setShowAudioDrama(false); setDramaScript(null); }} 
+                      fallbackImage={backgroundImage}
+                  />
+              );
+              return createPortal(debugPlayer, document.body);
+          })()
+      )}
+
       </div>
     </div>
   );
