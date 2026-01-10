@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GameState, GameStatus, Message, EndingType, GameReviewData, QAPair } from '../types';
-import { sendAction, extractVisualPrompt, extractStability, extractEnding, generateImage, getChatHistory, restoreChatSession } from '../services/geminiService';
+import { sendAction, extractVisualPrompt, extractStability, extractEnding, generateImage, getChatHistory, restoreChatSession } from '../services/aiService';
 import ConfirmationModal from './ConfirmationModal';
 import SaveLoadModal from './SaveLoadModal';
 import WorldLineTree from './WorldLineTree';
@@ -141,28 +141,41 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
       const stream = sendAction(userMsg.content, currentStability, newTurnCount, language);
       const iterator = stream[Symbol.asyncIterator]();
       
-      // 30 seconds timeout limit for response stream
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('TIMEOUT')), 30000)
-      );
+      // Idle Timeout Limit (30s)
+      // Reset timer on every chunk received.
+      const IDLE_TIMEOUT_MS = 30000;
+      let idleTimeoutId: NodeJS.Timeout;
 
-      while (true) {
-        // Race the stream iterator against the timeout
-        const result = await Promise.race([
-            iterator.next(),
-            timeoutPromise
-        ]);
+      const createTimeoutPromise = () => new Promise<never>((_, reject) => {
+          idleTimeoutId = setTimeout(() => reject(new Error('TIMEOUT')), IDLE_TIMEOUT_MS);
+      });
 
-        if (result.done) break;
+      try {
+        while (true) {
+          // Race the stream iterator against the idle timeout
+          const result = await Promise.race([
+              iterator.next(),
+              createTimeoutPromise()
+          ]);
+          
+          // Clear timeout immediately after winning the race
+          clearTimeout(idleTimeoutId!);
 
-        const chunk = result.value;
-        fullResponse += chunk;
-        setGameState(prev => ({
-          ...prev,
-          messages: prev.messages.map(m => 
-            m.id === aiMsgId ? { ...m, content: fullResponse } : m
-          )
-        }));
+          if (result.done) break;
+
+          const chunk = result.value;
+          fullResponse += chunk;
+          setGameState(prev => ({
+            ...prev,
+            messages: prev.messages.map(m => 
+              m.id === aiMsgId ? { ...m, content: fullResponse } : m
+            )
+          }));
+        }
+      } catch (e) {
+         // Ensure timeout is cleared if iterator.next() throws or timeout triggers
+         clearTimeout(idleTimeoutId!);
+         throw e;
       }
 
       console.log("[GameScreen] Stream completed. Full response length:", fullResponse.length);

@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Message, SCPData, EndingType, GameReviewData, QAPair } from '../types';
 import { useTranslation } from '../utils/i18n';
-import { generateGameReview, askNarratorQuestion, generateAudioDramaScript } from '../services/geminiService';
+import { generateGameReview, askNarratorQuestion, generateAudioDramaScript } from '../services/aiService';
 import GameReviewReport from './GameReviewReport';
 import QAHistory from './QAHistory';
 import DebugAudioPlayer from './game/DebugAudioPlayer';

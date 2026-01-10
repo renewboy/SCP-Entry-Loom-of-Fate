@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { analyzeSCPUrl, initializeGameChatStream, generateImage, extractVisualPrompt, extractStability, restoreChatSession } from '../services/geminiService';
+import { analyzeSCPUrl, initializeGameChatStream, generateImage, extractVisualPrompt, extractStability, restoreChatSession } from '../services/aiService';
 import { GameState, GameStatus, Role } from '../types';
 import ParticleText from './ParticleText';
 import SaveLoadModal from './SaveLoadModal';

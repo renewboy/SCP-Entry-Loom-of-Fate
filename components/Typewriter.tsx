@@ -135,6 +135,15 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
     contentRef.current = content;
   }, [content]);
 
+  // Sync displayed content when streaming ends or content significantly changes (e.g. tag removal)
+  useEffect(() => {
+    if (!isStreaming && content !== displayedContent) {
+        setDisplayedContent(content);
+        displayedLengthRef.current = content.length;
+        setIsVisualTyping(false);
+    }
+  }, [content, isStreaming, displayedContent]);
+
   // Manage Audio Context based on visual typing state
   useEffect(() => {
     if (isVisualTyping) {
@@ -233,6 +242,11 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
 
         // Check if fully complete (backend done AND visual typing done)
         if (!isStreaming && currentLen >= target.length) {
+            // Ensure we match exactly if we overshot or if target shrank
+            if (currentLen > target.length || displayedContent !== target) {
+                 setDisplayedContent(target);
+                 displayedLengthRef.current = target.length;
+            }
             setIsVisualTyping(false);
             if (onComplete) onComplete();
             return;

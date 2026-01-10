@@ -4,7 +4,7 @@ import { GameReviewData, Message, SCPData } from '../types';
 import { useTranslation } from '../utils/i18n';
 import GameLogo from './GameLogo';
 
-import { generateAudioDramaScript } from '../services/geminiService';
+import { generateAudioDramaScript } from '../services/aiService';
 import { AudioDramaScript } from '../types';
 
 interface GameReviewReportProps {

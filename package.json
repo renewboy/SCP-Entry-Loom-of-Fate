@@ -15,6 +15,7 @@
     "@supabase/supabase-js": "^2.89.0",
     "@types/pako": "^2.0.4",
     "hast-util-sanitize": "^5.0.2",
+    "openai": "^6.15.0",
     "pako": "^2.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

@@ -12,7 +12,11 @@ export default defineConfig(({ mode }) => {
       plugins: [react()],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        'process.env.OPENAI_API_KEY': JSON.stringify(env.OPENAI_API_KEY),
+        'process.env.OPENAI_BASE_URL': JSON.stringify(env.OPENAI_BASE_URL),
+        'process.env.OPENAI_CHAT_MODEL': JSON.stringify(env.OPENAI_CHAT_MODEL),
+        'process.env.AI_PROVIDER': JSON.stringify(env.AI_PROVIDER),
       },
       resolve: {
         alias: {
