@@ -1,7 +1,7 @@
 import { GoogleGenAI, Chat, Content } from "@google/genai";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { AIService } from "../types";
-import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript } from "../../../types";
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, ResourceState } from "../../../types";
 import { aiConfig } from "../../../config/aiConfig";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt } from "../prompts";
 import { normalizeGameReviewData, safeParseJson } from "../utils";
@@ -125,15 +125,15 @@ export class GeminiProvider implements AIService {
         }
     }
 
-    async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh'): AsyncGenerator<string> {
-        console.log(`[GeminiProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}, Language: ${language}`);
+    async *sendAction(action: string, currentState: ResourceState & { stability: number }, turnCount: number, language: Language = 'zh'): AsyncGenerator<string> {
+        console.log(`[GeminiProvider] sendAction called. Input: "${action}", Stability: ${currentState.stability}, Turn: ${turnCount}, Language: ${language}`);
 
         if (!this.chatSession) {
             console.error("[GeminiProvider] CRITICAL: chatSession is null. Game state may have been reset.");
             throw new Error("Game not initialized - session missing");
         }
 
-        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language);
+        const contextPrompt = getContextPrompt(action, currentState, turnCount, language);
 
         try {
             console.log("[GeminiProvider] Sending message stream to model...");

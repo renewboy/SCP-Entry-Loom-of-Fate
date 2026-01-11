@@ -3,11 +3,11 @@ import { AIService } from "./ai/types";
 import { GeminiProvider } from "./ai/providers/geminiProvider";
 import { OpenAIProvider } from "./ai/providers/openaiProvider";
 import { aiConfig } from "../config/aiConfig";
-import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript } from "../types";
-import { extractVisualPrompt, extractStability, extractEnding } from "./ai/utils";
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, ResourceState } from "../types";
+import { extractVisualPrompt, extractStability, extractEnding, extractResources } from "./ai/utils";
 
 // Re-export utils for consumers
-export { extractVisualPrompt, extractStability, extractEnding };
+export { extractVisualPrompt, extractStability, extractEnding, extractResources };
 
 // Singleton instance
 let aiProvider: AIService | null = null;
@@ -33,8 +33,8 @@ export const initializeGameChatStream = (scp: SCPData, role: string, language: L
     return getProvider().initializeGameChatStream(scp, role, language);
 };
 
-export const sendAction = (action: string, currentStability: number, turnCount: number, language: Language = 'zh'): AsyncGenerator<string> => {
-    return getProvider().sendAction(action, currentStability, turnCount, language);
+export const sendAction = (action: string, currentState: ResourceState & { stability: number }, turnCount: number, language: Language = 'zh'): AsyncGenerator<string> => {
+    return getProvider().sendAction(action, currentState, turnCount, language);
 };
 
 export const getChatHistory = async (): Promise<Content[]> => {

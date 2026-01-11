@@ -37,6 +37,13 @@ const GameHeader: React.FC<GameHeaderProps> = ({
       return ROLE_TRANSLATIONS[role] || role;
   };
 
+  const resourcePalette = [
+    { key: 'health', label: t('game.resource_health'), value: gameState.health, color: 'bg-red-500' },
+    { key: 'cognition', label: t('game.resource_cognition'), value: gameState.cognition, color: 'bg-blue-500' },
+    { key: 'containmentIntegrity', label: t('game.resource_integrity'), value: gameState.containmentIntegrity, color: 'bg-amber-500' },
+    { key: 'reputation', label: t('game.resource_reputation'), value: gameState.reputation, color: 'bg-purple-500' }
+  ];
+
   return (
       <header className="bg-scp-gray/50 p-4 border-b border-scp-dark/50 relative flex justify-between items-center h-20 shrink-0">
         
@@ -56,6 +63,22 @@ const GameHeader: React.FC<GameHeaderProps> = ({
                 </span>
               </div>
            </div>
+           <div className="hidden md:grid grid-cols-2 gap-x-3 gap-y-1 text-[9px] text-gray-400 font-mono uppercase tracking-widest">
+             {resourcePalette.map(resource => (
+               <div key={resource.key} className="flex flex-col gap-0.5">
+                 <div className="flex items-center justify-between">
+                   <span>{resource.label}</span>
+                   <span className="text-scp-text">{Math.round(resource.value)}%</span>
+                 </div>
+                 <div className="h-1.5 border border-scp-gray/40 bg-black/40 overflow-hidden">
+                   <div
+                     className={`h-full ${resource.color}`}
+                     style={{ width: `${Math.max(0, Math.min(resource.value, 100))}%` }}
+                   />
+                 </div>
+               </div>
+             ))}
+           </div>
         </div>
 
         {/* Center: Title */}
@@ -74,6 +97,7 @@ const GameHeader: React.FC<GameHeaderProps> = ({
                 <p>{t('game.role')}: {getDisplayRole(gameState.role)}</p>
                 <p>{t('game.class')}: {gameState.scpData?.containmentClass}</p>
                 <p>{t('game.turn')}: {gameState.turnCount}</p>
+                <p>{t('game.resource_inventory')}: {gameState.inventory.length}</p>
             </div>
             
             {/* Show "View Report" button if Game Over and Report Minimized */}

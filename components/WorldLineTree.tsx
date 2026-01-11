@@ -54,6 +54,12 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
 
   // Extract Stability History
   const [stabilityHistory, setStabilityHistory] = useState<number[]>([100]);
+  const [resourceHistory, setResourceHistory] = useState({
+    health: [100],
+    cognition: [100],
+    containmentIntegrity: [100],
+    reputation: [100]
+  });
 
   useEffect(() => {
     if (containerRef.current) {
@@ -64,6 +70,18 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
   useEffect(() => {
     // Parse messages to build stability history
     const history: number[] = [];
+    const resourceSeries = {
+      health: [] as number[],
+      cognition: [] as number[],
+      containmentIntegrity: [] as number[],
+      reputation: [] as number[]
+    };
+    let lastResources = {
+      health: 100,
+      cognition: 100,
+      containmentIntegrity: 100,
+      reputation: 100
+    };
     messages.forEach(msg => {
         if (msg.sender === 'narrator') {
             if (msg.stabilitySnapshot !== undefined) {
@@ -75,12 +93,31 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                     history.push(parseInt(match[1], 10));
                 }
             }
+
+            const nextResources = {
+              health: msg.health ?? lastResources.health,
+              cognition: msg.cognition ?? lastResources.cognition,
+              containmentIntegrity: msg.containmentIntegrity ?? lastResources.containmentIntegrity,
+              reputation: msg.reputation ?? lastResources.reputation
+            };
+            resourceSeries.health.push(nextResources.health);
+            resourceSeries.cognition.push(nextResources.cognition);
+            resourceSeries.containmentIntegrity.push(nextResources.containmentIntegrity);
+            resourceSeries.reputation.push(nextResources.reputation);
+            lastResources = nextResources;
         }
     });
 
     // If history is empty or only has one point (intro), ensure it has at least a start point
     if (history.length === 0) history.push(100);
     setStabilityHistory(history);
+    if (!resourceSeries.health.length) {
+      resourceSeries.health.push(100);
+      resourceSeries.cognition.push(100);
+      resourceSeries.containmentIntegrity.push(100);
+      resourceSeries.reputation.push(100);
+    }
+    setResourceHistory(resourceSeries);
   }, [messages]);
   
   const handleGenerateReview = async () => {
@@ -490,7 +527,15 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
             {gameReview && (
                 <div ref={reviewRef} className="w-full animate-in fade-in duration-1000 slide-in-from-bottom-8 space-y-8">
                     <div ref={reviewPrintRef}>
-                        <GameReviewReport data={gameReview} scpData={scpData} stabilityHistory={stabilityHistory} messages={messages} role={role} backgroundImage={backgroundImage} />
+                        <GameReviewReport
+                          data={gameReview}
+                          scpData={scpData}
+                          stabilityHistory={stabilityHistory}
+                          resourceHistory={resourceHistory}
+                          messages={messages}
+                          role={role}
+                          backgroundImage={backgroundImage}
+                        />
                     </div>
                     
                     {/* Q&A Section */}

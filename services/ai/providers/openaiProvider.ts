@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { Content } from "@google/genai";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { AIService } from "../types";
-import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript } from "../../../types";
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, ResourceState } from "../../../types";
 import { aiConfig } from "../../../config/aiConfig";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt } from "../prompts";
 import { normalizeGameReviewData, safeParseJson } from "../utils";
@@ -94,15 +94,15 @@ export class OpenAIProvider implements AIService {
         this.messages.push({ role: "assistant", content: fullResponse });
     }
 
-    async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh'): AsyncGenerator<string> {
-        console.log(`[OpenAIProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}`);
+    async *sendAction(action: string, currentState: ResourceState & { stability: number }, turnCount: number, language: Language = 'zh'): AsyncGenerator<string> {
+        console.log(`[OpenAIProvider] sendAction called. Input: "${action}", Stability: ${currentState.stability}, Turn: ${turnCount}`);
 
         if (this.messages.length === 0) {
             console.error("[OpenAIProvider] CRITICAL: messages empty. Game state may have been reset.");
             throw new Error("Game not initialized - session missing");
         }
 
-        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language);
+        const contextPrompt = getContextPrompt(action, currentState, turnCount, language);
         this.messages.push({ role: "user", content: contextPrompt });
 
         try {

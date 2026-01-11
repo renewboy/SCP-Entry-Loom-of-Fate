@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { analyzeSCPUrl, initializeGameChatStream, generateImage, extractVisualPrompt, extractStability, restoreChatSession } from '../services/aiService';
+import { analyzeSCPUrl, initializeGameChatStream, generateImage, extractVisualPrompt, extractStability, extractResources, restoreChatSession } from '../services/aiService';
 import { GameState, GameStatus, Role } from '../types';
 import ParticleText from './ParticleText';
 import SaveLoadModal from './SaveLoadModal';
@@ -122,6 +122,11 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
                 scpData,
                 role: finalRole,
                 stability: 100,
+                health: 100,
+                cognition: 100,
+                containmentIntegrity: 100,
+                reputation: 100,
+                inventory: [],
                 turnCount: 0,
                 messages: [{
                     id: msgId,
@@ -149,16 +154,38 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
       const textAfterStability = stabilityResult.cleanText;
       const introStability = stabilityResult.newStability ?? 100;
 
-      const { cleanText, visualPrompt } = extractVisualPrompt(textAfterStability);
+      const resourceResult = extractResources(textAfterStability);
+      const textAfterResources = resourceResult.cleanText;
+
+      const { cleanText, visualPrompt } = extractVisualPrompt(textAfterResources);
+
+      const introResources = {
+        health: resourceResult.resources.health ?? 100,
+        cognition: resourceResult.resources.cognition ?? 100,
+        containmentIntegrity: resourceResult.resources.containmentIntegrity ?? 100,
+        reputation: resourceResult.resources.reputation ?? 100,
+        inventory: resourceResult.resources.inventory ?? []
+      };
       
       setGameState(prev => ({
         ...prev,
+        stability: introStability,
+        health: introResources.health,
+        cognition: introResources.cognition,
+        containmentIntegrity: introResources.containmentIntegrity,
+        reputation: introResources.reputation,
+        inventory: introResources.inventory,
         messages: prev.messages.map(m => 
             m.id === msgId ? { 
                 ...m, 
                 content: cleanText, 
                 isTyping: false,
-                stabilitySnapshot: introStability 
+                stabilitySnapshot: introStability,
+                health: introResources.health,
+                cognition: introResources.cognition,
+                containmentIntegrity: introResources.containmentIntegrity,
+                reputation: introResources.reputation,
+                inventory: introResources.inventory
             } : m
         )
       }));

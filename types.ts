@@ -70,6 +70,19 @@ export interface Message {
   imageUrl?: string; // If the message comes with an illustration
   isTyping?: boolean; // For stream effect
   stabilitySnapshot?: number; // Snapshot of stability at this message, used for history chart
+  health?: number; // Snapshot of health at this message
+  cognition?: number; // Snapshot of cognition at this message
+  containmentIntegrity?: number; // Snapshot of containment integrity at this message
+  reputation?: number; // Snapshot of reputation at this message
+  inventory?: string[]; // Snapshot of inventory at this message
+}
+
+export interface ResourceState {
+  health: number;
+  cognition: number;
+  containmentIntegrity: number;
+  reputation: number;
+  inventory: string[];
 }
 
 export interface SCPData {
@@ -163,6 +176,11 @@ export interface GameState {
   backgroundImage: string | null;
   mainImage: string | null;
   stability: number; // 0-100, Hume Field Stability
+  health: number; // 0-100, Physical condition
+  cognition: number; // 0-100, Mental clarity
+  containmentIntegrity: number; // 0-100, Containment system integrity
+  reputation: number; // 0-100, Trust/standing with factions
+  inventory: string[]; // Items currently held
   turnCount: number;
   endingType: EndingType | null; // The type of ending reached
   chatHistory?: any[]; // Raw chat history from Gemini model

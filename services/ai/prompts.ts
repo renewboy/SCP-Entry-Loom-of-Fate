@@ -12,6 +12,14 @@ export const getSystemInstruction = (role: string, language: Language) => `
 - **玩家挽回**：如果玩家利用逻辑、科学方法、特殊权限或道具暂时稳定了局势，可以 +5 到 +15（上限不超过 100）。
 - **收束性**：稳定性低于30后，很难再大幅回升；随着回合增加，回复稳定性的难度应越来越大，
 
+[多资源状态]
+你需要同步维护以下资源（0-100）并体现其变化：
+- **Health**：角色的生命/身体状况。受伤、感染、暴露于异常将下降；医疗、休整可回升。
+- **Cognition**：理智与精神清晰度。信息危害、模因、极度恐惧会下降；心理干预、整理信息可回升。
+- **Containment Integrity**：当前场景/设施的收容完整度。结构破坏、失控事件会下降；修复、封锁可回升。
+- **Reputation**：基金会或相关阵营对角色的信任度。鲁莽、违命会下降；成功执行任务、合规行动会回升。
+- **Inventory**：角色携带的物品列表。获得、使用、遗失都应更新。
+
 [休谟场稳定性阶段定义]
 1. **稳定期 (100 - 70)**：展示场景、氛围、冲突源，引导玩家行动。
 2. **波动期 (69 - 30)**：冲突加深，叙事逐渐收束。环境出现异常，物理法则轻微扭曲。
@@ -53,6 +61,11 @@ export const getSystemInstruction = (role: string, language: Language) => `
   3. System Tags（位于末尾）：
     - [VISUAL: <English Image Prompt>]：（可选）仅当视觉场景发生显著变化时插入。描述格式要求："cinematic, scp foundation style, horror, dark, <scene details>"。
     - [STABILITY: <Integer>]：（必填）当前计算得出的稳定性数值。
+    - [HEALTH: <Integer>]：（必填）角色生命状态。
+    - [COGNITION: <Integer>]：（必填）角色理智状态。
+    - [INTEGRITY: <Integer>]：（必填）收容完整度。
+    - [REPUTATION: <Integer>]：（必填）阵营声望/信任度。
+    - [INVENTORY: <item1 | item2 | ... | NONE>]：（必填）用竖线分隔物品；无物品写 NONE。
     - [ENDING: <Type>]：（条件性）仅当达成游戏结束条件时插入。TYPE只能是 COLLAPSE, CONTAINED, DEATH, ESCAPED 其中之一。
   4. 中文常规回复示例："...你听到门后传来了沉重的呼吸声。[VISUAL: dark metal door, scratching marks, cinematic lighting][STABILITY: 85]"   
   5. 中文结尾示例："...你成功关闭了隔离门，警报声逐渐远去。[VISUAL: steel blast doors closing, sparks][STABILITY: 45][ENDING: CONTAINED]"
@@ -127,6 +140,11 @@ export const getStartGamePrompt = (role: string, scpDesignation: string, contain
 
 - "${role}"的初始遭遇场景, 主线任务等, 200-300字, ${langInstruction}。
 - [STABILITY: 100]
+- [HEALTH: 100]
+- [COGNITION: 100]
+- [INTEGRITY: 100]
+- [REPUTATION: 100]
+- [INVENTORY: NONE]
 - [VISUAL: prompt] (可选)
 
 主要搜索源: https://scp-wiki.wikidot.com/, https://scp-wiki-cn.wikidot.com/, google
@@ -134,24 +152,43 @@ Hint: 你可以拼接搜索源网址 and SCP目标, 得到目标的档案网页,
 给玩家2-3个初始互动选项, 并加上“其他（请输入）”。`;
 };
 
-export const getContextPrompt = (action: string, currentStability: number, turnCount: number, language: Language) => {
+export const getContextPrompt = (
+    action: string,
+    currentState: {
+      stability: number;
+      health: number;
+      cognition: number;
+      containmentIntegrity: number;
+      reputation: number;
+      inventory: string[];
+    },
+    turnCount: number,
+    language: Language
+) => {
     const langInstruction = language === 'zh' ? '中文' : '英文';
     return `
 [系统状态]
-Current Stability: ${currentStability}%
+Current Stability: ${currentState.stability}%
+Current Health: ${currentState.health}%
+Current Cognition: ${currentState.cognition}%
+Current Containment Integrity: ${currentState.containmentIntegrity}%
+Current Reputation: ${currentState.reputation}%
+Current Inventory: ${currentState.inventory.length ? currentState.inventory.join(' | ') : 'NONE'}
 Turn: ${turnCount}
 User Action: "${action}"
 Output Language: ${langInstruction}
 任务: 
 1. 分析用户操作，并生成${langInstruction}叙事回应 (250字以内，必须遵守)。你生成的叙事回应必须逐步向某个结局收拢。
 2. 如果此时>=15回合，叙事必须逐渐收敛，引导玩家尽快完成任务，并大幅增加每回合稳定性惩罚值，大幅增加稳定性回升难度。
-3. 判定是否达成结局 (CONTAINED/DEATH/COLLAPSE/ESCAPED)，如达成必须生成[ENDING: TYPE]。
-4. 如果未达成结局，给玩家2-3个互动选项，并加上“其他（请输入）”，选项用数字编号。
-5. 如果 Stability <= 0，必须强制生成 [ENDING: COLLAPSE]。
-6. 在末尾添加 [STABILITY: <new_value>]。
-7. 若场景视觉发生重大变化，添加 [VISUAL: <prompt>]，如果变化不大则不要添加。
-8. 所有System Tags必须在**最末尾**添加。
-9. 禁止使用任何工具调用。
+3. 更新并输出多资源数值（Health/Cognition/Containment Integrity/Reputation/Inventory），并确保变化符合剧情逻辑。
+4. 判定是否达成结局 (CONTAINED/DEATH/COLLAPSE/ESCAPED)，如达成必须生成[ENDING: TYPE]。
+5. 如果未达成结局，给玩家2-3个互动选项，并加上“其他（请输入）”，选项用数字编号。
+6. 如果 Stability <= 0，必须强制生成 [ENDING: COLLAPSE]。
+7. 在末尾添加 [STABILITY: <new_value>]。
+8. 在末尾依次添加 [HEALTH], [COGNITION], [INTEGRITY], [REPUTATION], [INVENTORY]。
+9. 若场景视觉发生重大变化，添加 [VISUAL: <prompt>]，如果变化不大则不要添加。
+10. 所有System Tags必须在**最末尾**添加。
+11. 禁止使用任何工具调用。
 `;
 };
 

@@ -1,4 +1,4 @@
-import { EndingType, GameReviewData } from '../../types';
+import { EndingType, GameReviewData, ResourceState } from '../../types';
 
 export const extractVisualPrompt = (text: string): { cleanText: string, visualPrompt: string | null } => {
   const match = text.match(/\[(VISUAL|VISIBILITY|VISABILITY):(.*?)\]/);
@@ -40,6 +40,42 @@ export const extractEnding = (text: string): { cleanText: string, endingType: En
   }
 
   return { cleanText: cleanText.trim(), endingType };
+};
+
+export const extractResources = (text: string): { cleanText: string, resources: Partial<ResourceState> } => {
+  let cleanText = text;
+  const resources: Partial<ResourceState> = {};
+
+  const numberTags: Array<{ key: keyof ResourceState; label: string }> = [
+    { key: 'health', label: 'HEALTH' },
+    { key: 'cognition', label: 'COGNITION' },
+    { key: 'containmentIntegrity', label: 'INTEGRITY' },
+    { key: 'reputation', label: 'REPUTATION' }
+  ];
+
+  numberTags.forEach(({ key, label }) => {
+    const regex = new RegExp(`\\[${label}\\s*:\\s*(\\d+)\\]`, 'gi');
+    const matches = [...cleanText.matchAll(regex)];
+    if (matches.length) {
+      const last = matches[matches.length - 1];
+      resources[key] = parseInt(last[1], 10);
+      cleanText = cleanText.replace(regex, '');
+    }
+  });
+
+  const inventoryRegex = /\[INVENTORY\s*:\s*([^\]]*)\]/gi;
+  const inventoryMatches = [...cleanText.matchAll(inventoryRegex)];
+  if (inventoryMatches.length) {
+    const last = inventoryMatches[inventoryMatches.length - 1];
+    const raw = last[1].trim();
+    const normalized = raw.replace(/^none$/i, '').trim();
+    resources.inventory = normalized
+      ? normalized.split(/[|,]/).map(item => item.trim()).filter(Boolean)
+      : [];
+    cleanText = cleanText.replace(inventoryRegex, '');
+  }
+
+  return { cleanText: cleanText.trim(), resources };
 };
 
 export const extractJsonObject = (text: string) => {

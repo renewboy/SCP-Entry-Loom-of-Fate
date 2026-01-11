@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GameState, GameStatus, Message, EndingType, GameReviewData, QAPair } from '../types';
-import { sendAction, extractVisualPrompt, extractStability, extractEnding, generateImage, getChatHistory, restoreChatSession } from '../services/aiService';
+import { sendAction, extractVisualPrompt, extractStability, extractEnding, extractResources, generateImage, getChatHistory, restoreChatSession } from '../services/aiService';
 import ConfirmationModal from './ConfirmationModal';
 import SaveLoadModal from './SaveLoadModal';
 import WorldLineTree from './WorldLineTree';
@@ -102,6 +102,14 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
     if (!input.trim() || isProcessing) return;
 
     const currentStability = gameState.stability;
+    const currentState = {
+      stability: currentStability,
+      health: gameState.health,
+      cognition: gameState.cognition,
+      containmentIntegrity: gameState.containmentIntegrity,
+      reputation: gameState.reputation,
+      inventory: gameState.inventory
+    };
     const newTurnCount = gameState.turnCount + 1;
     const originalInput = input; // Capture input to restore on error/timeout
 
@@ -138,7 +146,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
       console.log("[GameScreen] Invoking sendAction stream...");
       let fullResponse = '';
       
-      const stream = sendAction(userMsg.content, currentStability, newTurnCount, language);
+      const stream = sendAction(userMsg.content, currentState, newTurnCount, language);
       const iterator = stream[Symbol.asyncIterator]();
       
       // Idle Timeout Limit (30s)
@@ -194,27 +202,47 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
       const textAfterStability = stabilityResult.cleanText;
       const nextStability = stabilityResult.newStability;
 
+      const resourceResult = extractResources(textAfterStability);
+      const textAfterResources = resourceResult.cleanText;
+
       // Fallback: If stability drops to 0 but no ending tag, force COLLAPSE
       if (nextStability !== null && nextStability <= 0 && !detectedEndingType) {
         detectedEndingType = EndingType.COLLAPSE;
       }
 
-      const visualResult = extractVisualPrompt(textAfterStability);
+      const visualResult = extractVisualPrompt(textAfterResources);
       const finalText = visualResult.cleanText;
       const visualPrompt = visualResult.visualPrompt;
       
       const updatedStability = nextStability !== null ? nextStability : gameState.stability;
+      const updatedResources = {
+        health: resourceResult.resources.health ?? gameState.health,
+        cognition: resourceResult.resources.cognition ?? gameState.cognition,
+        containmentIntegrity: resourceResult.resources.containmentIntegrity ?? gameState.containmentIntegrity,
+        reputation: resourceResult.resources.reputation ?? gameState.reputation,
+        inventory: resourceResult.resources.inventory ?? gameState.inventory
+      };
 
       setGameState(prev => ({
         ...prev,
         stability: updatedStability,
+        health: updatedResources.health,
+        cognition: updatedResources.cognition,
+        containmentIntegrity: updatedResources.containmentIntegrity,
+        reputation: updatedResources.reputation,
+        inventory: updatedResources.inventory,
         endingType: detectedEndingType,
         messages: prev.messages.map(m => 
           m.id === aiMsgId ? { 
               ...m, 
               content: finalText, 
               isTyping: false,
-              stabilitySnapshot: updatedStability 
+              stabilitySnapshot: updatedStability,
+              health: updatedResources.health,
+              cognition: updatedResources.cognition,
+              containmentIntegrity: updatedResources.containmentIntegrity,
+              reputation: updatedResources.reputation,
+              inventory: updatedResources.inventory
           } : m
         )
       }));
@@ -265,6 +293,11 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         backgroundImage: null,
         mainImage: null,
         stability: 100,
+        health: 100,
+        cognition: 100,
+        containmentIntegrity: 100,
+        reputation: 100,
+        inventory: [],
         turnCount: 1,
         endingType: null,
         gameReview: null,
@@ -305,7 +338,16 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
       isTyping: false
     }));
     
-    setGameState({ ...newGameState, messages: restoredMessages });
+    const normalizedGameState = {
+      ...newGameState,
+      health: newGameState.health ?? 100,
+      cognition: newGameState.cognition ?? 100,
+      containmentIntegrity: newGameState.containmentIntegrity ?? 100,
+      reputation: newGameState.reputation ?? 100,
+      inventory: newGameState.inventory ?? []
+    };
+
+    setGameState({ ...normalizedGameState, messages: restoredMessages });
     setSaveLoadModalOpen(false);
   };
 
@@ -349,6 +391,13 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   // Check if we are currently viewing the report to disable effects
   const isViewingReport = gameState.status === GameStatus.GAME_OVER && isReportOpen;
 
+  const resourcePalette = [
+    { key: 'health', label: t('game.resource_health'), value: gameState.health, color: 'bg-red-500', text: 'text-red-300' },
+    { key: 'cognition', label: t('game.resource_cognition'), value: gameState.cognition, color: 'bg-blue-500', text: 'text-blue-300' },
+    { key: 'containmentIntegrity', label: t('game.resource_integrity'), value: gameState.containmentIntegrity, color: 'bg-amber-500', text: 'text-amber-300' },
+    { key: 'reputation', label: t('game.resource_reputation'), value: gameState.reputation, color: 'bg-purple-500', text: 'text-purple-300' }
+  ];
+
   return (
     <>
     <VisualEffects 
@@ -379,6 +428,37 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         onTerminate={() => setShowAbortModal(true)}
         isCritical={isCritical}
       />
+
+      <div className="border-b border-scp-gray/30 bg-black/40 px-4 py-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {resourcePalette.map(resource => (
+            <div key={resource.key} className="space-y-1">
+              <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-gray-400">
+                <span>{resource.label}</span>
+                <span className={`${resource.text} font-bold`}>{Math.round(resource.value)}%</span>
+              </div>
+              <div className="h-2 border border-scp-gray/50 bg-black overflow-hidden">
+                <div
+                  className={`h-full ${resource.color}`}
+                  style={{ width: `${Math.max(0, Math.min(resource.value, 100))}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-gray-400">
+          <span className="text-scp-text">{t('game.resource_inventory')}</span>
+          {gameState.inventory.length ? (
+            gameState.inventory.map(item => (
+              <span key={item} className="border border-scp-gray/40 bg-black/40 px-2 py-0.5 text-gray-200">
+                {item}
+              </span>
+            ))
+          ) : (
+            <span className="text-gray-500">{t('game.resource_inventory_empty')}</span>
+          )}
+        </div>
+      </div>
 
       <ChatArea 
         gameState={gameState}

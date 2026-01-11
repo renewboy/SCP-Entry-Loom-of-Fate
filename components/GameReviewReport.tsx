@@ -11,6 +11,12 @@ interface GameReviewReportProps {
   data: GameReviewData;
   scpData: SCPData | null;
   stabilityHistory?: number[];
+  resourceHistory?: {
+    health: number[];
+    cognition: number[];
+    containmentIntegrity: number[];
+    reputation: number[];
+  };
   messages?: Message[];
   role?: string;
   backgroundImage?: string | null;
@@ -138,10 +144,20 @@ const computeSessionStats = (messages: Message[] = [], stabilityHistory: number[
   };
 };
 
+type ResourceKey = 'health' | 'cognition' | 'containmentIntegrity' | 'reputation';
+
 import AudioDramaPlayer from './game/AudioDramaPlayer';
 import DebugAudioPlayer from './game/DebugAudioPlayer';
 
-const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stabilityHistory = [], messages = [], role = "Unknown", backgroundImage }) => {
+const GameReviewReport: React.FC<GameReviewReportProps> = ({
+  data,
+  scpData,
+  stabilityHistory = [],
+  resourceHistory = { health: [], cognition: [], containmentIntegrity: [], reputation: [] },
+  messages = [],
+  role = "Unknown",
+  backgroundImage
+}) => {
   const { t, language } = useTranslation();
 
   const [script, setScript] = useState<AudioDramaScript | null>(null);
@@ -151,6 +167,63 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
   const [isDebugOpen, setIsDebugOpen] = useState(true); // Default open for debug
 
   const stats = computeSessionStats(messages, stabilityHistory);
+
+  const resourcePalette: Array<{
+    key: ResourceKey;
+    label: string;
+    color: string;
+    text: string;
+  }> = [
+    { key: 'health', label: t('game.resource_health'), color: '#f87171', text: 'text-red-400' },
+    { key: 'cognition', label: t('game.resource_cognition'), color: '#60a5fa', text: 'text-blue-400' },
+    { key: 'containmentIntegrity', label: t('game.resource_integrity'), color: '#f59e0b', text: 'text-amber-400' },
+    { key: 'reputation', label: t('game.resource_reputation'), color: '#a78bfa', text: 'text-purple-400' }
+  ];
+
+  const narratorMessages = messages.filter(m => m.sender === 'narrator');
+
+  const getNarratorContext = (narratorId?: string) => {
+    if (!narratorId) return { trigger: '', snippet: '' };
+    const index = messages.findIndex(m => m.id === narratorId);
+    let trigger = '';
+    if (index > 0) {
+      for (let i = index - 1; i >= 0; i -= 1) {
+        if (messages[i].sender === 'user') {
+          trigger = messages[i].content;
+          break;
+        }
+      }
+    }
+    const narrator = messages.find(m => m.id === narratorId);
+    const snippet = narrator?.content ? narrator.content.slice(0, 60) + (narrator.content.length > 60 ? '…' : '') : '';
+    return { trigger, snippet };
+  };
+
+  const resourceDrops = resourcePalette.flatMap(resource => {
+    const series = resourceHistory[resource.key] || [];
+    if (series.length < 2) return [];
+    let worstDelta = 0;
+    let worstIndex = -1;
+    for (let i = 1; i < series.length; i += 1) {
+      const delta = series[i] - series[i - 1];
+      if (delta < worstDelta) {
+        worstDelta = delta;
+        worstIndex = i;
+      }
+    }
+    if (worstIndex === -1) return [];
+    const narratorMessage = narratorMessages[worstIndex];
+    const context = getNarratorContext(narratorMessage?.id);
+    return [{
+      key: resource.key,
+      label: resource.label,
+      delta: worstDelta,
+      turn: worstIndex,
+      trigger: context.trigger,
+      snippet: context.snippet,
+      textClass: resource.text
+    }];
+  });
 
   const handleGenerateScript = async () => {
     if (isGeneratingScript) return;
@@ -403,6 +476,89 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
     );
   };
 
+  const renderResourceCharts = () => {
+    const hasData = resourcePalette.some(resource => (resourceHistory[resource.key] || []).length > 1);
+    if (!hasData) return null;
+
+    const width = 800;
+    const height = 120;
+    const maxVal = 100;
+    const padding = 8;
+
+    return (
+      <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4">
+        <h3 className="text-sm text-scp-text font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
+          <span className="w-1 h-4 bg-purple-500 block"></span>
+          {t('report.resource_trends')}
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {resourcePalette.map(resource => {
+            const series = resourceHistory[resource.key] || [];
+            if (series.length < 2) return null;
+            const points = series.map((val, i) => {
+              const x = (i / (series.length - 1)) * width;
+              const y = height - (val / maxVal) * (height - padding);
+              return `${x},${y}`;
+            }).join(' ');
+            const endValue = series[series.length - 1];
+            return (
+              <div key={resource.key} className="border border-scp-gray/30 bg-black/30 p-3">
+                <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-gray-400 mb-2">
+                  <span>{resource.label}</span>
+                  <span className={`${resource.text} font-bold`}>{Math.round(endValue)}%</span>
+                </div>
+                <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto">
+                  <polyline
+                    points={points}
+                    fill="none"
+                    stroke={resource.color}
+                    strokeWidth="2"
+                    vectorEffect="non-scaling-stroke"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderResourceDrops = () => {
+    if (!resourceDrops.length) return null;
+    return (
+      <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4">
+        <h3 className="text-sm text-scp-text font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
+          <span className="w-1 h-4 bg-scp-accent block"></span>
+          {t('report.resource_drop_reasons')}
+        </h3>
+        <div className="space-y-3">
+          {resourceDrops.map(drop => (
+            <div key={drop.key} className="border border-scp-gray/30 bg-black/30 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-widest text-gray-400">
+                <span className={drop.textClass}>{drop.label}</span>
+                <span>{t('report.resource_drop_delta')}: {drop.delta}</span>
+                <span>{t('report.turn')} {drop.turn}</span>
+              </div>
+              {drop.trigger && (
+                <div className="mt-2 text-[10px] text-gray-300">
+                  {t('report.resource_drop_trigger')}: {drop.trigger}
+                </div>
+              )}
+              {drop.snippet && (
+                <div className="mt-1 text-[10px] text-gray-500 italic">
+                  "{drop.snippet}"
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="game-review-report w-full max-w-4xl mx-auto border-2 border-scp-gray bg-[#0a0a0a] relative p-6 md:p-12 font-mono text-gray-300 shadow-2xl overflow-hidden mt-8 mb-12">
       {/* Background Watermark */}
@@ -467,9 +623,13 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
       {/* Stability Chart */}
       {renderStabilityChart()}
 
+      {renderResourceCharts()}
+
       {renderPhaseDistribution()}
 
       {renderDeltaChart()}
+
+      {renderResourceDrops()}
 
       {renderEngagementChart()}
 

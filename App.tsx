@@ -28,6 +28,11 @@ const AppContent: React.FC = () => {
     backgroundImage: null,
     mainImage: null,
     stability: 100,
+    health: 100,
+    cognition: 100,
+    containmentIntegrity: 100,
+    reputation: 100,
+    inventory: [],
     turnCount: 0,
     endingType: null
   });
