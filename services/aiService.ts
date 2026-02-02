@@ -3,7 +3,7 @@ import { AIService } from "./ai/types";
 import { GeminiProvider } from "./ai/providers/geminiProvider";
 import { OpenAIProvider } from "./ai/providers/openaiProvider";
 import { aiConfig } from "../config/aiConfig";
-import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript } from "../types";
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData } from "../types";
 import { extractVisualPrompt, extractStability, extractEnding } from "./ai/utils";
 
 // Re-export utils for consumers
@@ -29,8 +29,8 @@ export const analyzeSCPUrl = async (input: string, language: Language = 'zh'): P
     return getProvider().analyzeSCPUrl(input, language);
 };
 
-export const initializeGameChatStream = (scp: SCPData, role: string, language: Language = 'zh'): AsyncGenerator<string> => {
-    return getProvider().initializeGameChatStream(scp, role, language);
+export const initializeGameChatStream = (scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData): AsyncGenerator<string> => {
+    return getProvider().initializeGameChatStream(scp, role, language, legacyData);
 };
 
 export const sendAction = (action: string, currentStability: number, turnCount: number, language: Language = 'zh'): AsyncGenerator<string> => {
@@ -55,6 +55,10 @@ export const generateGameReview = async (scpData: SCPData, role: string, ending:
 
 export const askNarratorQuestion = (question: string, language: Language): AsyncGenerator<string> => {
     return getProvider().askNarratorQuestion(question, language);
+};
+
+export const generateLegacyData = async (ending: string, role: string, language: Language): Promise<Partial<LegacyData>> => {
+    return getProvider().generateLegacyData(ending, role, language);
 };
 
 // Image Generation (Always uses Gemini Provider directly or via Facade if we wanted, 

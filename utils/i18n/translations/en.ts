@@ -213,5 +213,31 @@ export const en = {
     next: "Next Step",
     skip: "Skip Tutorial",
     finish: "INITIATE WEAVE"
+  },
+  legacy: {
+    new_game_plus: "NEW GAME +",
+    generating: "CALCULATING LEGACY...",
+    modal_title: "CAUSAL RESIDUE EXTRACTION",
+    modal_subtitle: "Transferable memetic traits and anomalous items detected. Select assets to anchor to the next worldline. (Max 5 each)",
+    traits: "MEMETIC TRAITS",
+    items: "REALITY ANCHORS",
+    echoes: "WORLDLINE ECHOES",
+    no_traits: "No stable memetic traits detected.",
+    no_items: "No transferable items detected.",
+    confirm_start: "INITIATE RESET PROTOCOL",
+    sidebar_title: "LEGACY ARCHIVE",
+    run_count: "ITERATION CYCLE"
+  },
+  common: {
+    cancel: "CANCEL",
+    confirm: "CONFIRM",
+    read_only: "READ ONLY",
+    settings: "Settings"
+  },
+  settings: {
+    title: "SYSTEM SETTINGS",
+    scene_images: "In-Game Scene Image Generation",
+    bg_images: "Initial SCP Background Generation",
+    entity_images: "Initial Entity Portrait Generation"
   }
 };

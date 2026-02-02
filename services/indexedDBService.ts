@@ -1,4 +1,4 @@
-import { GameState, SaveGameMetadata } from '../types';
+import { GameState, SaveGameMetadata, GlobalSettings } from '../types';
 import { compressGameState, createThumbnail, decompressGameState } from '../utils/saveHelpers';
 
 export const ERROR_CODES = {
@@ -7,16 +7,24 @@ export const ERROR_CODES = {
 
 const MAX_SAVES = 10;
 const DB_NAME = 'scp_saves';
-const DB_VERSION = 3; // Increment version
+const DB_VERSION = 5; // Increment version
 const STORE_NAME = 'saves';
 const CLOUD_STORE_NAME = 'cloud_saves';
 const SETTINGS_STORE_NAME = 'settings';
+const GLOBAL_SETTINGS_KEY = 'global_settings';
+
+const DEFAULT_SETTINGS: GlobalSettings = {
+    enableSceneImages: true,
+    enableBackgroundImages: true,
+    enableEntityImages: true
+};
 
 interface IDBSaveGame extends SaveGameMetadata {
   game_state: { compressed: boolean; data: string };
 }
 
 const openDB = (): Promise<IDBDatabase> => {
+// ... existing openDB implementation
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
@@ -41,6 +49,18 @@ const openDB = (): Promise<IDBDatabase> => {
       reject((event.target as IDBOpenDBRequest).error);
     };
   });
+};
+
+// ... existing functions ...
+
+export const saveGlobalSettings = async (settings: GlobalSettings): Promise<void> => {
+    return saveSetting(GLOBAL_SETTINGS_KEY, settings);
+};
+
+export const loadGlobalSettings = async (): Promise<GlobalSettings> => {
+    const settings = await loadSetting(GLOBAL_SETTINGS_KEY);
+    if (!settings) return DEFAULT_SETTINGS;
+    return { ...DEFAULT_SETTINGS, ...settings };
 };
 
 export const saveGame = async (gameState: GameState, id?: string, createdAtOverride?: string): Promise<{ data: any; error: any }> => {

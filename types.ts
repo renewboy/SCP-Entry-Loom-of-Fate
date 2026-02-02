@@ -155,6 +155,37 @@ export interface QAPair {
   timestamp: number;
 }
 
+export interface Trait {
+  id: string;
+  name: string;
+  description: string;
+  effectType: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+  icon: string; // Emoji
+}
+
+export interface LegacyItem {
+  id: string;
+  name: string;
+  description: string;
+  icon: string; // Emoji
+}
+
+export interface WorldEcho {
+  id: string;
+  title: string;
+  summary: string;
+  endingType: EndingType;
+  timestamp: number;
+  roleName: string; // The role/character name who experienced this echo
+}
+
+export interface LegacyData {
+  traits: Trait[];
+  items: LegacyItem[];
+  echoes: WorldEcho[];
+  runCount: number;
+}
+
 export interface GameState {
   status: GameStatus;
   scpData: SCPData | null;
@@ -169,6 +200,7 @@ export interface GameState {
   language?: Language; // Language setting at the time of save
   gameReview?: GameReviewData | null; // Persisted game review
   qaHistory?: QAPair[]; // Persisted Q&A history
+  legacy?: LegacyData; // New Game+ Legacy Data
 }
 
 export interface SaveGameMetadata {
@@ -211,4 +243,10 @@ export interface AudioDramaScript {
   title: string;
   cast: AudioDramaCast[];
   scenes: AudioDramaScene[];
+}
+
+export interface GlobalSettings {
+  enableSceneImages: boolean; // Per-turn visual prompts
+  enableBackgroundImages: boolean; // Initial SCP analysis background
+  enableEntityImages: boolean; // Initial entity portrait
 }

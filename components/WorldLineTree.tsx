@@ -2,9 +2,9 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Message, SCPData, EndingType, GameReviewData, QAPair } from '../types';
+import { Message, SCPData, EndingType, GameReviewData, QAPair, LegacyData, Trait, LegacyItem } from '../types';
 import { useTranslation } from '../utils/i18n';
-import { generateGameReview, askNarratorQuestion, generateAudioDramaScript } from '../services/aiService';
+import { generateGameReview, askNarratorQuestion, generateAudioDramaScript, generateLegacyData } from '../services/aiService';
 import GameReviewReport from './GameReviewReport';
 import QAHistory from './QAHistory';
 import DebugAudioPlayer from './game/DebugAudioPlayer';
@@ -14,6 +14,7 @@ interface WorldLineTreeProps {
   messages: Message[];
   scpData: SCPData | null;
   onRestart: () => void;
+  onNewGamePlus: (legacyData: LegacyData) => void;
   onMinimize: () => void;
   backgroundImage: string | null;
   endingType: EndingType;
@@ -22,12 +23,14 @@ interface WorldLineTreeProps {
   qaHistory: QAPair[] | undefined;
   onReviewUpdate: (review: GameReviewData) => void;
   onQAUpdate: (qa: QAPair) => void;
+  currentLegacyData?: LegacyData;
 }
 
 const WorldLineTree: React.FC<WorldLineTreeProps> = ({ 
   messages, 
   scpData, 
   onRestart, 
+  onNewGamePlus,
   onMinimize, 
   backgroundImage, 
   endingType, 
@@ -35,7 +38,8 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
   gameReview,
   qaHistory = [],
   onReviewUpdate,
-  onQAUpdate
+  onQAUpdate,
+  currentLegacyData
 }) => {
   const { t, language } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -51,6 +55,15 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
   const [isQaLoading, setIsQaLoading] = useState(false);
   const [streamingAnswer, setStreamingAnswer] = useState('');
   const qaCount = qaHistory.length;
+
+  // New Game+ States
+  const [isGeneratingLegacy, setIsGeneratingLegacy] = useState(false);
+  const [newLegacyData, setNewLegacyData] = useState<Partial<LegacyData> | null>(null);
+  const [showLegacyModal, setShowLegacyModal] = useState(false);
+  
+  // Selection States for Legacy
+  const [selectedTraits, setSelectedTraits] = useState<Trait[]>([]);
+  const [selectedItems, setSelectedItems] = useState<LegacyItem[]>([]);
 
   // Extract Stability History
   const [stabilityHistory, setStabilityHistory] = useState<number[]>([100]);
@@ -97,6 +110,81 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
     } finally {
         setIsGenerating(false);
     }
+  };
+
+  const handleNewGamePlusClick = async () => {
+      if (isGeneratingLegacy) return;
+      setIsGeneratingLegacy(true);
+      try {
+          const generated = await generateLegacyData(endingType || 'UNKNOWN', role, language);
+          
+          // Combine with existing legacy data
+          const combinedTraits = [
+              ...(currentLegacyData?.traits || []),
+              ...(generated.traits || [])
+          ];
+          // Remove duplicates by ID or Name
+          const uniqueTraits = Array.from(new Map(combinedTraits.map(item => [item.name, item])).values());
+
+          const combinedItems = [
+              ...(currentLegacyData?.items || []),
+              ...(generated.items || [])
+          ];
+          const uniqueItems = Array.from(new Map(combinedItems.map(item => [item.name, item])).values());
+
+          setNewLegacyData({
+              traits: uniqueTraits,
+              items: uniqueItems,
+              echoes: [
+                  ...(currentLegacyData?.echoes || []),
+                  ...(generated.echoes || [])
+              ],
+              runCount: (currentLegacyData?.runCount || 0) + 1
+          });
+          
+          // Default selection: Select all if <= 5, otherwise select first 5 (user can change)
+          setSelectedTraits(uniqueTraits.slice(0, 5));
+          setSelectedItems(uniqueItems.slice(0, 5));
+
+          setShowLegacyModal(true);
+      } catch (e) {
+          console.error("Legacy generation failed", e);
+      } finally {
+          setIsGeneratingLegacy(false);
+      }
+  };
+
+  const handleConfirmLegacy = () => {
+      if (!newLegacyData) return;
+      
+      const finalLegacyData: LegacyData = {
+          traits: selectedTraits,
+          items: selectedItems,
+          echoes: newLegacyData.echoes || [],
+          runCount: newLegacyData.runCount || 1
+      };
+      
+      onNewGamePlus(finalLegacyData);
+  };
+
+  const toggleTraitSelection = (trait: Trait) => {
+      if (selectedTraits.some(t => t.name === trait.name)) {
+          setSelectedTraits(selectedTraits.filter(t => t.name !== trait.name));
+      } else {
+          if (selectedTraits.length < 5) {
+              setSelectedTraits([...selectedTraits, trait]);
+          }
+      }
+  };
+
+  const toggleItemSelection = (item: LegacyItem) => {
+      if (selectedItems.some(i => i.name === item.name)) {
+          setSelectedItems(selectedItems.filter(i => i.name !== item.name));
+      } else {
+          if (selectedItems.length < 5) {
+              setSelectedItems([...selectedItems, item]);
+          }
+      }
   };
 
   // Audio Drama State
@@ -484,6 +572,27 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                         </span>
                      </button>
                 )}
+                
+                {/* New Game+ Button */}
+                <button
+                    onClick={handleNewGamePlusClick}
+                    disabled={isGeneratingLegacy || showLegacyModal}
+                    className="group relative px-8 py-3 bg-scp-dark border border-amber-500/50 hover:border-amber-500 transition-all overflow-hidden"
+                >
+                    <div className="absolute inset-0 bg-amber-500/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                    <span className="relative font-mono font-bold text-amber-500 text-sm flex items-center gap-2">
+                        {isGeneratingLegacy ? (
+                            <>
+                                <span className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></span>
+                                {t('legacy.generating') || 'CALCULATING LEGACY...'}
+                            </>
+                        ) : (
+                            <>
+                                <span className="text-lg">🔮</span> {t('legacy.new_game_plus') || 'NEW GAME +'}
+                            </>
+                        )}
+                    </span>
+                </button>
             </div>
 
             {/* Review Section */}
@@ -576,6 +685,135 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
               );
               return createPortal(debugPlayer, document.body);
           })()
+      )}
+
+      {/* Legacy Selection Modal - Using Portal to render at body level */}
+      {showLegacyModal && newLegacyData && createPortal(
+          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+              <div className="bg-scp-dark border-2 border-scp-term/50 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-[0_0_30px_rgba(51,255,0,0.2)] flex flex-col">
+                  <div className="p-6 border-b border-scp-term/30 sticky top-0 bg-scp-dark z-10">
+                      <h2 className="text-2xl font-report text-scp-term mb-2">
+                          {t('legacy.modal_title') || 'LEGACY EXTRACTION'}
+                      </h2>
+                      <p className="font-mono text-xs text-scp-term/70">
+                          {t('legacy.modal_subtitle') || 'Select traits and items to carry over to the next timeline. (Max 5 each)'}
+                      </p>
+                  </div>
+                  
+                  <div className="p-6 space-y-8 flex-1">
+                      {/* Traits Selection */}
+                      <div>
+                          <h3 className="font-mono text-sm text-scp-term mb-4 border-l-2 border-scp-term pl-3 flex justify-between items-center">
+                              <span>🧬 {t('legacy.traits') || 'TRAITS'}</span>
+                              <span className="text-xs opacity-70">{selectedTraits.length} / 5</span>
+                          </h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {newLegacyData.traits?.map((trait, idx) => (
+                                  <button
+                                      key={`${trait.name}-${idx}`}
+                                      onClick={() => toggleTraitSelection(trait as Trait)}
+                                      className={`
+                                          p-3 text-left border transition-all relative group
+                                          ${selectedTraits.some(t => t.name === trait.name) 
+                                              ? 'bg-scp-term/20 border-scp-term text-scp-term' 
+                                              : 'bg-black/40 border-gray-800 text-gray-500 hover:border-gray-600'
+                                          }
+                                      `}
+                                  >
+                                      <div className="flex items-center gap-2 mb-1">
+                                          <span className="text-xl">{trait.icon}</span>
+                                          <span className="font-bold font-mono text-xs">{trait.name}</span>
+                                      </div>
+                                      <p className="text-[10px] font-mono leading-tight opacity-80">{trait.description}</p>
+                                  </button>
+                              ))}
+                              {(!newLegacyData.traits || newLegacyData.traits.length === 0) && (
+                                  <div className="col-span-full text-center py-4 text-xs font-mono text-gray-600 italic">
+                                      {t('legacy.no_traits') || 'No traits generated.'}
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+
+                      {/* Items Selection */}
+                      <div>
+                          <h3 className="font-mono text-sm text-scp-term mb-4 border-l-2 border-scp-term pl-3 flex justify-between items-center">
+                              <span>🎒 {t('legacy.items') || 'REALITY ANCHORS'}</span>
+                              <span className="text-xs opacity-70">{selectedItems.length} / 5</span>
+                          </h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {newLegacyData.items?.map((item, idx) => (
+                                  <button
+                                      key={`${item.name}-${idx}`}
+                                      onClick={() => toggleItemSelection(item as LegacyItem)}
+                                      className={`
+                                          p-3 text-left border transition-all relative group
+                                          ${selectedItems.some(i => i.name === item.name) 
+                                              ? 'bg-scp-term/20 border-scp-term text-scp-term' 
+                                              : 'bg-black/40 border-gray-800 text-gray-500 hover:border-gray-600'
+                                          }
+                                      `}
+                                  >
+                                      <div className="flex items-center gap-2 mb-1">
+                                          <span className="text-xl">{item.icon}</span>
+                                          <span className="font-bold font-mono text-xs">{item.name}</span>
+                                      </div>
+                                      <p className="text-[10px] font-mono leading-tight opacity-80">{item.description}</p>
+                                  </button>
+                              ))}
+                              {(!newLegacyData.items || newLegacyData.items.length === 0) && (
+                                  <div className="col-span-full text-center py-4 text-xs font-mono text-gray-600 italic">
+                                      {t('legacy.no_items') || 'No items preserved.'}
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+
+                      {/* Echoes Display (Read-only) */}
+                      {newLegacyData.echoes && newLegacyData.echoes.length > 0 && (
+                          <div>
+                              <h3 className="font-mono text-sm text-scp-term mb-4 border-l-2 border-scp-term pl-3 flex justify-between items-center">
+                                  <span>📢 {t('legacy.echoes') || 'WORLD ECHOES'}</span>
+                                  <span className="text-xs opacity-70">{t('common.read_only') || 'READ ONLY'}</span>
+                              </h3>
+                              <div className="space-y-3">
+                                  {[...newLegacyData.echoes].reverse().map((echo, idx) => (
+                                      <div key={idx} className="bg-black/40 border border-scp-term/30 p-3 rounded relative overflow-hidden">
+                                          <div className="absolute top-0 right-0 p-1">
+                                              <span className="text-[9px] bg-scp-term/20 text-scp-term px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                                  {echo.endingType}
+                                              </span>
+                                          </div>
+                                          <div className="text-xs font-bold text-gray-300 font-mono mb-1">
+                                              "{echo.title}"
+                                          </div>
+                                          <p className="text-[10px] text-gray-500 font-mono leading-relaxed italic border-l-2 border-scp-term/50 pl-2">
+                                              {echo.summary}
+                                          </p>
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      )}
+                  </div>
+
+                  <div className="p-6 border-t border-scp-term/30 bg-black/40 flex justify-end gap-4 sticky bottom-0">
+                      <button
+                          onClick={() => setShowLegacyModal(false)}
+                          className="px-6 py-2 border border-gray-700 text-gray-400 font-mono text-xs hover:text-white hover:border-gray-500 transition-colors"
+                      >
+                          {t('common.cancel') || 'CANCEL'}
+                      </button>
+                      <button
+                          onClick={handleConfirmLegacy}
+                          className="px-8 py-2 bg-scp-term/20 border border-scp-term text-scp-term font-mono text-xs font-bold hover:bg-scp-term hover:text-black transition-all shadow-[0_0_15px_rgba(51,255,0,0.2)]"
+                      >
+                          {t('legacy.confirm_start') || 'INITIATE PROTOCOL'}
+                      </button>
+                  </div>
+              </div>
+          </div>,
+          document.body
       )}
 
       </div>

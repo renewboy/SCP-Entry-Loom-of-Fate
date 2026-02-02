@@ -15,7 +15,7 @@ export const aiConfig = {
 
   // Model names (Gemini)
   models: {
-    chat: 'gemini-2.5-flash-lite',
+    chat: 'gemini-2.5-flash',
     image: 'gemini-2.5-flash-image',
   },
 

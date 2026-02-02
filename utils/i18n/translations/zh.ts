@@ -213,5 +213,31 @@ export const zh = {
     next: "下一步",
     skip: "跳过教程",
     finish: "开始编织"
+  },
+  legacy: {
+    new_game_plus: "开启新周目",
+    generating: "正在计算传承数据...",
+    modal_title: "因果残留提取程序",
+    modal_subtitle: "检测到可转移的模因特质与异常物品。请选择要锚定至下一条世界线的资产。(各最多5个)",
+    traits: "模因特质",
+    items: "现实锚定物",
+    echoes: "世界线回响",
+    no_traits: "未检测到稳定的模因特质。",
+    no_items: "未检测到可转移的物品。",
+    confirm_start: "启动重置协议",
+    sidebar_title: "传承档案",
+    run_count: "迭代周期"
+  },
+  common: {
+    cancel: "取消",
+    confirm: "确认",
+    read_only: "只读",
+    settings: "设置"
+  },
+  settings: {
+    title: "系统设置",
+    scene_images: "游戏内场景生图",
+    bg_images: "开局 SCP 背景生图",
+    entity_images: "开局实体肖像生图"
   }
 };

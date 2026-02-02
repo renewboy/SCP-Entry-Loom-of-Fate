@@ -2,17 +2,27 @@
 
 import React, { useState, useEffect } from 'react';
 import { analyzeSCPUrl, initializeGameChatStream, generateImage, extractVisualPrompt, extractStability, restoreChatSession } from '../services/aiService';
-import { GameState, GameStatus, Role } from '../types';
+import { loadGlobalSettings } from '../services/indexedDBService';
+import { GameState, GameStatus, Role, LegacyData } from '../types';
 import ParticleText from './ParticleText';
 import SaveLoadModal from './SaveLoadModal';
 import { useTranslation, ROLE_TRANSLATIONS } from '../utils/i18n';
 import GameLogo from './GameLogo';
+import LegacySidebar from './LegacySidebar';
+import GlobalSettingsModal from './GlobalSettingsModal';
+
+declare global {
+    interface Window {
+        aistudio?: any;
+    }
+}
 
 interface StartScreenProps {
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
+  legacyData?: LegacyData;
 }
 
-const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
+const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) => {
   const { t, language } = useTranslation();
   const LOADING_MESSAGES = t('start.loading_msgs') as string[];
 
@@ -23,6 +33,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
   const [error, setError] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState(false);
   const [saveLoadModalOpen, setSaveLoadModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   useEffect(() => {
     // Check for API key on mount
@@ -84,29 +95,36 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
 
       const finalRole = selectedRole === Role.CUSTOM ? customRole : selectedRole;
       
+      // Load settings to determine if images should be generated
+      const settings = await loadGlobalSettings();
+
       // 2. Start Background Image Gen (Async)
-      console.log("[StartScreen] Initiating background image generation...");
-      
-      const bgDescription = scpData.visualDescription || `texture and atmosphere of ${scpData.name}`;
-      const bgPrompt = `Atmospheric, cinematic lighting, abstract horror background representing ${bgDescription}, subtle, texture, scp foundation style, dark moody`;
-      
-      generateImage(bgPrompt, "16:9").then(bgUrl => {
-         if(bgUrl) setGameState(prev => ({...prev, backgroundImage: bgUrl}));
-      });
+      if (settings.enableBackgroundImages) {
+          console.log("[StartScreen] Initiating background image generation...");
+          
+          const bgDescription = scpData.visualDescription || `texture and atmosphere of ${scpData.name}`;
+          const bgPrompt = `Atmospheric, cinematic lighting, abstract horror background representing ${bgDescription}, subtle, texture, scp foundation style, dark moody`;
+          
+          generateImage(bgPrompt, "16:9").then(bgUrl => {
+             if(bgUrl) setGameState(prev => ({...prev, backgroundImage: bgUrl}));
+          });
+      }
 
       // 3. Generate Main SCP Image (Async)
-      const entityDescription = scpData.entityDescription;
-      const mainPrompt = `Close up full body shot of ${scpData.name}: ${entityDescription}. detailed, photorealistic, containment cell, scp foundation record photo`;
-      
-      generateImage(mainPrompt, "1:1").then(mainUrl => {
-         if(mainUrl) setGameState(prev => ({...prev, mainImage: mainUrl}));
-      });
+      if (settings.enableEntityImages) {
+          const entityDescription = scpData.entityDescription;
+          const mainPrompt = `Close up full body shot of ${scpData.name}: ${entityDescription}. detailed, photorealistic, containment cell, scp foundation record photo`;
+          
+          generateImage(mainPrompt, "1:1").then(mainUrl => {
+             if(mainUrl) setGameState(prev => ({...prev, mainImage: mainUrl}));
+          });
+      }
 
       // 4. Initialize Chat with Stream
       setLoadingStep(LOADING_MESSAGES[0]);
       
       // Create the generator
-      const stream = initializeGameChatStream(scpData, finalRole, language);
+      const stream = initializeGameChatStream(scpData, finalRole, language, legacyData);
       const msgId = 'intro';
       let fullText = "";
       let isFirstChunk = true;
@@ -129,7 +147,8 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
                     content: fullText,
                     timestamp: Date.now(),
                     isTyping: true
-                }]
+                }],
+                legacy: legacyData
             }));
             isFirstChunk = false;
         } else {
@@ -164,7 +183,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
       }));
 
       // Generate intro image if prompt exists
-      if (visualPrompt) {
+      if (visualPrompt && settings.enableSceneImages) {
           generateImage(visualPrompt, "16:9").then(introImageUrl => {
                if (introImageUrl) {
                     setGameState(prev => ({
@@ -192,6 +211,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
 
   return (
     <div className="max-w-xl w-full p-8 bg-black/60 border border-scp-gray relative backdrop-blur-md z-10 crt shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
+        {legacyData && <LegacySidebar legacyData={legacyData} />}
         <div className="absolute top-0 left-0 w-full h-1 bg-scp-accent shadow-[0_0_10px_rgba(195,46,46,0.5)]"></div>
         <div className="absolute bottom-0 right-0 w-20 h-20 border-r-2 border-b-2 border-scp-gray opacity-50 pointer-events-none"></div>
 
@@ -199,6 +219,18 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
         <div className="absolute top-4 left-4 z-20">
             <GameLogo className="h-10 w-10 md:h-12 md:w-12 opacity-90 drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />
         </div>
+
+        {/* Settings Button positioned at the top-right */}
+        <button 
+            onClick={() => setSettingsModalOpen(true)}
+            className="absolute top-4 right-4 z-20 text-gray-400 hover:text-white transition-colors p-2"
+            title={t('common.settings') || 'Settings'}
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        </button>
 
         {/* Replaced static titles with ParticleText */}
       
@@ -333,6 +365,11 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
             setGameState(gameState);
             setSaveLoadModalOpen(false);
         }}
+      />
+
+      <GlobalSettingsModal 
+        isOpen={settingsModalOpen} 
+        onClose={() => setSettingsModalOpen(false)} 
       />
     </div>
   );

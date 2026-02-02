@@ -69,7 +69,7 @@ const AppContent: React.FC = () => {
       {/* Main Content Container - z-10 */}
       <div className="relative z-10 w-full flex justify-center items-center p-2 sm:p-4 h-full">
         {gameState.status === GameStatus.IDLE ? (
-          <StartScreen setGameState={setGameState} />
+          <StartScreen setGameState={setGameState} legacyData={gameState.legacy} />
         ) : (
           <GameScreen gameState={gameState} setGameState={setGameState} />
         )}

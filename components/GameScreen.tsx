@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { GameState, GameStatus, Message, EndingType, GameReviewData, QAPair } from '../types';
+import { GameState, GameStatus, Message, EndingType, GameReviewData, QAPair, LegacyData } from '../types';
 import { sendAction, extractVisualPrompt, extractStability, extractEnding, generateImage, getChatHistory, restoreChatSession } from '../services/aiService';
 import ConfirmationModal from './ConfirmationModal';
 import SaveLoadModal from './SaveLoadModal';
 import WorldLineTree from './WorldLineTree';
+import LegacySidebar from './LegacySidebar';
 import { useTranslation } from '../utils/i18n';
 
 // New Imports
@@ -15,7 +16,7 @@ import ChatArea from './game/ChatArea';
 import InputArea from './game/InputArea';
 import EndingOverlay from './game/EndingOverlay';
 import TutorialOverlay from './game/TutorialOverlay';
-import { loadSetting, saveSetting } from '../services/indexedDBService';
+import { loadSetting, saveSetting, loadGlobalSettings } from '../services/indexedDBService';
 
 interface GameScreenProps {
   gameState: GameState;
@@ -245,6 +246,13 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   };
 
   const generateIllustration = async (messageId: string, prompt: string) => {
+    // Check settings before generating
+    const settings = await loadGlobalSettings();
+    if (!settings.enableSceneImages) {
+        console.log("[GameScreen] Scene image generation disabled by settings.");
+        return;
+    }
+
     const base64 = await generateImage(prompt + ", dark aesthetic, scp foundation style, cinematic lighting", "16:9");
     if (base64) {
       setGameState(prev => ({
@@ -349,6 +357,23 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   // Check if we are currently viewing the report to disable effects
   const isViewingReport = gameState.status === GameStatus.GAME_OVER && isReportOpen;
 
+  const handleNewGamePlus = (legacyData: LegacyData) => {
+    setGameState({
+        status: GameStatus.IDLE,
+        scpData: null,
+        role: '',
+        messages: [],
+        backgroundImage: null,
+        mainImage: null,
+        stability: 100,
+        turnCount: 1,
+        endingType: null,
+        gameReview: null,
+        qaHistory: [],
+        legacy: legacyData
+    });
+  };
+
   return (
     <>
     <VisualEffects 
@@ -364,6 +389,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         className={`relative z-10 w-full max-w-4xl h-[85vh] md:h-[90vh] flex flex-col bg-black/15 shadow-2xl overflow-hidden crt transition-all duration-1000 ${isGlitching && !isViewingReport ? 'animate-shake' : ''}`}
         style={isUnstable && !isViewingReport ? { filter: 'url(#signal-interference)' } : {}}
     >
+      {gameState.legacy && <LegacySidebar legacyData={gameState.legacy} />}
 
       {/* Main Border */}
       <div className={`absolute inset-0 border pointer-events-none z-40 transition-colors duration-1000 ${isCritical ? 'border-scp-accent/50' : 'border-scp-gray/50'}`}></div>
@@ -416,6 +442,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
                 messages={gameState.messages} 
                 scpData={gameState.scpData} 
                 onRestart={handleAbort} 
+                onNewGamePlus={handleNewGamePlus}
                 onMinimize={() => setIsReportOpen(false)}
                 backgroundImage={gameState.backgroundImage}
                 endingType={gameState.endingType || EndingType.UNKNOWN}
@@ -424,6 +451,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
                 qaHistory={gameState.qaHistory}
                 onReviewUpdate={handleReviewUpdate}
                 onQAUpdate={handleQAUpdate}
+                currentLegacyData={gameState.legacy}
             />
           </div>
       )}

@@ -1,9 +1,9 @@
 import { GoogleGenAI, Chat, Content } from "@google/genai";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { AIService } from "../types";
-import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript } from "../../../types";
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData } from "../../../types";
 import { aiConfig } from "../../../config/aiConfig";
-import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt } from "../prompts";
+import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt } from "../prompts";
 import { normalizeGameReviewData, safeParseJson } from "../utils";
 import { AudioDramaSchema, OperationEvaluationSchema } from "../schemas";
 
@@ -93,10 +93,24 @@ export class GeminiProvider implements AIService {
         }
     }
 
-    async *initializeGameChatStream(scp: SCPData, role: string, language: Language = 'zh'): AsyncGenerator<string> {
+    async *initializeGameChatStream(scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData): AsyncGenerator<string> {
         console.log(`[GeminiProvider] Initializing chat stream for ${scp.designation} as ${role} in ${language}`);
         const systemInstruction = getSystemInstruction(role, language);
-        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language);
+        
+        // Format LegacyData into a string if it exists
+        let legacyString = '';
+        if (legacyData) {
+            const traitsStr = legacyData.traits.length > 0 ? 
+                `Traits:\n${legacyData.traits.map(t => `- ${t.icon} ${t.name}: ${t.description}`).join('\n')}` : '';
+            const itemsStr = legacyData.items.length > 0 ? 
+                `Items:\n${legacyData.items.map(i => `- ${i.icon} ${i.name}: ${i.description}`).join('\n')}` : '';
+            const echoesStr = legacyData.echoes.length > 0 ? 
+                `World Echoes (Past Lives):\n${legacyData.echoes.map(e => `- [Role: ${e.roleName}] [${e.endingType}] ${e.title}: ${e.summary}`).join('\n')}` : '';
+            
+            legacyString = [traitsStr, itemsStr, echoesStr].filter(Boolean).join('\n\n');
+        }
+
+        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, legacyString);
 
         this.chatSession = {
             chat: this.client.chats.create({
@@ -286,6 +300,41 @@ export class GeminiProvider implements AIService {
         } catch (error) {
             console.error("Q&A failed:", error);
             yield language === 'zh' ? "因果同步超时。" : "Causal sync timeout.";
+        }
+    }
+
+    async generateLegacyData(ending: string, role: string, language: Language): Promise<Partial<LegacyData>> {
+        console.log(`[GeminiProvider] Generating Legacy Data...`);
+        if (!this.chatSession) {
+            console.error("Chat session is missing. Cannot generate legacy data.");
+            return { traits: [], items: [], echoes: [] };
+        }
+
+        const prompt = getLegacyGenerationPrompt(ending, role, language);
+
+        try {
+             // Send message to existing history
+             const response = await this.chatSession.chat.sendMessage({
+                message: prompt,
+            });
+            const text = response.text;
+            if (!text) throw new Error("Empty response for legacy data");
+
+            const parsed = safeParseJson(text);
+            if (!parsed) throw new Error('Failed to parse legacy JSON');
+
+            return {
+                traits: Array.isArray(parsed.traits) ? parsed.traits : [],
+                items: Array.isArray(parsed.items) ? parsed.items : [],
+                echoes: parsed.echo ? [{
+                    ...parsed.echo,
+                    timestamp: Date.now(),
+                    roleName: role
+                }] : []
+            };
+        } catch (error) {
+            console.error("Failed to generate legacy data:", error);
+            return { traits: [], items: [], echoes: [] };
         }
     }
 }

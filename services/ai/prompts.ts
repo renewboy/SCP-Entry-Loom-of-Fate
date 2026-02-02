@@ -101,14 +101,23 @@ Output Language for 'visualDescription', 'entityDescription': English.
 Preferred Output Language for 'name': ${langInstruction}.`;
 };
 
-export const getStartGamePrompt = (role: string, scpDesignation: string, containmentClass: string, language: Language) => {
+export const getStartGamePrompt = (role: string, scpDesignation: string, containmentClass: string, language: Language, legacyData?: string) => {
     const langInstruction = language === 'zh' ? '中文' : '英文';
+    const legacyIntro = '[已激活遗产继承系统 - 开启新周目]\n当前时间线受到先前迭代周期的因果影响。玩家角色从过去的世界线中继承了以下特质、物品与记忆回响。\n请将这些要素有机融入叙事与角色初始状态：';
+    const legacyEnd = '[遗产数据结束]';
+    const legacyInjection = legacyData ? `
+${legacyIntro}
+${legacyData}
+${legacyEnd}
+` : '';
+
     return `
 游戏设定：
 - 玩家角色：${role}
 - 目标：${scpDesignation}
 - 项目等级：${containmentClass}
 - 回合: 1
+${legacyInjection}
 
 现在开始游戏，请使用 Search 工具检索该目标的所有关键资料，严格按以下格式，用${langInstruction}生成内容：
 - **目标**：${scpDesignation}
@@ -123,15 +132,53 @@ export const getStartGamePrompt = (role: string, scpDesignation: string, contain
 
 - **项目描述**
 
-- **角色简介**
+- **角色简介** 
+(如果存在继承特质，请将其融入此处)
 
-- "${role}"的初始遭遇场景, 主线任务等, 200-300字, ${langInstruction}。
+- "${role}"的初始遭遇场景, 主线任务等, 200-300字, ${langInstruction}。 (如果存在继承物品，请提及角色已持有它们)
 - [STABILITY: 100]
 - [VISUAL: prompt] (可选)
 
 主要搜索源: https://scp-wiki.wikidot.com/, https://scp-wiki-cn.wikidot.com/, google
 Hint: 你可以拼接搜索源网址 and SCP目标, 得到目标的档案网页, 例如: https://scp-wiki.wikidot.com/[designation]
 给玩家2-3个初始互动选项, 并加上“其他（请输入）”。`;
+};
+
+export const getLegacyGenerationPrompt = (ending: string, role: string, language: Language) => {
+    const langPrompt = language === 'zh' ? 'Chinese' : 'English';
+    return `
+[SYSTEM COMMAND: INITIATE NEW GAME+ LEGACY EXTRACTION]
+
+Task: Analyze the completed timeline (ending: ${ending}, role: ${role}) and extract "Legacy Data" for the next playthrough (New Game+).
+Based on the player's actions, achievements, and final state, generate Traits, Items, and a World Echo.
+
+Requirements:
+1. **Traits**: Generate 0 to 3 character traits (Perks/Curses) that reflect the character's experiences or mutation.
+   - effectType: POSITIVE, NEGATIVE, or NEUTRAL.
+   - icon: A single relevant Emoji.
+2. **Items**: Generate 0 to 3 key items the character might have preserved, carried over, or conceptually inherited.
+   - icon: A single relevant Emoji.
+3. **World Echo**: Generate EXACTLY ONE "World Echo" - a summary of this specific timeline's conclusion that will haunt future iterations.
+   - IMPORTANT: The 'roleName' must be the specific character name from THIS run.
+4. **Language**: All name/title/description/summary must be in ${langPrompt}.
+
+Format: RETURN ONLY RAW JSON. No markdown.
+{
+  "traits": [
+    { "id": "string_id", "name": "string", "description": "string", "effectType": "POSITIVE"|"NEGATIVE"|"NEUTRAL", "icon": "emoji" }
+  ],
+  "items": [
+    { "id": "string_id", "name": "string", "description": "string", "icon": "emoji" }
+  ],
+  "echo": {
+    "id": "string_id", 
+    "title": "string (e.g., The Fall of Site-19)", 
+    "summary": "string (3-5 sentences, summarizing role, key event, outcome, and fate. Be specific and narrative.)", 
+    "endingType": "${ending}",
+    "roleName": "string"
+  }
+}
+`;
 };
 
 export const getContextPrompt = (action: string, currentStability: number, turnCount: number, language: Language) => {
