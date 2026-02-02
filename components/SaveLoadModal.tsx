@@ -49,6 +49,29 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
       }
   }, [user]);
 
+  useEffect(() => {
+    if (!isOpen || !user) return;
+
+    const channel = Cloud.supabase
+      .channel('public:save_games')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'save_games', filter: `user_id=eq.${user.id}` },
+        async () => {
+          const { data: freshCloudData } = await Cloud.loadGames(user.id);
+          if (freshCloudData) {
+            await IDB.saveCloudSavesList(freshCloudData);
+            fetchSaves(user);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      Cloud.supabase.removeChannel(channel);
+    };
+  }, [isOpen, user]);
+
   const checkAuthAndFetch = async () => {
       let currentUser = await Cloud.getCurrentUser();
 
@@ -135,22 +158,6 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
     if (currentUser) {
         // Try loading from IndexedDB cache first
         let cachedCloudSaves = await IDB.getCloudSavesList(currentUser.id);
-        
-        // Subscribe to Realtime Changes
-        const channel = Cloud.supabase.channel('public:save_games')
-        .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'save_games', filter: `user_id=eq.${currentUser.id}` },
-            async () => {
-                console.log('Cloud saves updated, refreshing...');
-                const { data: freshCloudData } = await Cloud.loadGames(currentUser.id);
-                if (freshCloudData) {
-                    await IDB.saveCloudSavesList(freshCloudData);
-                    fetchSaves(currentUser); // Re-trigger UI update
-                }
-            }
-        )
-        .subscribe();
 
         // If cache is empty, fetch from cloud initially
         if (cachedCloudSaves.length === 0) {
@@ -214,10 +221,6 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
                 // We iterate to avoid blocking the loop too much
                 toDownload.forEach(s => syncCloudToLocal(s));
         }
-
-        // Cleanup subscription on unmount or user change
-        // Note: fetchSaves is not a useEffect, so we can't return a cleanup function here.
-        // We should manage subscription in a useEffect.
     }
 
     // Sort combined list by date
