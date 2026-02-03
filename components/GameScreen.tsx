@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GameState, GameStatus, Message, EndingType, GameReviewData, QAPair, LegacyData } from '../types';
-import { sendAction, extractVisualPrompt, extractStability, extractEnding, generateImage, getChatHistory, restoreChatSession } from '../services/aiService';
+import { sendAction, extractVisualPrompt, extractStability, extractEnding, generateImage, getChatHistory, restoreChatSession, clearMemoryCache } from '../services/aiService';
 import ConfirmationModal from './ConfirmationModal';
 import SaveLoadModal from './SaveLoadModal';
 import WorldLineTree from './WorldLineTree';
@@ -282,6 +282,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   };
 
   const handleAbort = () => {
+    // Clear memory cache when resetting the game
+    clearMemoryCache();
+    
     setGameState({
         status: GameStatus.IDLE,
         scpData: null,
@@ -314,6 +317,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   };
 
   const handleLoadGame = async (newGameState: GameState) => {
+    // Clear memory cache before loading a new game state to avoid stale references
+    clearMemoryCache();
+
     if (newGameState.language) {
       setLanguage(newGameState.language);
     }
@@ -375,6 +381,10 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   const isViewingReport = gameState.status === GameStatus.GAME_OVER && isReportOpen;
 
   const handleNewGamePlus = (legacyData: LegacyData) => {
+    if (gameState.saveId) {
+        clearMemoryCache(gameState.saveId);
+    }
+
     setGameState(prev => ({
         status: GameStatus.IDLE,
         scpData: null,

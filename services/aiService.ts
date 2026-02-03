@@ -10,6 +10,24 @@ import { archiveMemories, searchMemories } from './supabaseService';
 // Re-export utils for consumers
 export { extractVisualPrompt, extractStability, extractEnding };
 
+// Memory Cache for Deduplication
+interface RecentMemory {
+    id: string;
+    turnUsed: number;
+}
+// Map<timelineId, RecentMemory[]>
+const recentMemoriesMap = new Map<string, RecentMemory[]>();
+
+export const clearMemoryCache = (timelineId?: string) => {
+    if (timelineId) {
+        recentMemoriesMap.delete(timelineId);
+        console.log(`[AIService] Cleared memory cache for timeline: ${timelineId}`);
+    } else {
+        recentMemoriesMap.clear();
+        console.log(`[AIService] Cleared all memory cache`);
+    }
+};
+
 // Singleton instance
 let aiProvider: AIService | null = null;
 
@@ -36,10 +54,18 @@ export const initializeGameChatStream = (scp: SCPData, role: string, language: L
 
 export const retrieveRelevantMemories = async (
     action: string,
-    timelineId: string
+    timelineId: string,
+    turnCount: number
 ): Promise<string> => {
     if (!timelineId) return "";
     
+    // Clean up cache for this timeline
+    const recentMemories = recentMemoriesMap.get(timelineId) || [];
+    // Keep memories used within last 3 turns (so they are skipped if turnCount - turnUsed <= 3)
+    const validRecentMemories = recentMemories.filter(m => turnCount - m.turnUsed <= 3);
+    recentMemoriesMap.set(timelineId, validRecentMemories);
+    console.log(`[Turn ${turnCount}] valid memories:`, validRecentMemories);
+
     try {
         const embeddings = await getEmbeddings([action]);
         if (!embeddings || embeddings.length === 0) return "";
@@ -48,7 +74,21 @@ export const retrieveRelevantMemories = async (
         
         if (!data || data.length === 0) return "";
         
-        return data.map((m: any) => `[Memory Echo]: "${m.content}" (Role: ${m.role})`).join('\n');
+        // Filter out recently used memories
+        const recentIds = new Set(validRecentMemories.map(m => m.id));
+        const newMemories = data.filter((m: any) => !recentIds.has(m.id));
+        console.log(`[Turn ${turnCount}] new memories:`, newMemories);
+
+        if (newMemories.length === 0) return "";
+
+        // Update cache with newly selected memories
+        const updatedRecentMemories = [
+            ...validRecentMemories,
+            ...newMemories.map((m: any) => ({ id: m.id, turnUsed: turnCount }))
+        ];
+        recentMemoriesMap.set(timelineId, updatedRecentMemories);
+        console.log(`[Turn ${turnCount}] recent memories:`, updatedRecentMemories);
+        return newMemories.map((m: any) => `[Memory Echo]: "${m.content}" (Role: ${m.role}, SCP: ${m.scp_number})`).join('\n');
     } catch (e) {
         console.error("Failed to retrieve memories", e);
         return "";
@@ -58,7 +98,7 @@ export const retrieveRelevantMemories = async (
 export const sendAction = async function* (action: string, currentStability: number, turnCount: number, language: Language = 'zh', timelineId?: string): AsyncGenerator<string> {
     let ragContext = "";
     if (timelineId) {
-        ragContext = await retrieveRelevantMemories(action, timelineId);
+        ragContext = await retrieveRelevantMemories(action, timelineId, turnCount);
         if (ragContext) {
              console.log(`[AIService] Injected RAG Context (${ragContext.length} chars)`);
         }
@@ -113,10 +153,6 @@ export const generateLegacyData = async (
     
     // Asynchronous Memory Archival
     if (timelineId && result.memoryRecords && result.memoryRecords.length > 0) {
-        // We process this in background or await it? 
-        // Better to await to ensure data integrity before user leaves, 
-        // but 'generateLegacyData' is usually called in UI with a loading state.
-        
         // Filter out null summaries
         const validMemories = result.memoryRecords.filter(m => m.summary && m.summary.trim().length > 0);
         
@@ -147,11 +183,7 @@ export const generateLegacyData = async (
     return result;
 };
 
-// Image Generation (Always uses Gemini Provider directly or via Facade if we wanted, 
-// but here we can just use GeminiProvider specifically or let the main provider handle it if it supported it.
-// Since OpenAI provider doesn't support it, we instantiate a GeminiProvider just for images if needed,
-// OR we assume the user wants Gemini for images regardless of Chat Provider.)
-// The prompt says: "Image generation still uses Gemini".
+// Image Generation (Always uses Gemini Provider via Facade.)
 const imageProvider = new GeminiProvider();
 
 export const generateImage = async (prompt: string, aspectRatio: "1:1" | "16:9" | "3:4" = "1:1"): Promise<string | null> => {

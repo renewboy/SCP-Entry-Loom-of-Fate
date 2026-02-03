@@ -115,7 +115,6 @@ export const searchMemories = async (
         match_count: limit,
         filter_timeline_id: timelineId
     });
-    console.log("[Supabase] Found memories:", data);
     if (error) {
         console.error("[Supabase] Failed to search memories:", error);
         return { data: null, error };

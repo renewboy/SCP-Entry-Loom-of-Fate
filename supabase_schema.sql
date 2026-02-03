@@ -112,7 +112,8 @@ returns table (
   content text,
   role text,
   similarity float,
-  turn_number integer
+  turn_number integer,
+  scp_number text
 )
 language plpgsql
 as $$
@@ -123,7 +124,8 @@ begin
     memories.content,
     memories.role,
     1 - (memories.embedding <=> query_embedding) as similarity,
-    memories.turn_number
+    memories.turn_number,
+    memories.scp_number
   from memories
   where 1 - (memories.embedding <=> query_embedding) > match_threshold
   and memories.timeline_id = filter_timeline_id

@@ -164,7 +164,7 @@ Requirements:
    - roleName: The specific character name from THIS run.
 4. **Memory Records (RAG)**:
    - Iterate through every significant turn/event in the history.
-   - Generate a concise, objective summary of what happened in that specific moment (Action -> Consequence).
+   - Generate a concise, objective summary of what happened in that specific moment (Scene -> Action -> Consequence).
    - If a turn had little to no significant change (e.g., repeated action, failed movement), set "summary" to null.
    - "keywords": Extract 2-3 key entities or concepts involved.
 5. **Language**: All text content must be in ${langPrompt}.

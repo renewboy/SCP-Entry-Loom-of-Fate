@@ -131,8 +131,9 @@ export class GeminiProvider implements AIService {
         const result = await this.chatSession.chat.sendMessageStream({
             message: startPrompt
         });
-
+        console.log("[GeminiProvider] Stream connection established.");
         for await (const chunk of result) {
+            console.log("[GeminiProvider] Start stream chunk received:", chunk);
             if (chunk.text) {
                 yield chunk.text;
             }
