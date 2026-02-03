@@ -110,7 +110,7 @@ ${legacyIntro}
 ${legacyData}
 ${legacyEnd}
 ` : '';
-
+    const legacySearchInstruction = legacyData ? '(不要搜索遗产相关数据，只搜索本次SCP的资料)' : '';
     return `
 游戏设定：
 - 玩家角色：${role}
@@ -119,7 +119,7 @@ ${legacyEnd}
 - 回合: 1
 ${legacyInjection}
 
-现在开始游戏，请使用 Search 工具检索该目标的所有关键资料，严格按以下格式，用${langInstruction}生成内容：
+现在开始游戏，请使用 Search 工具检索${scpDesignation}的所有关键资料${legacySearchInstruction}，严格按以下格式，用${langInstruction}生成内容：
 - **目标**：${scpDesignation}
 
 - **项目等级**：${containmentClass}

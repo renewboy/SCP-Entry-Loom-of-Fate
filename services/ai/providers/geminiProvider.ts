@@ -127,7 +127,7 @@ export class GeminiProvider implements AIService {
             temperature: aiConfig.generation.temperature,
         };
 
-        console.log("[GeminiProvider] Sending start message...");
+        console.log("[GeminiProvider] Sending start message... ", startPrompt);
         const result = await this.chatSession.chat.sendMessageStream({
             message: startPrompt
         });
