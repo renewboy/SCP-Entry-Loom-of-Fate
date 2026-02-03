@@ -15,9 +15,9 @@ export const aiConfig = {
 
   // Model names (Gemini)
   models: {
-    chat: 'gemini-2.5-flash',
+    chat: 'gemini-3-flash-preview',
     image: 'gemini-2.5-flash-image',
-    embedding: 'text-embedding-004',
+    embedding: 'gemini-embedding-001',
   },
 
   // Generation configuration

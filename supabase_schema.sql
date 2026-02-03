@@ -77,9 +77,9 @@ create table if not exists memories (
   id uuid default gen_random_uuid() primary key,
   user_id uuid default auth.uid(),
   timeline_id uuid not null references save_games(id) on delete cascade, -- Links to save_games.id with Cascade Delete
-  scp_number text, -- e.g., "SCP-173"
+  scp_number text,
   content text not null,
-  embedding vector(768), -- Gemini text-embedding-004 dimension
+  embedding vector(3072),
   role text,
   turn_number integer,
   tags jsonb,
@@ -102,7 +102,7 @@ with check (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000
 
 -- Similarity search function
 create or replace function match_memories (
-  query_embedding vector(768),
+  query_embedding vector(3072),
   match_threshold float,
   match_count int,
   filter_timeline_id uuid
