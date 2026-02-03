@@ -62,7 +62,8 @@ export const zh = {
     review_logs: "回顾行动日志",
     other_instruct: "其他（请输入）",
     err_offline: "⚠️ [纺锤脱机] 命运织机同步中断。当前因果线程无响应，请尝试重连或强制剪断链接。",
-    err_timeout: "⚠️ [连接超时] 响应时间过长。已自动恢复输入，请重试。"
+    err_timeout: "⚠️ [连接超时] 响应时间过长。已自动恢复输入，请重试。",
+    memory_echo_detected: "⚠️ 检测到记忆回响 ⚠️"
   },
   endings: {
     contained: { title: "CONTAINMENT RESTORED", subtitle: "收容措施已重建 // 任务完成" },

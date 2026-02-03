@@ -62,7 +62,8 @@ export const en = {
     review_logs: "REVIEW LOGS",
     other_instruct: "Other (Please specify)",
     err_offline: "⚠️ [SPINDLE OFFLINE] Loom of Fate sync interrupted. Causal thread unresponsive. Reconnect or sever link.",
-    err_timeout: "⚠️ [CONNECTION TIMEOUT] Response took too long. Input restored. Please retry."
+    err_timeout: "⚠️ [CONNECTION TIMEOUT] Response took too long. Input restored. Please retry.",
+    memory_echo_detected: "⚠️ MEMORY ECHO DETECTED ⚠️"
   },
   endings: {
     contained: { title: "CONTAINMENT RESTORED", subtitle: "Procedures Restored // Mission Accomplished" },

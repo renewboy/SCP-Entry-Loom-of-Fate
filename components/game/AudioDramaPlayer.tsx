@@ -388,6 +388,7 @@ const AudioDramaPlayer: React.FC<AudioDramaPlayerProps> = ({ script, messages, o
         <VisualEffects 
           isCritical={isCritical}
           isGlitching={isGlitching}
+          isMemoryEcho={false}
           noiseOpacity={noiseOpacity}
           distortionScale={distortionScale}
           showNoise={isPlaying}

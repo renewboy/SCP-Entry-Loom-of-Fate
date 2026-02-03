@@ -24,6 +24,7 @@ interface WorldLineTreeProps {
   onReviewUpdate: (review: GameReviewData) => void;
   onQAUpdate: (qa: QAPair) => void;
   currentLegacyData?: LegacyData;
+  saveId?: string;
 }
 
 const WorldLineTree: React.FC<WorldLineTreeProps> = ({ 
@@ -39,7 +40,8 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
   qaHistory = [],
   onReviewUpdate,
   onQAUpdate,
-  currentLegacyData
+  currentLegacyData,
+  saveId
 }) => {
   const { t, language } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -116,7 +118,8 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
       if (isGeneratingLegacy) return;
       setIsGeneratingLegacy(true);
       try {
-          const generated = await generateLegacyData(endingType || 'UNKNOWN', role, language);
+          // Generate Legacy Data & Archive Memories (RAG)
+          const generated = await generateLegacyData(endingType || 'UNKNOWN', role, language, saveId, scpData?.designation);
           
           // Combine with existing legacy data
           const combinedTraits = [

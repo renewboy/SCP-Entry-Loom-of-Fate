@@ -1,7 +1,7 @@
 import { GoogleGenAI, Chat, Content } from "@google/genai";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { AIService } from "../types";
-import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData } from "../../../types";
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult } from "../../../types";
 import { aiConfig } from "../../../config/aiConfig";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt } from "../prompts";
 import { normalizeGameReviewData, safeParseJson } from "../utils";
@@ -139,7 +139,7 @@ export class GeminiProvider implements AIService {
         }
     }
 
-    async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh'): AsyncGenerator<string> {
+    async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh', ragContext?: string): AsyncGenerator<string> {
         console.log(`[GeminiProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}, Language: ${language}`);
 
         if (!this.chatSession) {
@@ -147,7 +147,7 @@ export class GeminiProvider implements AIService {
             throw new Error("Game not initialized - session missing");
         }
 
-        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language);
+        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext);
 
         try {
             console.log("[GeminiProvider] Sending message stream to model...");
@@ -303,7 +303,7 @@ export class GeminiProvider implements AIService {
         }
     }
 
-    async generateLegacyData(ending: string, role: string, language: Language): Promise<Partial<LegacyData>> {
+    async generateLegacyData(ending: string, role: string, language: Language): Promise<LegacyGenerationResult> {
         console.log(`[GeminiProvider] Generating Legacy Data...`);
         if (!this.chatSession) {
             console.error("Chat session is missing. Cannot generate legacy data.");
@@ -330,11 +330,49 @@ export class GeminiProvider implements AIService {
                     ...parsed.echo,
                     timestamp: Date.now(),
                     roleName: role
-                }] : []
+                }] : [],
+                memoryRecords: Array.isArray(parsed.memoryRecords) ? parsed.memoryRecords : []
             };
         } catch (error) {
             console.error("Failed to generate legacy data:", error);
             return { traits: [], items: [], echoes: [] };
+        }
+    }
+
+    async getEmbeddings(texts: string[]): Promise<number[][]> {
+        if (!texts || texts.length === 0) return [];
+        console.log(`[GeminiProvider] Generating embeddings for ${texts.length} items...`);
+        
+        try {
+            // Gemini embedContent accepts single string or array. 
+            // For array, we might need to loop or use batchEmbedContents if available in this SDK version.
+            // Checking the import, it uses @google/genai. 
+            // Let's assume sequential embedding for safety if batch isn't obvious, 
+            // but actually 'embedContent' is usually for single. 
+            
+            // Note: The @google/genai SDK (v0.x) usually supports models.embedContent.
+            // If batching is needed, we loop.
+            
+            const embeddings: number[][] = [];
+            
+            for (const text of texts) {
+                 const result = await this.client.models.embedContent({
+                    model: aiConfig.models.embedding || 'text-embedding-004',
+                    contents: { parts: [{ text }] } // Correct structure for @google/genai
+                });
+                
+                if (result.embeddings && result.embeddings.length > 0) {
+                     embeddings.push(result.embeddings[0].values);
+                 } else {
+                     console.warn("No embedding values returned for text chunk");
+                     embeddings.push([]); // Placeholder or skip
+                 }
+            }
+            return embeddings;
+
+        } catch (error) {
+            console.error("Failed to generate embeddings:", error);
+            return [];
         }
     }
 }

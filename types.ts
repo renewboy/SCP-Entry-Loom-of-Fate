@@ -179,6 +179,16 @@ export interface WorldEcho {
   roleName: string; // The role/character name who experienced this echo
 }
 
+export interface MemoryRecord {
+  turn: number;
+  summary: string | null;
+  keywords: string[];
+}
+
+export interface LegacyGenerationResult extends Partial<LegacyData> {
+    memoryRecords?: MemoryRecord[];
+}
+
 export interface LegacyData {
   traits: Trait[];
   items: LegacyItem[];
@@ -201,6 +211,7 @@ export interface GameState {
   gameReview?: GameReviewData | null; // Persisted game review
   qaHistory?: QAPair[]; // Persisted Q&A history
   legacy?: LegacyData; // New Game+ Legacy Data
+  saveId?: string; // The UUID of the save slot this game belongs to (for RAG context)
 }
 
 export interface SaveGameMetadata {
@@ -249,4 +260,15 @@ export interface GlobalSettings {
   enableSceneImages: boolean; // Per-turn visual prompts
   enableBackgroundImages: boolean; // Initial SCP analysis background
   enableEntityImages: boolean; // Initial entity portrait
+}
+
+export interface Memory {
+  id?: string;
+  user_id?: string;
+  timeline_id: string;
+  content: string;
+  role: string;
+  turn_number: number;
+  tags?: any;
+  similarity?: number;
 }

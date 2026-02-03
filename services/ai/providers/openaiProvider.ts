@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { GoogleGenAI, Chat, Content } from "@google/genai";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { AIService } from "../types";
-import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData } from "../../../types";
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult } from "../../../types";
 import { aiConfig } from "../../../config/aiConfig";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt } from "../prompts";
 import { normalizeGameReviewData, safeParseJson } from "../utils";
@@ -108,7 +108,7 @@ export class OpenAIProvider implements AIService {
         this.messages.push({ role: "assistant", content: fullResponse });
     }
 
-    async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh'): AsyncGenerator<string> {
+    async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh', ragContext?: string): AsyncGenerator<string> {
         console.log(`[OpenAIProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}`);
 
         if (this.messages.length === 0) {
@@ -116,7 +116,7 @@ export class OpenAIProvider implements AIService {
             throw new Error("Game not initialized - session missing");
         }
 
-        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language);
+        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext);
         this.messages.push({ role: "user", content: contextPrompt });
 
         try {
@@ -299,7 +299,7 @@ export class OpenAIProvider implements AIService {
         }
     }
 
-    async generateLegacyData(ending: string, role: string, language: Language): Promise<Partial<LegacyData>> {
+    async generateLegacyData(ending: string, role: string, language: Language): Promise<LegacyGenerationResult> {
         console.log(`[OpenAIProvider] Generating Legacy Data...`);
         if (this.messages.length === 0) {
              console.error("Chat session is missing. Cannot generate legacy data.");
@@ -331,11 +331,19 @@ export class OpenAIProvider implements AIService {
                     ...parsed.echo,
                     timestamp: Date.now(),
                     roleName: role
-                }] : []
+                }] : [],
+                memoryRecords: Array.isArray(parsed.memoryRecords) ? parsed.memoryRecords : []
             };
         } catch (error) {
              console.error("Failed to generate legacy data:", error);
              return { traits: [], items: [], echoes: [] };
         }
+    }
+
+    async getEmbeddings(texts: string[]): Promise<number[][]> {
+        // Fallback: OpenAI Provider currently does not support embeddings in this project scope, 
+        // or user preferred Gemini for embeddings. We return empty to avoid breaking interface.
+        console.warn("[OpenAIProvider] getEmbeddings not implemented or disabled. Returning empty.");
+        return [];
     }
 }

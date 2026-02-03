@@ -64,3 +64,70 @@ create trigger enforce_max_saves
 before insert on save_games
 for each row
 execute function check_max_saves();
+
+-- =================================================================
+-- RAG & Memory System Extensions
+-- =================================================================
+
+-- Enable the pgvector extension to work with embedding vectors
+create extension if not exists vector;
+
+-- Create memories table
+create table if not exists memories (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid default auth.uid(),
+  timeline_id uuid not null references save_games(id) on delete cascade, -- Links to save_games.id with Cascade Delete
+  scp_number text, -- e.g., "SCP-173"
+  content text not null,
+  embedding vector(768), -- Gemini text-embedding-004 dimension
+  role text,
+  turn_number integer,
+  tags jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- RLS for memories
+alter table memories enable row level security;
+
+-- Drop existing policies if they exist to avoid conflict on re-run
+drop policy if exists "Users can view their own memories" on memories;
+create policy "Users can view their own memories"
+on memories for select
+using (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000000'::uuid);
+
+drop policy if exists "Users can insert their own memories" on memories;
+create policy "Users can insert their own memories"
+on memories for insert
+with check (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000000'::uuid);
+
+-- Similarity search function
+create or replace function match_memories (
+  query_embedding vector(768),
+  match_threshold float,
+  match_count int,
+  filter_timeline_id uuid
+)
+returns table (
+  id uuid,
+  content text,
+  role text,
+  similarity float,
+  turn_number integer
+)
+language plpgsql
+as $$
+begin
+  return query
+  select
+    memories.id,
+    memories.content,
+    memories.role,
+    1 - (memories.embedding <=> query_embedding) as similarity,
+    memories.turn_number
+  from memories
+  where 1 - (memories.embedding <=> query_embedding) > match_threshold
+  and memories.timeline_id = filter_timeline_id
+  order by memories.embedding <=> query_embedding
+  limit match_count;
+end;
+$$;

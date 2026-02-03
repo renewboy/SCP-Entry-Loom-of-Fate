@@ -1,17 +1,21 @@
 import React from 'react';
 import StaticNoise from './StaticNoise';
+import { useTranslation } from '../../utils/i18n';
 
 interface VisualEffectsProps {
   isCritical: boolean;
   isGlitching: boolean;
+  isMemoryEcho: boolean; // New prop for RAG echo
   noiseOpacity: number;
   distortionScale: number;
   showNoise: boolean;
 }
 
 const VisualEffects: React.FC<VisualEffectsProps> = ({ 
-  isCritical, isGlitching, noiseOpacity, distortionScale, showNoise 
+  isCritical, isGlitching, isMemoryEcho, noiseOpacity, distortionScale, showNoise 
 }) => {
+  const { t } = useTranslation();
+
   return (
     <>
       <style>
@@ -19,6 +23,17 @@ const VisualEffects: React.FC<VisualEffectsProps> = ({
         @keyframes red-alert {
           0%, 100% { box-shadow: inset 0 0 50px rgba(195, 46, 46, 0.1); }
           50% { box-shadow: inset 0 0 200px rgba(195, 46, 46, 0.5); }
+        }
+        @keyframes memory-echo {
+          0% { filter: sepia(0) blur(0); opacity: 0; }
+          10% { filter: sepia(0.8) blur(2px) contrast(1.2); opacity: 0.6; box-shadow: inset 0 0 100px rgba(212, 175, 55, 0.5); }
+          80% { filter: sepia(0.8) blur(1px) contrast(1.2); opacity: 0.4; box-shadow: inset 0 0 100px rgba(212, 175, 55, 0.5); }
+          100% { filter: sepia(0) blur(0); opacity: 0; }
+        }
+        @keyframes double-vision {
+           0% { transform: translate(0,0); opacity: 0; }
+           50% { transform: translate(4px, 0); opacity: 0.5; color: rgba(255,255,255,0.8); text-shadow: -2px 0 red; }
+           100% { transform: translate(0,0); opacity: 0; }
         }
         @keyframes noise {
             0% { transform: translate(0, 0); }
@@ -81,6 +96,25 @@ const VisualEffects: React.FC<VisualEffectsProps> = ({
       {/* Critical State Red Flash Overlay */}
       {isCritical && (
         <div className="fixed inset-0 z-[100] pointer-events-none animate-[red-alert_2s_infinite]"></div>
+      )}
+
+      {/* Memory Echo / Deja Vu Effect */}
+      {isMemoryEcho && (
+         <div className="fixed inset-0 z-[110] pointer-events-none overflow-hidden">
+            {/* Golden/Sepia Vignette Flash */}
+            <div className="absolute inset-0" style={{ animation: 'memory-echo 3s ease-in-out forwards' }}></div>
+            {/* Subtle Ghosting/Double Vision Overlay */}
+            <div className="absolute inset-0 bg-white mix-blend-overlay opacity-10 animate-[double-vision_2s_ease-in-out_infinite]"></div>
+            {/* Film Grain Texture (Optional) */}
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/noise-lines.png')] opacity-20 mix-blend-multiply"></div>
+            
+            {/* Text Notification for Memory Echo */}
+            <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+                <span className="inline-block px-8 py-3 bg-amber-500/20 border-y-2 border-amber-500/50 text-amber-300 font-mono text-xl tracking-[0.3em] uppercase animate-pulse shadow-[0_0_25px_rgba(245,158,11,0.5)] backdrop-blur-md">
+                    {t('game.memory_echo_detected')}
+                </span>
+            </div>
+         </div>
       )}
 
       {/* Enhanced Colorful Glitch Art Overlay */}

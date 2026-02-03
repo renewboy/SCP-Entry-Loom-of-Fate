@@ -147,10 +147,12 @@ Hint: 你可以拼接搜索源网址 and SCP目标, 得到目标的档案网页,
 export const getLegacyGenerationPrompt = (ending: string, role: string, language: Language) => {
     const langPrompt = language === 'zh' ? 'Chinese' : 'English';
     return `
-[SYSTEM COMMAND: INITIATE NEW GAME+ LEGACY EXTRACTION]
+[SYSTEM COMMAND: INITIATE NEW GAME+ LEGACY EXTRACTION AND MEMORY ARCHIVAL]
 
-Task: Analyze the completed timeline (ending: ${ending}, role: ${role}) and extract "Legacy Data" for the next playthrough (New Game+).
+Task: Analyze the completed timeline (ending: ${ending}, role: ${role}).
+1. Extract "Legacy Data" for the next playthrough (New Game+).
 Based on the player's actions, achievements, and final state, generate Traits, Items, and a World Echo.
+2. Review the entire timeline turn-by-turn and generate "Memory Records" for RAG (Retrieval-Augmented Generation).
 
 Requirements:
 1. **Traits**: Generate 0 to 3 character traits (Perks/Curses) that reflect the character's experiences or mutation.
@@ -158,9 +160,14 @@ Requirements:
    - icon: A single relevant Emoji.
 2. **Items**: Generate 0 to 3 key items the character might have preserved, carried over, or conceptually inherited.
    - icon: A single relevant Emoji.
-3. **World Echo**: Generate EXACTLY ONE "World Echo" - a summary of this specific timeline's conclusion that will haunt future iterations.
-   - IMPORTANT: The 'roleName' must be the specific character name from THIS run.
-4. **Language**: All name/title/description/summary must be in ${langPrompt}.
+3. **World Echo**: Generate EXACTLY ONE "World Echo" - a summary of the conclusion.
+   - roleName: The specific character name from THIS run.
+4. **Memory Records (RAG)**:
+   - Iterate through every significant turn/event in the history.
+   - Generate a concise, objective summary of what happened in that specific moment (Action -> Consequence).
+   - If a turn had little to no significant change (e.g., repeated action, failed movement), set "summary" to null.
+   - "keywords": Extract 2-3 key entities or concepts involved.
+5. **Language**: All text content must be in ${langPrompt}.
 
 Format: RETURN ONLY RAW JSON. No markdown.
 {
@@ -172,23 +179,40 @@ Format: RETURN ONLY RAW JSON. No markdown.
   ],
   "echo": {
     "id": "string_id", 
-    "title": "string (e.g., The Fall of Site-19)", 
+    "title": "string", 
     "summary": "string (3-5 sentences, summarizing role, key event, outcome, and fate. Be specific and narrative.)", 
     "endingType": "${ending}",
     "roleName": "string"
-  }
+  },
+  "memoryRecords": [
+    {
+      "turn": number,
+      "summary": "string or null",
+      "keywords": ["string", "string"]
+    }
+  ]
 }
 `;
 };
 
-export const getContextPrompt = (action: string, currentStability: number, turnCount: number, language: Language) => {
+export const getContextPrompt = (action: string, currentStability: number, turnCount: number, language: Language, ragContext?: string) => {
     const langInstruction = language === 'zh' ? '中文' : '英文';
+    const ragSection = ragContext ? `
+[档案记录 / 记忆回响]
+以下事件发生在之前的时间线中。角色感觉到一种潜意识的回响或既视感：
+${ragContext}
+指令：利用这些回响来增加微妙的氛围细节、既视感或直觉警告。不要明确说明“你记得这是上一辈子的事”，除非角色是现实扭曲者或SCP。
+` : '';
+
     return `
 [系统状态]
 Current Stability: ${currentStability}%
 Turn: ${turnCount}
 User Action: "${action}"
 Output Language: ${langInstruction}
+
+${ragSection}
+
 任务: 
 1. 分析用户操作，并生成${langInstruction}叙事回应 (250字以内，必须遵守)。你生成的叙事回应必须逐步向某个结局收拢。
 2. 如果此时>=15回合，叙事必须逐渐收敛，引导玩家尽快完成任务，并大幅增加每回合稳定性惩罚值，大幅增加稳定性回升难度。

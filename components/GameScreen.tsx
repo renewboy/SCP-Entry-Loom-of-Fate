@@ -41,6 +41,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   // Layout States
   const [isReportOpen, setIsReportOpen] = useState(true);
   const [isEndingOverlayCollapsed, setIsEndingOverlayCollapsed] = useState(false);
+  const [isMemoryEchoActive, setMemoryEchoActive] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -139,7 +140,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
       console.log("[GameScreen] Invoking sendAction stream...");
       let fullResponse = '';
       
-      const stream = sendAction(userMsg.content, currentStability, newTurnCount, language);
+      const stream = sendAction(userMsg.content, currentStability, newTurnCount, language, gameState.saveId);
       const iterator = stream[Symbol.asyncIterator]();
       
       // Idle Timeout Limit (30s)
@@ -164,7 +165,23 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
           if (result.done) break;
 
-          const chunk = result.value;
+          let chunk = result.value;
+
+          // Check for Memory Echo Token
+          if (chunk.includes('\u0000[MEMORY_ACTIVE]\u0000')) {
+             console.log("[GameScreen] Memory Echo Detected!");
+             setMemoryEchoActive(true);
+             chunk = chunk.replace('\u0000[MEMORY_ACTIVE]\u0000', '');
+             // Auto-hide effect after 5 seconds
+             setTimeout(() => setMemoryEchoActive(false), 5000);
+          } else if (chunk.includes('[MEMORY_ACTIVE]')) {
+             // Fallback for cases where null byte might be stripped
+             console.log("[GameScreen] Memory Echo Detected (Fallback)!");
+             setMemoryEchoActive(true);
+             chunk = chunk.replace('[MEMORY_ACTIVE]', '');
+             setTimeout(() => setMemoryEchoActive(false), 5000);
+          }
+
           fullResponse += chunk;
           setGameState(prev => ({
             ...prev,
@@ -358,7 +375,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   const isViewingReport = gameState.status === GameStatus.GAME_OVER && isReportOpen;
 
   const handleNewGamePlus = (legacyData: LegacyData) => {
-    setGameState({
+    setGameState(prev => ({
         status: GameStatus.IDLE,
         scpData: null,
         role: '',
@@ -370,8 +387,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         endingType: null,
         gameReview: null,
         qaHistory: [],
-        legacy: legacyData
-    });
+        legacy: legacyData,
+        saveId: prev.saveId // Preserve the save ID for the next run
+    }));
   };
 
   return (
@@ -379,6 +397,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
     <VisualEffects 
       isCritical={isCritical}
       isGlitching={isGlitching}
+      isMemoryEcho={isMemoryEchoActive}
       noiseOpacity={noiseOpacity}
       distortionScale={distortionScale}
       showNoise={gameState.status === GameStatus.PLAYING}
@@ -452,6 +471,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
                 onReviewUpdate={handleReviewUpdate}
                 onQAUpdate={handleQAUpdate}
                 currentLegacyData={gameState.legacy}
+                saveId={gameState.saveId}
             />
           </div>
       )}
@@ -478,6 +498,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         mode={saveLoadMode}
         currentGameState={gameState}
         onLoadGame={handleLoadGame}
+        onSaveComplete={(id) => setGameState(prev => ({ ...prev, saveId: id }))}
     />
     </>
   );

@@ -15,9 +15,10 @@ interface SaveLoadModalProps {
   mode: 'save' | 'load';
   currentGameState?: GameState;
   onLoadGame: (gameState: GameState) => void;
+  onSaveComplete?: (id: string) => void;
 }
 
-const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, currentGameState, onLoadGame }) => {
+const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, currentGameState, onLoadGame, onSaveComplete }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'local' | 'cloud'>('local'); // We'll use this just for login view state now
   const [saves, setSaves] = useState<SaveGameMetadata[]>([]);
@@ -319,6 +320,11 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
           setError(t('save_load.save_error') + ': ' + error.message);
       }
     } else {
+      // Notify parent of the save ID
+      if (savedData && savedData.id && onSaveComplete) {
+          onSaveComplete(savedData.id);
+      }
+
       // 2. If logged in, Auto-Sync to Cloud
       if (user && savedData && savedData.id) {
           // Trigger background sync for this specific save
@@ -390,7 +396,8 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
     
     if (localData && !localError) {
         // Found locally, just load
-        onLoadGame(localData);
+        // Ensure saveId is injected into GameState
+        onLoadGame({ ...localData, saveId: save.id });
         setLoading(false);
         onClose();
         return;
@@ -411,7 +418,8 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
             await IDB.updateCloudSyncStatus(save.id, true);
             
             setError(t('save_load.download_success')); 
-            onLoadGame(cloudData);
+            // Ensure saveId is injected into GameState
+            onLoadGame({ ...cloudData, saveId: save.id });
             setLoading(false);
             onClose();
             return;

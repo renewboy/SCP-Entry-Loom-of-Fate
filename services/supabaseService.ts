@@ -30,6 +30,100 @@ export const signInWithGoogle = async () => {
   return { error };
 };
 
+// --- Memory / RAG System ---
+
+export const archiveMemories = async (memories: {
+    timeline_id: string;
+    scp_number: string;
+    content: string;
+    embedding: number[];
+    role: string;
+    turn_number: number;
+    tags?: any;
+}[]): Promise<{ error: any }> => {
+    // Check if user is logged in or sandbox
+    const { data: { user } } = await supabase.auth.getUser();
+    const isSandbox = isSandboxUser();
+
+    if (!user && !isSandbox) {
+        console.log("[Supabase] User not logged in - skipping memory archive (RAG requires cloud)");
+        return { error: null };
+    }
+
+    if (memories.length === 0) return { error: null };
+
+    // Get the timeline_id and scp_number from the first memory (assume batch is for same game)
+    const { timeline_id, scp_number } = memories[0];
+
+    // --- Deduplication Strategy: Delete existing memories for this specific SCP run ---
+    // Why? Because if we re-run "generateLegacyData" (e.g. user retries), we don't want duplicates.
+    // We scope deletion by timeline_id AND scp_number to be safe, though timeline_id should be unique to a save slot.
+    // However, if the user plays multiple SCPs in the same "Save Slot" (unlikely in current design but possible future),
+    // scp_number adds safety.
+    console.log(`[Supabase] Cleaning up existing memories for Timeline ${timeline_id} / ${scp_number}...`);
+    
+    // Note: 'user_id' is handled by RLS, but for Sandbox we might need to be careful?
+    // RLS policy: (auth.uid() = user_id OR user_id = SANDBOX_ID)
+    // So simple delete should work for the current user's data.
+    const { error: deleteError } = await supabase
+        .from('memories')
+        .delete()
+        .eq('timeline_id', timeline_id)
+        .eq('scp_number', scp_number); // Only delete memories for this specific SCP in this timeline
+
+    if (deleteError) {
+         console.warn("[Supabase] Failed to clean up old memories (might be first run):", deleteError);
+         // Continue anyway, it might just be no rows found (though delete usually doesn't error on 0 rows)
+    }
+
+    let payload: any[] = memories;
+    if (isSandbox) {
+        console.log("[Supabase] Archiving memories for Sandbox User");
+        payload = memories.map(m => ({ ...m, user_id: SANDBOX_USER_ID }));
+    }
+
+    const { error } = await supabase
+        .from('memories')
+        .insert(payload);
+
+    if (error) {
+        console.error("[Supabase] Failed to archive memories:", error);
+    }
+
+    return { error };
+};
+
+export const searchMemories = async (
+    queryEmbedding: number[], 
+    timelineId: string, 
+    threshold = 0.7, 
+    limit = 3
+): Promise<{ data: any[] | null; error: any }> => {
+    // Check if user is logged in or sandbox
+    const { data: { user } } = await supabase.auth.getUser();
+    const isSandbox = isSandboxUser();
+
+    if (!user && !isSandbox) {
+        // Not logged in -> cannot access RAG
+        return { data: [], error: null };
+    }
+    console.log("[Supabase] Searching memories for timeline:", timelineId);
+    // Call the RPC function 'match_memories'
+    const { data, error } = await supabase.rpc('match_memories', {
+        query_embedding: queryEmbedding,
+        match_threshold: threshold,
+        match_count: limit,
+        filter_timeline_id: timelineId
+    });
+    console.log("[Supabase] Found memories:", data);
+    if (error) {
+        console.error("[Supabase] Failed to search memories:", error);
+        return { data: null, error };
+    }
+
+    return { data, error: null };
+};
+
 export const signOut = async () => {
   if (isSandboxUser()) {
       localStorage.removeItem(SANDBOX_STORAGE_KEY);

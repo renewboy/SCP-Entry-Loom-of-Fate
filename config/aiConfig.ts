@@ -17,6 +17,7 @@ export const aiConfig = {
   models: {
     chat: 'gemini-2.5-flash',
     image: 'gemini-2.5-flash-image',
+    embedding: 'text-embedding-004',
   },
 
   // Generation configuration
