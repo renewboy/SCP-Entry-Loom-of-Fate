@@ -42,6 +42,19 @@ export const extractEnding = (text: string): { cleanText: string, endingType: En
   return { cleanText: cleanText.trim(), endingType };
 };
 
+export const extractLoc = (text: string): { cleanText: string, locId: string | null } => {
+  const match = text.match(/\[LOC\s*:\s*([^\]]+)\]/);
+  let cleanText = text;
+  let locId: string | null = null;
+
+  if (match) {
+    cleanText = cleanText.replace(match[0], '');
+    locId = match[1].trim();
+  }
+
+  return { cleanText: cleanText.trim(), locId };
+};
+
 export const extractJsonObject = (text: string) => {
   const first = text.indexOf('{');
   const last = text.lastIndexOf('}');
@@ -66,6 +79,45 @@ export const safeParseJson = (text: string): any | null => {
     }
   }
   return null;
+};
+
+export const extractMapUpdate = (text: string): { cleanText: string, update: any | null } => {
+  const tagStart = text.indexOf('[MAP_UPDATE');
+  if (tagStart === -1) return { cleanText: text.trim(), update: null };
+
+  const bracketStart = text.indexOf('[', tagStart);
+  const colon = text.indexOf(':', tagStart);
+  if (bracketStart === -1 || colon === -1) return { cleanText: text.trim(), update: null };
+
+  const jsonStart = text.indexOf('{', colon);
+  if (jsonStart === -1) return { cleanText: text.trim(), update: null };
+
+  let depth = 0;
+  let jsonEnd = -1;
+  for (let i = jsonStart; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === '{') depth += 1;
+    else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        jsonEnd = i;
+        break;
+      }
+    }
+  }
+
+  if (jsonEnd === -1) return { cleanText: text.trim(), update: null };
+
+  const afterJsonBracket = text.indexOf(']', jsonEnd);
+  if (afterJsonBracket === -1) return { cleanText: text.trim(), update: null };
+
+  const jsonText = text.slice(jsonStart, jsonEnd + 1);
+  const update = safeParseJson(jsonText);
+
+  const tagFull = text.slice(bracketStart, afterJsonBracket + 1);
+  const cleanText = text.replace(tagFull, '');
+
+  return { cleanText: cleanText.trim(), update };
 };
 
 export const normalizeGameReviewData = (value: any): GameReviewData => {

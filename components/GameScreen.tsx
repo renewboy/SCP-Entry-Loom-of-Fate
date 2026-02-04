@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GameState, GameStatus, Message, EndingType, GameReviewData, QAPair, LegacyData } from '../types';
-import { sendAction, extractVisualPrompt, extractStability, extractEnding, generateImage, getChatHistory, restoreChatSession, clearMemoryCache } from '../services/aiService';
+import { sendAction, extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate, generateImage, getChatHistory, restoreChatSession, clearMemoryCache } from '../services/aiService';
 import ConfirmationModal from './ConfirmationModal';
 import SaveLoadModal from './SaveLoadModal';
 import WorldLineTree from './WorldLineTree';
@@ -16,6 +16,7 @@ import ChatArea from './game/ChatArea';
 import InputArea from './game/InputArea';
 import EndingOverlay from './game/EndingOverlay';
 import TutorialOverlay from './game/TutorialOverlay';
+import MapPanel from './game/MapPanel';
 import { loadSetting, saveSetting, loadGlobalSettings } from '../services/indexedDBService';
 
 interface GameScreenProps {
@@ -100,6 +101,120 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
       }
   }, [gameState.status]);
 
+  const buildMapContext = () => {
+    const blueprint = gameState.scpData?.mapBlueprint;
+    const runtime = gameState.map;
+    if (!blueprint || !runtime) return '';
+
+    const currentNode = blueprint.nodes.find(n => n.id === runtime.currentNodeId);
+    const inventoryIds = new Set((gameState.inventory || []).map(i => i.id));
+    const inventoryTags = new Set((gameState.inventory || []).flatMap(i => i.tags || []));
+    const hasToken = (token: string) =>
+      inventoryIds.has(token) || inventoryTags.has(token);
+
+    const edges = blueprint.edges.filter(e =>
+      e.from === runtime.currentNodeId || (e.bidirectional && e.to === runtime.currentNodeId)
+    );
+
+    const neighbors = edges.map(e => {
+      const neighborId = e.from === runtime.currentNodeId ? e.to : e.from;
+      const neighbor = blueprint.nodes.find(n => n.id === neighborId);
+      const req = Array.isArray(e.requires) ? e.requires : [];
+      const missing = req.filter(token => !hasToken(token));
+      const blocked = missing.length > 0;
+      const reason = blocked ? `缺少通行token:${missing.join(',')}` : '';
+      return {
+        id: neighborId,
+        name: neighbor?.name || neighborId,
+        blocked,
+        reason: reason || e.blockedText || ''
+      };
+    });
+
+    const npcsHere = (gameState.npcs || []).filter(n => n.alive && n.nodeId === runtime.currentNodeId);
+    const mainObj = (gameState.objectives || []).find(o => o.type === 'MAIN');
+
+    const lines: string[] = [];
+    lines.push(`当前位置: ${currentNode?.name || runtime.currentNodeId} (${runtime.currentNodeId})`);
+    if (currentNode) lines.push(`危险度: ${currentNode.danger}/100`);
+    if (neighbors.length) {
+      lines.push(`可达邻接地点:`);
+      neighbors.forEach(n => lines.push(`- ${n.name} (${n.id})${n.blocked ? ` [门禁: ${n.reason || '阻挡'}]` : ''}`));
+    }
+    if ((gameState.inventory || []).length) lines.push(`已持有: ${(gameState.inventory || []).map(i => i.id).join(', ')}`);
+    if (npcsHere.length) lines.push(`同地点NPC: ${npcsHere.map(n => `${n.name}(${n.id}), 对话目标: ${n.dialogueGoals}`).join(', ')}`);
+    if (mainObj) {
+      const progressText = `${Math.max(0, Math.min(100, Math.round(mainObj.progress)))}%`;
+      lines.push(`主线目标: ${mainObj.title} @ ${mainObj.nodeId}；进度: ${progressText}`);
+    }
+
+    lines.push(`规则: 若行动涉及移动，必须只能前往“可达邻接地点”的node_id；移动成功时输出[LOC: node_id]。`);
+    return lines.join('\n');
+  };
+
+  const applyMapUpdate = (prev: GameState, update: any): GameState => {
+    if (!update || typeof update !== 'object') return prev;
+
+    const next: GameState = { ...prev };
+    const runtime = next.map ? { ...next.map } : undefined;
+    const inventory = [...(next.inventory || [])];
+    const npcs = [...(next.npcs || [])];
+    const objectives = [...(next.objectives || [])];
+    let stability = next.stability;
+
+    const applyReward = (reward?: { accessTokens?: string[]; stabilityDelta?: number }) => {
+      if (!reward) return;
+      if (Array.isArray(reward.accessTokens)) {
+        reward.accessTokens.forEach(id => {
+          if (!inventory.some(i => i.id === id)) inventory.push({ id, name: id });
+        });
+      }
+      if (typeof reward.stabilityDelta === 'number') {
+        stability = Math.max(0, Math.min(100, stability + reward.stabilityDelta));
+      }
+    };
+
+    const addAccessTokens: string[] = Array.isArray(update.addAccessTokens) ? update.addAccessTokens : [];
+    addAccessTokens.forEach(id => {
+      if (!inventory.some(i => i.id === id)) inventory.push({ id, name: id });
+    });
+
+    const npcMoves: any[] = Array.isArray(update.moveNPCs) ? update.moveNPCs : [];
+    npcMoves.forEach(m => {
+      const idx = npcs.findIndex(n => n.id === m.id);
+      if (idx === -1) return;
+      const current = npcs[idx];
+      npcs[idx] = {
+        ...current,
+        nodeId: typeof m.nodeId === 'string' ? m.nodeId : current.nodeId,
+        alive: typeof m.alive === 'boolean' ? m.alive : current.alive
+      };
+    });
+
+    const objUpdates: any[] = Array.isArray(update.objectives) ? update.objectives : [];
+    objUpdates.forEach(u => {
+      const idx = objectives.findIndex(o => o.id === u.id);
+      if (idx === -1) return;
+      const current = objectives[idx];
+      const nextStatus = typeof u.status === 'string' ? u.status : current.status;
+      objectives[idx] = {
+        ...current,
+        status: nextStatus,
+        progress: typeof u.progress === 'number' ? u.progress : current.progress
+      };
+      if (current.status !== 'COMPLETED' && nextStatus === 'COMPLETED') {
+        applyReward(current.reward);
+      }
+    });
+
+    next.map = runtime;
+    next.inventory = inventory;
+    next.npcs = npcs;
+    next.objectives = objectives;
+    next.stability = stability;
+    return next;
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isProcessing) return;
 
@@ -140,7 +255,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
       console.log("[GameScreen] Invoking sendAction stream...");
       let fullResponse = '';
       
-      const stream = sendAction(userMsg.content, currentStability, newTurnCount, language, gameState.saveId);
+      const mapContext = buildMapContext();
+      const stream = sendAction(userMsg.content, currentStability, newTurnCount, language, gameState.saveId, mapContext);
       const iterator = stream[Symbol.asyncIterator]();
       
       // Idle Timeout Limit (30s)
@@ -217,25 +333,47 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         detectedEndingType = EndingType.COLLAPSE;
       }
 
-      const visualResult = extractVisualPrompt(textAfterStability);
+      const locResult = extractLoc(textAfterStability);
+      const textAfterLoc = locResult.cleanText;
+      const mapUpdateResult = extractMapUpdate(textAfterLoc);
+      const textAfterMapUpdate = mapUpdateResult.cleanText;
+
+      const visualResult = extractVisualPrompt(textAfterMapUpdate);
       const finalText = visualResult.cleanText;
       const visualPrompt = visualResult.visualPrompt;
       
       const updatedStability = nextStability !== null ? nextStability : gameState.stability;
 
-      setGameState(prev => ({
-        ...prev,
-        stability: updatedStability,
-        endingType: detectedEndingType,
-        messages: prev.messages.map(m => 
-          m.id === aiMsgId ? { 
-              ...m, 
-              content: finalText, 
+      setGameState(prev => {
+        let base: GameState = {
+          ...prev,
+          stability: updatedStability,
+          endingType: detectedEndingType,
+          messages: prev.messages.map(m =>
+            m.id === aiMsgId ? {
+              ...m,
+              content: finalText,
               isTyping: false,
-              stabilitySnapshot: updatedStability 
-          } : m
-        )
-      }));
+              stabilitySnapshot: updatedStability
+            } : m
+          )
+        };
+
+        if (base.map && locResult.locId) {
+          const discovered = new Set(base.map.discoveredNodeIds);
+          discovered.add(locResult.locId);
+          base = {
+            ...base,
+            map: {
+              ...base.map,
+              currentNodeId: locResult.locId,
+              discoveredNodeIds: Array.from(discovered)
+            }
+          };
+        }
+
+        return applyMapUpdate(base, mapUpdateResult.update);
+      });
 
       if (visualPrompt) {
         generateIllustration(aiMsgId, visualPrompt);
@@ -509,6 +647,10 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         currentGameState={gameState}
         onLoadGame={handleLoadGame}
         onSaveComplete={(id) => setGameState(prev => ({ ...prev, saveId: id }))}
+    />
+    <MapPanel 
+      gameState={gameState}
+      onQuickAction={handleOptionClick}
     />
     </>
   );

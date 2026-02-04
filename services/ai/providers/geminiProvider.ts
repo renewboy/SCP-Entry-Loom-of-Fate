@@ -58,9 +58,9 @@ export class GeminiProvider implements AIService {
         }
     }
 
-    async analyzeSCPUrl(input: string, language: Language = 'zh'): Promise<SCPData> {
+    async analyzeSCPUrl(input: string, language: Language = 'zh', role: string): Promise<SCPData> {
         try {
-            const prompt = getAnalyzeSCPPrompt(input, language);
+            const prompt = getAnalyzeSCPPrompt(input, language, role);
             this.client = new GoogleGenAI({ apiKey: aiConfig.apiKey });
             console.log(`[GeminiProvider] Analyzing SCP: ${input}`);
             const response = await this.client.models.generateContent({
@@ -77,8 +77,9 @@ export class GeminiProvider implements AIService {
             console.log(`[GeminiProvider] Analysis result length: ${text?.length}`);
             if (!text) throw new Error("No response from analysis");
 
-            const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            return JSON.parse(cleanJson) as SCPData;
+            const parsed = safeParseJson(text);
+            if (!parsed) throw new Error("Failed to parse analysis JSON");
+            return parsed as SCPData;
 
         } catch (e) {
             console.error("Failed to analyze SCP:", e);
@@ -110,7 +111,7 @@ export class GeminiProvider implements AIService {
             legacyString = [traitsStr, itemsStr, echoesStr].filter(Boolean).join('\n\n');
         }
 
-        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, legacyString);
+        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, legacyString, scp.mapBlueprint);
 
         this.chatSession = {
             chat: this.client.chats.create({
@@ -131,16 +132,14 @@ export class GeminiProvider implements AIService {
         const result = await this.chatSession.chat.sendMessageStream({
             message: startPrompt
         });
-        console.log("[GeminiProvider] Stream connection established.");
         for await (const chunk of result) {
-            console.log("[GeminiProvider] Start stream chunk received:", chunk);
             if (chunk.text) {
                 yield chunk.text;
             }
         }
     }
 
-    async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh', ragContext?: string): AsyncGenerator<string> {
+    async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh', ragContext?: string, mapContext?: string): AsyncGenerator<string> {
         console.log(`[GeminiProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}, Language: ${language}`);
 
         if (!this.chatSession) {
@@ -148,7 +147,7 @@ export class GeminiProvider implements AIService {
             throw new Error("Game not initialized - session missing");
         }
 
-        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext);
+        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, mapContext);
 
         try {
             console.log("[GeminiProvider] Sending message stream to model...");

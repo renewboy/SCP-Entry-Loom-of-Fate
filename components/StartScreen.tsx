@@ -89,11 +89,12 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
     setLoadingStep(t('start.loading_access'));
 
     try {
+      const finalRole = selectedRole === Role.CUSTOM ? customRole : selectedRole;
+
       // 1. Analyze SCP
-      const scpData = await analyzeSCPUrl(urlInput, language);
+      const scpData = await analyzeSCPUrl(urlInput, language, finalRole);
       setLoadingStep(t('start.loading_retrieved', { designation: scpData.designation }));
 
-      const finalRole = selectedRole === Role.CUSTOM ? customRole : selectedRole;
       
       // Load settings to determine if images should be generated
       const settings = await loadGlobalSettings();
@@ -128,6 +129,31 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
       const msgId = 'intro';
       let fullText = "";
       let isFirstChunk = true;
+      const blueprint = scpData.mapBlueprint;
+      const initialMap = blueprint ? {
+        id: blueprint.id,
+        title: blueprint.title,
+        currentNodeId: blueprint.startNodeId,
+        discoveredNodeIds: [blueprint.startNodeId]
+      } : undefined;
+      const initialNpcs = blueprint ? blueprint.npcs.map(npc => ({
+        id: npc.id,
+        name: npc.name,
+        archetype: npc.archetype,
+        nodeId: npc.initialNodeId,
+        alive: true,
+        secretTags: npc.secretTags,
+        dialogueGoals: npc.dialogueGoals
+      })) : undefined;
+      const initialObjectives = blueprint ? blueprint.objectives.map(obj => ({
+        id: obj.id,
+        title: obj.title,
+        type: obj.type,
+        nodeId: obj.nodeId,
+        status: 'ACTIVE' as const,
+        progress: typeof obj.progress === 'number' ? obj.progress : 0,
+        reward: obj.reward
+      })) : undefined;
 
       for await (const chunk of stream) {
         fullText += chunk;
@@ -141,6 +167,10 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
                 role: finalRole,
                 stability: 100,
                 turnCount: 0,
+                map: initialMap,
+                npcs: initialNpcs,
+                objectives: initialObjectives,
+                inventory: [],
                 messages: [{
                     id: msgId,
                     sender: 'narrator',

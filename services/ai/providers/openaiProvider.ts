@@ -30,9 +30,9 @@ export class OpenAIProvider implements AIService {
 
     // OpenAI provider doesn't do image generation natively in this setup (delegated to Gemini in facade)
     
-    async analyzeSCPUrl(input: string, language: Language = 'zh'): Promise<SCPData> {
+    async analyzeSCPUrl(input: string, language: Language = 'zh', role: string): Promise<SCPData> {
         try {
-            const prompt = getAnalyzeSCPPrompt(input, language);
+            const prompt = getAnalyzeSCPPrompt(input, language, role);
             console.log(`[OpenAIProvider] Analyzing SCP: ${input}`);
 
             const response = await this.client.responses.create({
@@ -45,8 +45,9 @@ export class OpenAIProvider implements AIService {
             console.log(`[OpenAIProvider] Analysis result length: ${text?.length}`);
             if (!text) throw new Error("No response from analysis");
 
-            const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            return JSON.parse(cleanJson) as SCPData;
+            const parsed = safeParseJson(text);
+            if (!parsed) throw new Error("Failed to parse analysis JSON");
+            return parsed as SCPData;
 
         } catch (e) {
             console.error("Failed to analyze SCP:", e);
@@ -78,7 +79,7 @@ export class OpenAIProvider implements AIService {
             legacyString = [traitsStr, itemsStr, echoesStr].filter(Boolean).join('\n\n');
         }
 
-        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, legacyString);
+        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, legacyString, scp.mapBlueprint);
 
         // Store initial message for history
         this.messages = [
@@ -108,7 +109,7 @@ export class OpenAIProvider implements AIService {
         this.messages.push({ role: "assistant", content: fullResponse });
     }
 
-    async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh', ragContext?: string): AsyncGenerator<string> {
+    async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh', ragContext?: string, mapContext?: string): AsyncGenerator<string> {
         console.log(`[OpenAIProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}`);
 
         if (this.messages.length === 0) {
@@ -116,7 +117,7 @@ export class OpenAIProvider implements AIService {
             throw new Error("Game not initialized - session missing");
         }
 
-        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext);
+        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, mapContext);
         this.messages.push({ role: "user", content: contextPrompt });
 
         try {

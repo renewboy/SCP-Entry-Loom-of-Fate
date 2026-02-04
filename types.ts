@@ -79,6 +79,94 @@ export interface SCPData {
   containmentClass: string;
   visualDescription?: string; // Description for background image generation
   entityDescription?: string; // Description for main entity image generation
+  mapBlueprint?: MapBlueprint;
+}
+
+export interface MapBlueprintNode {
+  id: string;
+  name: string;
+  danger: number; // 0-100
+  tags?: string[];
+  discoverables?: string[];
+  interactables?: string[];
+  visualHint?: string;
+}
+
+export interface MapBlueprintEdge {
+  from: string;
+  to: string;
+  bidirectional: boolean;
+  requires?: string[];
+  blockedText?: string;
+}
+
+export interface MapBlueprintNPC {
+  id: string;
+  name: string;
+  archetype: string;
+  initialNodeId: string;
+  secretTags?: string[];
+  dialogueGoals?: string[];
+}
+
+export type ObjectiveType = 'MAIN' | 'SIDE';
+export type ObjectiveStatus = 'LOCKED' | 'ACTIVE' | 'COMPLETED' | 'FAILED';
+
+export interface ObjectiveReward {
+  accessTokens?: string[];
+  stabilityDelta?: number;
+}
+
+export interface MapBlueprintObjective {
+  id: string;
+  title: string;
+  type: ObjectiveType;
+  nodeId: string;
+  progress?: number;
+  reward?: ObjectiveReward;
+}
+
+export interface MapBlueprint {
+  id: string;
+  title: string;
+  startNodeId: string;
+  nodes: MapBlueprintNode[];
+  edges: MapBlueprintEdge[];
+  npcs: MapBlueprintNPC[];
+  objectives: MapBlueprintObjective[];
+}
+
+export interface RuntimeMapState {
+  id: string;
+  title: string;
+  currentNodeId: string;
+  discoveredNodeIds: string[];
+}
+
+export interface RuntimeNPCState {
+  id: string;
+  name: string;
+  archetype: string;
+  nodeId: string;
+  alive: boolean;
+  secretTags?: string[];
+  dialogueGoals?: string[];
+}
+
+export interface ObjectiveState {
+  id: string;
+  title: string;
+  type: ObjectiveType;
+  nodeId: string;
+  status: ObjectiveStatus;
+  progress: number;
+  reward?: ObjectiveReward;
+}
+
+export interface ItemState {
+  id: string;
+  name: string;
+  tags?: string[];
 }
 
 export interface PerspectiveEvaluation {
@@ -206,6 +294,10 @@ export interface GameState {
   stability: number; // 0-100, Hume Field Stability
   turnCount: number;
   endingType: EndingType | null; // The type of ending reached
+  map?: RuntimeMapState;
+  npcs?: RuntimeNPCState[];
+  objectives?: ObjectiveState[];
+  inventory?: ItemState[];
   chatHistory?: any[]; // Raw chat history from Gemini model
   language?: Language; // Language setting at the time of save
   gameReview?: GameReviewData | null; // Persisted game review

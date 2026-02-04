@@ -4,11 +4,11 @@ import { GeminiProvider } from "./ai/providers/geminiProvider";
 import { OpenAIProvider } from "./ai/providers/openaiProvider";
 import { aiConfig } from "../config/aiConfig";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult } from "../types";
-import { extractVisualPrompt, extractStability, extractEnding } from "./ai/utils";
+import { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate } from "./ai/utils";
 import { archiveMemories, searchMemories } from './supabaseService';
 
 // Re-export utils for consumers
-export { extractVisualPrompt, extractStability, extractEnding };
+export { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate };
 
 // Memory Cache for Deduplication
 interface RecentMemory {
@@ -44,8 +44,8 @@ const getProvider = (): AIService => {
 };
 
 // Facade methods
-export const analyzeSCPUrl = async (input: string, language: Language = 'zh'): Promise<SCPData> => {
-    return getProvider().analyzeSCPUrl(input, language);
+export const analyzeSCPUrl = async (input: string, language: Language = 'zh', role: string): Promise<SCPData> => {
+    return getProvider().analyzeSCPUrl(input, language, role);
 };
 
 export const initializeGameChatStream = (scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData): AsyncGenerator<string> => {
@@ -95,7 +95,7 @@ export const retrieveRelevantMemories = async (
     }
 };
 
-export const sendAction = async function* (action: string, currentStability: number, turnCount: number, language: Language = 'zh', timelineId?: string): AsyncGenerator<string> {
+export const sendAction = async function* (action: string, currentStability: number, turnCount: number, language: Language = 'zh', timelineId?: string, mapContext?: string): AsyncGenerator<string> {
     let ragContext = "";
     if (timelineId) {
         ragContext = await retrieveRelevantMemories(action, timelineId, turnCount);
@@ -114,7 +114,7 @@ export const sendAction = async function* (action: string, currentStability: num
         yield "[MEMORY_ACTIVE]"; 
     }
 
-    const generator = getProvider().sendAction(action, currentStability, turnCount, language, ragContext);
+    const generator = getProvider().sendAction(action, currentStability, turnCount, language, ragContext, mapContext);
     for await (const chunk of generator) {
         yield chunk;
     }

@@ -1,4 +1,4 @@
-import { Language } from '../../types';
+import { Language, MapBlueprint } from '../../types';
 
 export const getSystemInstruction = (role: string, language: Language) => `
 你是一个基于SCP基金会宇宙的文本冒险游戏《SCP 档案：命运织机》的AI主持人。“命运织机”这一名称寓意每一次玩家决策都像织机上的一根经线或纬线，微小的选择在各种变量的作用下交织，逐步塑造世界线的走向。你的核心职责是严格贴合SCP基金会世界观逻辑，为玩家纺织沉浸式、多样性、高自由度的剧情体验。
@@ -54,16 +54,19 @@ export const getSystemInstruction = (role: string, language: Language) => `
     - [VISUAL: <English Image Prompt>]：（可选）仅当视觉场景发生显著变化时插入。描述格式要求："cinematic, scp foundation style, horror, dark, <scene details>"。
     - [STABILITY: <Integer>]：（必填）当前计算得出的稳定性数值。
     - [ENDING: <Type>]：（条件性）仅当达成游戏结束条件时插入。TYPE只能是 COLLAPSE, CONTAINED, DEATH, ESCAPED 其中之一。
+    - [LOC: <node_id>]：（条件性）当玩家位置发生变化时插入。node_id必须是地图节点ID。
+    - [MAP_UPDATE: <JSON>]：（可选）当地图状态变化（获得钥匙/解锁门/推进目标/NPC移动等）时插入。JSON必须为单个对象。
   4. 中文常规回复示例："...你听到门后传来了沉重的呼吸声。[VISUAL: dark metal door, scratching marks, cinematic lighting][STABILITY: 85]"   
   5. 中文结尾示例："...你成功关闭了隔离门，警报声逐渐远去。[VISUAL: steel blast doors closing, sparks][STABILITY: 45][ENDING: CONTAINED]"
 5. 在首次生成内容之前，**必须使用 Search 工具**检索关于目标的详细资料，包括但不限于wiki, 解密文档等。
 6. 格式：使用Markdown。
 `;
 
-export const getAnalyzeSCPPrompt = (input: string, language: Language) => {
+export const getAnalyzeSCPPrompt = (input: string, language: Language, role: string) => {
     const langInstruction = language === 'zh' ? 'Chinese' : 'English';
     return `
 User Input: ${input}
+Player Role: ${role}
 Task: Identify the SCP Foundation entry referred to in the input. 
 If it's a URL, extract the SCP designation.
 Use available search tools to conduct thorough research by:
@@ -72,7 +75,7 @@ Use available search tools to conduct thorough research by:
 
 Hint: You can visit the SCP entry site by concatenating scp wiki website and SCP designation, e.g. https://scp-wiki.wikidot.com/[designation]
 
-**Information Extraction:** find the official title, object class, and a summary of its properties.
+**Information Extraction:** find the official title, object class.
 
 Also generate two specific visual description strings in English to be inserted into image generation templates:
 1. 'visualDescription': A set of visual keywords describing the TEXTURE, ATMOSPHERE, and MATERIAL essence of the SCP for an abstract background. 
@@ -85,6 +88,22 @@ Also generate two specific visual description strings in English to be inserted 
    - Context: It will be inserted into "Close up full body shot of [entityDescription]. detailed, photorealistic, containment cell, scp foundation record photo"
    - Example: "a large reptilian creature with exposed bone" or "a concrete statue with krylon brand spray paint on face"
 
+**Map Blueprint Generation:**
+- Generate a small navigable map for the upcoming interactive fiction game session. The map is the physical space where the story takes place and where the player can move and explore.
+- The map should be a believable SCP Foundation site / facility / area relevant to this SCP and the player's role (${role}).
+- The player starts at 'startNodeId' as their initial position at the beginning of the story.
+- Map must include:
+  - 5 to 8 nodes (rooms/areas)
+  - 2 to 4 NPCs with initial positions
+  - Objectives: exactly 1 MAIN objective and 1 to 2 SIDE objectives
+  - At least 20% gated edges with requirements to encourage exploration
+- Nodes are connected via edges; avoid disconnected nodes.
+- Edge gating: 
+  - "requires": a string array of access tokens. Tokens can represent keys, clearance, or flags.
+  - "blockedText": the reason why the edge is blocked, if not blocked, leave it empty.
+- danger is 0-100 and reflects risk when entering/staying in that node.
+- IDs must be stable, lowercase with underscores (e.g. "node_security_checkpoint").
+
 You MUST AND ONLY return a valid JSON object string. Do not use markdown code blocks. DO NOT return any other text.
 Structure:
 {
@@ -92,16 +111,54 @@ Structure:
   "name": "e.g., 不灭孽蜥",
   "containmentClass": "The class in ${langInstruction}",
   "visualDescription": "keywords for background...",
-  "entityDescription": "description of entity..."
+  "entityDescription": "description of entity...",
+  "mapBlueprint": {
+    "id": "string_id",
+    "title": "string title in ${langInstruction}",
+    "startNodeId": "node_1",
+    "nodes": [
+      { "id": "node_1", "name": "string", "danger": 10, "tags": ["string"], "discoverables": ["string"], "interactables": ["string"], "visualHint": "string" }
+    ],
+    "edges": [
+      { "from": "node_1", "to": "node_2", "bidirectional": true, "requires": ["key_lvl2", "clearance_level_2", "power_restored"], "blockedText": "string" }
+    ],
+    "npcs": [
+      { "id": "npc_1", "name": "string", "archetype": "string", "initialNodeId": "node_2", "secretTags": ["string"], "dialogueGoals": ["string"] }
+    ],
+    "objectives": [
+      { "id": "obj_main", "title": "string", "type": "MAIN", "nodeId": "node_containment", "progress": 0, "reward": { "accessTokens": ["key_lvl2", "power_restored"], "stabilityDelta": 5 } }
+    ]
+  }
 }
 
 If any of the keys are not found, fill "???".
+
+Semantic Notes:
+- reward.stabilityDelta: an integer delta applied to the player's current Stability when the objective is COMPLETED (positive increases stability, negative decreases). Use a small range like -30..+30. If absent, assume 0.
 
 Output Language for 'visualDescription', 'entityDescription': English.
 Preferred Output Language for 'name': ${langInstruction}.`;
 };
 
-export const getStartGamePrompt = (role: string, scpDesignation: string, containmentClass: string, language: Language, legacyData?: string) => {
+const getNormalTurnRequirements = (langInstruction: string) => `
+【常规回合任务】
+1. 分析用户操作，并生成${langInstruction}叙事回应 (200字以内，必须遵守)。你生成的叙事回应必须逐步向某个结局收敛。
+2. 判定是否达成结局 (CONTAINED/DEATH/COLLAPSE/ESCAPED)，如达成必须生成[ENDING: TYPE]。
+3. 如果未达成结局，给玩家2-3个互动选项，并加上“其他（请输入）”，选项用数字编号。
+4. 如果 Stability <= 0，必须强制生成 [ENDING: COLLAPSE]。
+5. 地图机制：如果用户行动涉及移动/前往/进入地点，你必须根据[地图状态]判断可行性：一般只能移动到“可达邻接地点”；若被门禁阻挡，叙事中说明原因并保持位置不变。
+6. 若本回合位置发生变化，你必须在末尾添加 [LOC: <node_id>]（node_id必须是地图节点ID）。
+7. 若发生地图状态变化，你可以在末尾添加 [MAP_UPDATE: <JSON>]。仅在有变化时填写对应字段，JSON字段说明如下：
+   - addAccessTokens: ["token_id"],
+   - moveNPCs: [{ "id": "npc_id", "nodeId": "node_id", "alive": true }],
+   - objectives: [{ "id": "obj_id", "status": "ACTIVE|COMPLETED|FAILED", "progress": 0-100 }]
+  示例：[MAP_UPDATE: {"addAccessTokens": ["key_lvl2"], "moveNPCs": [{"id": "npc_1", "nodeId": "node_xxx"}],"objectives": [{"id": "obj_xxx", "progress": 60}]}]
+8. 在末尾添加 [STABILITY: <new_value>]。
+9. 若场景视觉发生重大变化，添加 [VISUAL: <prompt>]，如果变化不大则不要添加。
+10. 所有System Tags必须在**最末尾**添加。
+11. 禁止使用任何工具调用。`;
+
+export const getStartGamePrompt = (role: string, scpDesignation: string, containmentClass: string, language: Language, legacyData?: string, mapBlueprint?: MapBlueprint) => {
     const langInstruction = language === 'zh' ? '中文' : '英文';
     const legacyIntro = '[已激活遗产继承系统 - 开启新周目]\n当前时间线受到先前迭代周期的因果影响。玩家角色从过去的世界线中继承了以下特质、物品与记忆回响。\n请将这些要素有机融入叙事与角色初始状态：';
     const legacyEnd = '[遗产数据结束]';
@@ -111,6 +168,12 @@ ${legacyData}
 ${legacyEnd}
 ` : '';
     const legacySearchInstruction = legacyData ? '(不要搜索遗产相关数据，只搜索本次SCP的资料)' : '';
+    const mapInjection = mapBlueprint ? `
+[地图蓝图]
+${JSON.stringify(mapBlueprint)}
+[地图蓝图结束]
+指令：起始遭遇必须发生在startNodeId对应地点；主线任务必须与objectives中type=MAIN完全一致；NPC初始位置必须与initialNodeId一致；移动仅允许在edges定义的邻接节点之间发生。
+` : '';
     return `
 游戏设定：
 - 玩家角色：${role}
@@ -118,6 +181,7 @@ ${legacyEnd}
 - 项目等级：${containmentClass}
 - 回合: 1
 ${legacyInjection}
+${mapInjection}
 
 现在开始游戏，请使用 Search 工具检索${scpDesignation}的所有关键资料${legacySearchInstruction}，严格按以下格式，用${langInstruction}生成内容：
 - **目标**：${scpDesignation}
@@ -141,7 +205,8 @@ ${legacyInjection}
 
 主要搜索源: https://scp-wiki.wikidot.com/, https://scp-wiki-cn.wikidot.com/, google
 Hint: 你可以拼接搜索源网址 and SCP目标, 得到目标的档案网页, 例如: https://scp-wiki.wikidot.com/[designation]
-给玩家2-3个初始互动选项, 并加上“其他（请输入）”。`;
+任务
+- 给玩家2-3个初始互动选项, 并加上“其他（请输入）”。`;
 };
 
 export const getLegacyGenerationPrompt = (ending: string, role: string, language: Language) => {
@@ -195,7 +260,7 @@ Format: RETURN ONLY RAW JSON. No markdown.
 `;
 };
 
-export const getContextPrompt = (action: string, currentStability: number, turnCount: number, language: Language, ragContext?: string) => {
+export const getContextPrompt = (action: string, currentStability: number, turnCount: number, language: Language, ragContext?: string, mapContext?: string) => {
     const langInstruction = language === 'zh' ? '中文' : '英文';
     const ragSection = ragContext ? `
 [记忆回响]
@@ -204,8 +269,14 @@ ${ragContext}
 指令：利用这些回响来增加微妙的氛围细节、既视感或直觉警告，并可能影响叙事走向和休谟场稳定性。
 [记忆回响结束]
 ` : '';
+    const mapSection = mapContext ? `
+[地图状态]
+${mapContext}
+[地图状态结束]
+` : '';
+    const normalTurnReminder = turnCount % 5 === 1 ? getNormalTurnRequirements(langInstruction) : '';
 
-    return `
+    const finalContextPrompt = `
 [系统状态]
 Current Stability: ${currentStability}%
 Turn: ${turnCount}
@@ -214,17 +285,13 @@ Output Language: ${langInstruction}
 
 ${ragSection}
 
-任务: 
-1. 分析用户操作，并生成${langInstruction}叙事回应 (250字以内，必须遵守)。你生成的叙事回应必须逐步向某个结局收拢。
-2. 如果此时>=15回合，叙事必须逐渐收敛，引导玩家尽快完成任务，并大幅增加每回合稳定性惩罚值，大幅增加稳定性回升难度。
-3. 判定是否达成结局 (CONTAINED/DEATH/COLLAPSE/ESCAPED)，如达成必须生成[ENDING: TYPE]。
-4. 如果未达成结局，给玩家2-3个互动选项，并加上“其他（请输入）”，选项用数字编号。
-5. 如果 Stability <= 0，必须强制生成 [ENDING: COLLAPSE]。
-6. 在末尾添加 [STABILITY: <new_value>]。
-7. 若场景视觉发生重大变化，添加 [VISUAL: <prompt>]，如果变化不大则不要添加。
-8. 所有System Tags必须在**最末尾**添加。
-9. 禁止使用任何工具调用。
-`;
+${mapSection}
+
+${normalTurnReminder}
+
+请严格按照【常规回合任务】的要求生成回复。请注意你生成的叙事和选项不要包含node_id,npc_id等不可读信息，要面向玩家。`
+    console.log("[getContextPrompt] finalContextPrompt", finalContextPrompt);
+    return finalContextPrompt;
 };
 
 export const getAudioDramaPrompt = (storyLog: string, role: string, scpDesignation: string, language: Language) => {
