@@ -198,10 +198,11 @@ Format: RETURN ONLY RAW JSON. No markdown.
 export const getContextPrompt = (action: string, currentStability: number, turnCount: number, language: Language, ragContext?: string) => {
     const langInstruction = language === 'zh' ? '中文' : '英文';
     const ragSection = ragContext ? `
-[档案记录 / 记忆回响]
+[记忆回响]
 以下事件发生在之前的时间线中。角色感觉到一种潜意识的回响或既视感：
 ${ragContext}
-指令：利用这些回响来增加微妙的氛围细节、既视感或直觉警告。不要明确说明“你记得这是上一辈子的事”，除非角色是现实扭曲者或SCP。
+指令：利用这些回响来增加微妙的氛围细节、既视感或直觉警告，并可能影响叙事走向和休谟场稳定性。
+[记忆回响结束]
 ` : '';
 
     return `

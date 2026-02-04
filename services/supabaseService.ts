@@ -56,10 +56,6 @@ export const archiveMemories = async (memories: {
     const { timeline_id, scp_number } = memories[0];
 
     // --- Deduplication Strategy: Delete existing memories for this specific SCP run ---
-    // Why? Because if we re-run "generateLegacyData" (e.g. user retries), we don't want duplicates.
-    // We scope deletion by timeline_id AND scp_number to be safe, though timeline_id should be unique to a save slot.
-    // However, if the user plays multiple SCPs in the same "Save Slot" (unlikely in current design but possible future),
-    // scp_number adds safety.
     console.log(`[Supabase] Cleaning up existing memories for Timeline ${timeline_id} / ${scp_number}...`);
     
     // Note: 'user_id' is handled by RLS, but for Sandbox we might need to be careful?
@@ -93,10 +89,56 @@ export const archiveMemories = async (memories: {
     return { error };
 };
 
+export const duplicateMemories = async (oldTimelineId: string, newTimelineId: string): Promise<{ error: any }> => {
+    // Check if user is logged in or sandbox
+    const { data: { user } } = await supabase.auth.getUser();
+    const isSandbox = isSandboxUser();
+
+    if (!user && !isSandbox) {
+        return { error: null };
+    }
+
+    // 1. Fetch memories from old timeline
+    // Note: We need to fetch ALL memories, so we might need pagination if there are many.
+    // For now, assume < 1000 memories (Supabase default limit is 1000).
+    const { data: oldMemories, error: fetchError } = await supabase
+        .from('memories')
+        .select('*')
+        .eq('timeline_id', oldTimelineId);
+
+    if (fetchError || !oldMemories || oldMemories.length === 0) {
+        return { error: fetchError };
+    }
+
+    console.log(`[Supabase] Duplicating ${oldMemories.length} memories from ${oldTimelineId} to ${newTimelineId}`);
+
+    // 2. Prepare new payload with new timeline_id
+    const newMemories = oldMemories.map(m => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id, created_at, ...rest } = m; // Remove system fields
+        return {
+            ...rest,
+            timeline_id: newTimelineId,
+            user_id: isSandbox ? SANDBOX_USER_ID : (user?.id || rest.user_id)
+        };
+    });
+
+    // 3. Insert into new timeline
+    const { error: insertError } = await supabase
+        .from('memories')
+        .insert(newMemories);
+
+    if (insertError) {
+        console.error("[Supabase] Failed to duplicate memories:", insertError);
+    }
+
+    return { error: insertError };
+};
+
 export const searchMemories = async (
     queryEmbedding: number[], 
     timelineId: string, 
-    threshold = 0.7, 
+    threshold = 0.75, 
     limit = 3
 ): Promise<{ data: any[] | null; error: any }> => {
     // Check if user is logged in or sandbox

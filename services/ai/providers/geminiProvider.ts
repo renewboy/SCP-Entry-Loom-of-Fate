@@ -61,7 +61,7 @@ export class GeminiProvider implements AIService {
     async analyzeSCPUrl(input: string, language: Language = 'zh'): Promise<SCPData> {
         try {
             const prompt = getAnalyzeSCPPrompt(input, language);
-
+            this.client = new GoogleGenAI({ apiKey: aiConfig.apiKey });
             console.log(`[GeminiProvider] Analyzing SCP: ${input}`);
             const response = await this.client.models.generateContent({
                 model: aiConfig.models.chat,
