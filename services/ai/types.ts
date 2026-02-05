@@ -11,5 +11,4 @@ export interface AIService {
     generateGameReview(scpData: SCPData, role: string, ending: EndingType, language: Language, messages: Message[], stabilityHistory: number[]): Promise<GameReviewData>;
     askNarratorQuestion(question: string, language: Language): AsyncGenerator<string>;
     generateLegacyData(ending: string, role: string, language: Language): Promise<LegacyGenerationResult>;
-    getEmbeddings(texts: string[]): Promise<number[][]>;
 }

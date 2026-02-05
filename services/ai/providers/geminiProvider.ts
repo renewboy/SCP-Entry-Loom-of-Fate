@@ -338,22 +338,4 @@ export class GeminiProvider implements AIService {
             return { traits: [], items: [], echoes: [] };
         }
     }
-
-    async getEmbeddings(texts: string[]): Promise<number[][]> {
-        if (!texts || texts.length === 0) return [];
-        console.log(`[GeminiProvider] Generating embeddings for ${texts.length} items...`);
-        
-        try {
-            const response = await this.client.models.embedContent({
-                model: aiConfig.models.embedding,
-                contents: texts,
-            });
-            const embeddings = response.embeddings.map(e => e.values);
-            return embeddings;
-
-        } catch (error) {
-            console.error("Failed to generate embeddings:", error);
-            return [];
-        }
-    }
 }

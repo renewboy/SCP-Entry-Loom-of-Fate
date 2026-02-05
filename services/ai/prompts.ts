@@ -96,7 +96,7 @@ Also generate two specific visual description strings in English to be inserted 
   - 5 to 8 nodes (rooms/areas)
   - 2 to 4 NPCs with initial positions
   - Objectives: exactly 1 MAIN objective and 1 to 2 SIDE objectives
-  - At least 20% gated edges with requirements to encourage exploration
+  - Around 20% gated edges with requirements to encourage exploration
 - Nodes are connected via edges; avoid disconnected nodes.
 - Edge gating: 
   - "requires": a string array of access tokens. Tokens can represent keys, clearance, or flags.
@@ -117,7 +117,7 @@ Structure:
     "title": "string title in ${langInstruction}",
     "startNodeId": "node_1",
     "nodes": [
-      { "id": "node_1", "name": "string", "danger": 10, "tags": ["string"], "discoverables": ["string"], "interactables": ["string"], "visualHint": "string" }
+      { "id": "node_1", "name": "string", "danger": 10, "discoverables": ["string"]}
     ],
     "edges": [
       { "from": "node_1", "to": "node_2", "bidirectional": true, "requires": ["key_lvl2", "clearance_level_2", "power_restored"], "blockedText": "string" }
@@ -126,7 +126,7 @@ Structure:
       { "id": "npc_1", "name": "string", "archetype": "string", "initialNodeId": "node_2", "secretTags": ["string"], "dialogueGoals": ["string"] }
     ],
     "objectives": [
-      { "id": "obj_main", "title": "string", "type": "MAIN", "nodeId": "node_containment", "progress": 0, "reward": { "accessTokens": ["key_lvl2", "power_restored"], "stabilityDelta": 5 } }
+      { "id": "obj_main", "title": "string", "type": "MAIN", "nodeId": "node_containment", "detail": "string", "reward": { "accessTokens": ["key_lvl2", "power_restored"], "stabilityDelta": 5 } }
     ]
   }
 }
@@ -230,7 +230,7 @@ Requirements:
 4. **Memory Records (RAG)**:
    - Iterate through every significant turn/event in the history.
    - Generate a concise, objective summary of what happened in that specific moment (Scene -> Action -> Consequence).
-   - If a turn had little to no significant change (e.g., repeated action, failed movement), set "summary" to null.
+   - Skip a turn if it had little to no significant change (e.g., repeated action).
    - "keywords": Extract 2-3 key entities or concepts involved.
 5. **Language**: All text content must be in ${langPrompt}.
 

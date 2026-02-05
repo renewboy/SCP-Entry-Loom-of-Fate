@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { GameState } from '../../types';
 import { useTranslation } from '../../utils/i18n';
 
@@ -11,6 +11,12 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
   const { t } = useTranslation();
   const blueprint = gameState.scpData?.mapBlueprint;
   const runtime = gameState.map;
+  const minimapRef = useRef<HTMLDivElement | null>(null);
+  const [viewTransform, setViewTransform] = useState({ scale: 1, x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panOrigin, setPanOrigin] = useState<{ x: number; y: number; originX: number; originY: number } | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
 
   const data = useMemo(() => {
     if (!blueprint || !runtime) return null;
@@ -47,9 +53,13 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
     const objectives = (gameState.objectives || []);
 
     const npcCountByNode = new Map<string, number>();
+    const npcNamesByNode = new Map<string, string[]>();
     (gameState.npcs || []).forEach(npc => {
       if (!npc.alive) return;
       npcCountByNode.set(npc.nodeId, (npcCountByNode.get(npc.nodeId) || 0) + 1);
+      const list = npcNamesByNode.get(npc.nodeId) || [];
+      list.push(npc.name);
+      npcNamesByNode.set(npc.nodeId, list);
     });
 
     const statusRank: Record<string, number> = { FAILED: 3, ACTIVE: 2, COMPLETED: 1 };
@@ -59,6 +69,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
     };
 
     const objectiveStatusByNode = new Map<string, { main?: string | null; side?: string | null }>();
+    const objectivesByNode = new Map<string, typeof objectives>();
     objectives.forEach(obj => {
       const entry = objectiveStatusByNode.get(obj.nodeId) || {};
       const listKey = obj.type === 'MAIN' ? 'main' : 'side';
@@ -66,6 +77,9 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
       const nextStatus = pickStatus([...existing, obj.status]);
       entry[listKey] = nextStatus;
       objectiveStatusByNode.set(obj.nodeId, entry);
+      const list = objectivesByNode.get(obj.nodeId) || [];
+      list.push(obj);
+      objectivesByNode.set(obj.nodeId, list);
     });
 
     const nodes = blueprint.nodes;
@@ -125,10 +139,32 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
       });
     });
 
+    const labelOffsetById = new Map<string, { dx: number; dy: number }>();
+    Array.from(levels.entries()).sort((a, b) => a[0] - b[0]).forEach(([, ids]) => {
+      const sorted = ids.slice().sort((a, b) => {
+        const ay = positionById.get(a)?.y ?? 0;
+        const by = positionById.get(b)?.y ?? 0;
+        return ay - by;
+      });
+      let lastY = -Infinity;
+      let toggle = false;
+      sorted.forEach(id => {
+        const y = positionById.get(id)?.y ?? 0;
+        let dy = -8;
+        if (y - lastY < 12) {
+          dy = toggle ? 12 : -12;
+          toggle = !toggle;
+        }
+        labelOffsetById.set(id, { dx: 8, dy });
+        lastY = y;
+      });
+    });
+
     const minimapNodes = nodes.map(node => {
       const position = positionById.get(node.id) || { x: width / 2, y: height / 2 };
       const label = node.name.length > 10 ? `${node.name.slice(0, 10)}…` : node.name;
       const objectiveStatus = objectiveStatusByNode.get(node.id) || {};
+      const labelOffset = labelOffsetById.get(node.id) || { dx: 8, dy: -8 };
       return {
         id: node.id,
         name: node.name,
@@ -138,8 +174,12 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
         discovered: discoveredSet.has(node.id),
         isCurrent: node.id === runtime.currentNodeId,
         npcCount: npcCountByNode.get(node.id) || 0,
+        npcNames: npcNamesByNode.get(node.id) || [],
+        objectives: objectivesByNode.get(node.id) || [],
+        danger: node.danger,
         mainStatus: objectiveStatus.main || null,
-        sideStatus: objectiveStatus.side || null
+        sideStatus: objectiveStatus.side || null,
+        labelOffset
       };
     });
     const minimapPositionById = new Map(minimapNodes.map(n => [n.id, n]));
@@ -155,6 +195,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
 
   const goVerb = t('game.map_go');
   const talkVerb = t('game.map_talk');
+  const hoveredNode = data.minimapNodes.find(node => node.id === hoveredNodeId) || null;
   const statusLabel = (status: string) => {
     if (status === 'COMPLETED') return t('game.map_status_completed');
     if (status === 'FAILED') return t('game.map_status_failed');
@@ -169,6 +210,12 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
     if (status === 'COMPLETED') return 'rgba(52,211,153,1)';
     if (status === 'FAILED') return 'rgba(248,113,113,1)';
     return 'rgba(56,189,248,1)';
+  };
+  const zoomThreshold = 1.15;
+  const resetView = () => {
+    setViewTransform({ scale: 1, x: 0, y: 0 });
+    setIsPanning(false);
+    setPanOrigin(null);
   };
 
   return (
@@ -250,65 +297,201 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
         )}
 
         <div>
-          <div className="text-[12px] text-gray-400 font-mono uppercase tracking-wider mb-2">{t('game.map_minimap')}</div>
-          <div className="border border-scp-gray/30 bg-black/30 p-2">
-            <svg viewBox="0 0 200 200" className="w-full h-56">
-              {data.minimapEdges.map((edge, idx) => {
-                const opacity = edge.from.discovered || edge.to.discovered ? 0.6 : 0.25;
-                return (
-                  <line
-                    key={`edge-${idx}`}
-                    x1={edge.from.x}
-                    y1={edge.from.y}
-                    x2={edge.to.x}
-                    y2={edge.to.y}
-                    stroke="rgba(148,163,184,1)"
-                    strokeOpacity={opacity}
-                    strokeWidth="1"
-                  />
-                );
-              })}
-              {data.minimapNodes.map(node => {
-                const fill = node.isCurrent ? 'rgba(34,197,94,1)' : node.discovered ? 'rgba(148,163,184,1)' : 'rgba(75,85,99,1)';
-                const stroke = node.isCurrent ? 'rgba(134,239,172,1)' : 'rgba(51,65,85,1)';
-                return (
-                  <g key={`node-${node.id}`}>
-                    <circle cx={node.x} cy={node.y} r="5" fill={fill} stroke={stroke} strokeWidth="1" />
-                    {node.id === blueprint?.startNodeId && (
-                      <text x={node.x - 12} y={node.y + 4} fontSize="9" fill="rgba(148,163,184,0.9)" fontFamily="monospace">S</text>
-                    )}
-                    {node.mainStatus && (
-                      <polygon
-                        points={`${node.x - 6},${node.y - 10} ${node.x},${node.y - 16} ${node.x + 6},${node.y - 10}`}
-                        fill={minimapStatusColor(node.mainStatus)}
-                      />
-                    )}
-                    {node.sideStatus && (
-                      <rect
-                        x={node.x - 4}
-                        y={node.y + 8}
-                        width="8"
-                        height="8"
-                        fill={minimapStatusColor(node.sideStatus)}
-                      />
-                    )}
-                    {node.npcCount > 0 && (
-                      <>
-                        <circle cx={node.x + 10} cy={node.y + 10} r="6" fill="rgba(234,179,8,1)" />
-                        <text x={node.x + 10} y={node.y + 13} textAnchor="middle" fontSize="8" fill="rgba(17,24,39,1)" fontFamily="monospace">
-                          {node.npcCount}
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[12px] text-gray-400 font-mono uppercase tracking-wider">{t('game.map_minimap')}</div>
+            <button
+              onClick={resetView}
+              className="text-[10px] font-mono text-scp-text border border-scp-gray/40 px-2 py-1 hover:border-scp-term/60 hover:bg-black/30 transition-colors"
+            >
+              {t('game.map_reset')}
+            </button>
+          </div>
+          <div
+            ref={minimapRef}
+            className="border border-scp-gray/30 bg-black/30 p-2 relative select-none"
+            onMouseDown={event => {
+              if (event.button !== 0) return;
+              if (!minimapRef.current) return;
+              const rect = minimapRef.current.getBoundingClientRect();
+              setIsPanning(true);
+              setPanOrigin({
+                x: event.clientX,
+                y: event.clientY,
+                originX: viewTransform.x,
+                originY: viewTransform.y
+              });
+              setTooltipPosition({
+                x: event.clientX - rect.left,
+                y: event.clientY - rect.top
+              });
+            }}
+            onMouseMove={event => {
+              if (!minimapRef.current) return;
+              const rect = minimapRef.current.getBoundingClientRect();
+              if (isPanning && panOrigin) {
+                const scaleX = 200 / rect.width;
+                const scaleY = 200 / rect.height;
+                const dx = ((event.clientX - panOrigin.x) * scaleX) / viewTransform.scale;
+                const dy = ((event.clientY - panOrigin.y) * scaleY) / viewTransform.scale;
+                setViewTransform(prev => ({ ...prev, x: panOrigin.originX + dx, y: panOrigin.originY + dy }));
+              }
+              if (hoveredNodeId) {
+                setTooltipPosition({
+                  x: event.clientX - rect.left,
+                  y: event.clientY - rect.top
+                });
+              }
+            }}
+            onMouseUp={() => {
+              setIsPanning(false);
+              setPanOrigin(null);
+            }}
+            onMouseLeave={() => {
+              setIsPanning(false);
+              setPanOrigin(null);
+            }}
+            onWheel={event => {
+              event.preventDefault();
+              if (!minimapRef.current) return;
+              const rect = minimapRef.current.getBoundingClientRect();
+              const delta = event.deltaY < 0 ? 0.1 : -0.1;
+              const vx = ((event.clientX - rect.left) / rect.width) * 200;
+              const vy = ((event.clientY - rect.top) / rect.height) * 200;
+              setViewTransform(prev => {
+                const nextScale = Math.min(2.4, Math.max(0.6, prev.scale + delta));
+                const ratio = nextScale / prev.scale;
+                const nextX = vx - (vx - prev.x) * ratio;
+                const nextY = vy - (vy - prev.y) * ratio;
+                return { scale: nextScale, x: nextX, y: nextY };
+              });
+            }}
+          >
+            <svg viewBox="0 0 200 200" className="w-full h-56 block">
+              <g transform={`translate(${viewTransform.x} ${viewTransform.y}) scale(${viewTransform.scale})`}>
+                {data.minimapEdges.map((edge, idx) => {
+                  const opacity = edge.from.discovered || edge.to.discovered ? 0.6 : 0.25;
+                  return (
+                    <line
+                      key={`edge-${idx}`}
+                      x1={edge.from.x}
+                      y1={edge.from.y}
+                      x2={edge.to.x}
+                      y2={edge.to.y}
+                      stroke="rgba(148,163,184,1)"
+                      strokeOpacity={opacity}
+                      strokeWidth="1"
+                    />
+                  );
+                })}
+                {data.minimapNodes.map(node => {
+                  const fill = node.isCurrent ? 'rgba(34,197,94,1)' : node.discovered ? 'rgba(148,163,184,1)' : 'rgba(75,85,99,1)';
+                  const stroke = node.isCurrent ? 'rgba(134,239,172,1)' : 'rgba(51,65,85,1)';
+                  const shouldShowLabel = node.isCurrent || ((node.discovered && viewTransform.scale >= zoomThreshold) && node.id !== hoveredNodeId);
+                  return (
+                    <g
+                      key={`node-${node.id}`}
+                      onMouseEnter={event => {
+                        if (!minimapRef.current) return;
+                        const rect = minimapRef.current.getBoundingClientRect();
+                        setHoveredNodeId(node.id);
+                        setTooltipPosition({
+                          x: event.clientX - rect.left,
+                          y: event.clientY - rect.top
+                        });
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredNodeId(null);
+                        setTooltipPosition(null);
+                      }}
+                    >
+                      <circle cx={node.x} cy={node.y} r="5" fill={fill} stroke={stroke} strokeWidth="1" />
+                      {node.id === blueprint?.startNodeId && (
+                        <text x={node.x - 12} y={node.y + 4} fontSize="9" fill="rgba(148,163,184,0.9)" fontFamily="monospace">S</text>
+                      )}
+                      {node.mainStatus && (
+                        <polygon
+                          points={`${node.x - 6},${node.y - 10} ${node.x},${node.y - 16} ${node.x + 6},${node.y - 10}`}
+                          fill={minimapStatusColor(node.mainStatus)}
+                        />
+                      )}
+                      {node.sideStatus && (
+                        <rect
+                          x={node.x - 4}
+                          y={node.y + 8}
+                          width="8"
+                          height="8"
+                          fill={minimapStatusColor(node.sideStatus)}
+                        />
+                      )}
+                      {node.npcCount > 0 && (
+                        <>
+                          <circle cx={node.x + 10} cy={node.y + 10} r="6" fill="rgba(234,179,8,1)" />
+                          <text x={node.x + 10} y={node.y + 13} textAnchor="middle" fontSize="8" fill="rgba(17,24,39,1)" fontFamily="monospace">
+                            {node.npcCount}
+                          </text>
+                        </>
+                      )}
+                      {shouldShowLabel && (
+                        <text x={node.x + node.labelOffset.dx} y={node.y + node.labelOffset.dy} fontSize="9" fill="rgba(226,232,240,0.9)" fontFamily="monospace">
+                          {node.label}
                         </text>
+                      )}
+                    </g>
+                  );
+                })}
+              </g>
+            </svg>
+            {hoveredNode && tooltipPosition && (
+              <div
+                className="absolute z-10 bg-black/80 border border-scp-gray/40 px-3 py-2 text-[11px] font-mono text-scp-text max-w-[220px]"
+                style={{ left: tooltipPosition.x + 12, top: tooltipPosition.y + 12 }}
+              >
+                <div className="text-xs text-scp-term">{hoveredNode.name}</div>
+                {hoveredNode.discovered || hoveredNode.isCurrent ? (
+                  <>
+                    <div className="mt-2 text-[10px] text-gray-400">{t('game.map_tooltip_danger')} {hoveredNode.danger}</div>
+                    {hoveredNode.npcNames.length > 0 && (
+                      <>
+                        <div className="mt-2 text-[10px] text-gray-400">{t('game.map_npc')}</div>
+                        <div className="text-[11px] text-scp-text">
+                          {hoveredNode.npcNames.map(name => (
+                            <div key={name}>{name}</div>
+                          ))}
+                        </div>
                       </>
                     )}
-                    {(node.discovered || node.isCurrent) && (
-                      <text x={node.x + 8} y={node.y - 8} fontSize="9" fill="rgba(226,232,240,0.9)" fontFamily="monospace">
-                        {node.label}
-                      </text>
+                    {hoveredNode.objectives.length > 0 && (
+                      <>
+                        <div className="mt-2 text-[10px] text-gray-400">{t('game.map_objectives')}</div>
+                        <div className="space-y-1">
+                          {hoveredNode.objectives.map(obj => (
+                            <div key={obj.id} className="flex items-center justify-between gap-2">
+                              <span className="truncate">{obj.type === 'MAIN' ? 'MAIN' : 'SIDE'} | {obj.title}</span>
+                              <span className={`text-[10px] ${statusColor(obj.status)}`}>{statusLabel(obj.status)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
                     )}
-                  </g>
-                );
-              })}
-            </svg>
+                  </>
+                ) : (
+                  <>
+                    {hoveredNode.npcNames.length > 0 && (
+                      <>
+                        <div className="mt-2 text-[10px] text-gray-400">{t('game.map_npc')}</div>
+                        <div className="text-[11px] text-scp-text">??</div>
+                      </>
+                    )}
+                    {hoveredNode.objectives.length > 0 && (
+                      <>
+                        <div className="mt-2 text-[10px] text-gray-400">{t('game.map_objectives')}</div>
+                        <div className="text-[11px] text-scp-text">??</div>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
             <div className="mt-2 flex flex-wrap items-center gap-3 text-[10px] font-mono text-gray-400">
               <div className="flex items-center gap-1">
                 <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: 'rgba(34,197,94,1)' }} />

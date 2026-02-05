@@ -340,11 +340,4 @@ export class OpenAIProvider implements AIService {
              return { traits: [], items: [], echoes: [] };
         }
     }
-
-    async getEmbeddings(texts: string[]): Promise<number[][]> {
-        // Fallback: OpenAI Provider currently does not support embeddings in this project scope, 
-        // or user preferred Gemini for embeddings. We return empty to avoid breaking interface.
-        console.warn("[OpenAIProvider] getEmbeddings not implemented or disabled. Returning empty.");
-        return [];
-    }
 }

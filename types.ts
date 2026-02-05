@@ -123,6 +123,7 @@ export interface MapBlueprintObjective {
   type: ObjectiveType;
   nodeId: string;
   progress?: number;
+  detail?: string;
   reward?: ObjectiveReward;
 }
 
@@ -160,6 +161,7 @@ export interface ObjectiveState {
   nodeId: string;
   status: ObjectiveStatus;
   progress: number;
+  detail?: string;
   reward?: ObjectiveReward;
 }
 

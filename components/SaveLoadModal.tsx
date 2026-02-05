@@ -305,6 +305,28 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
         }
     };
 
+  const handleMemoryUpdates = async (overwriteId: string | undefined, savedId: string | undefined, currentSaveId: string | undefined) => {
+    if (overwriteId && currentSaveId && overwriteId !== currentSaveId) {
+      const { error: purgeError } = await Cloud.deleteMemoriesByTimelineId(overwriteId);
+      if (purgeError) {
+        console.error("Failed to delete memories for overwritten save", purgeError);
+      }
+    }
+
+    // --- Memory Duplication Logic ---
+    // If we created a NEW save (overwriteId is undefined), and the previous game state had a saveId (timelineId),
+    // we need to copy the memories from the old timeline to the new timeline.
+    if (!overwriteId && currentSaveId && savedId && savedId !== currentSaveId) {
+      // It's a "Save As" / Branching operation
+      console.log(`[SaveLoadModal] Detected branching save. Duplicating memories from ${currentSaveId} to ${savedId}...`);
+      // We do this asynchronously to not block UI
+      Cloud.duplicateMemories(currentSaveId, savedId).then(({ error }) => {
+        if (error) console.error("Failed to duplicate memories for new save", error);
+        else console.log("Memories duplicated successfully.");
+      });
+    }
+  };
+
   const executeSave = async (overwriteId?: string) => {
     if (!currentGameState) return;
     setLoading(true);
@@ -330,18 +352,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
           onSaveComplete(savedData.id);
       }
 
-      // --- Memory Duplication Logic ---
-      // If we created a NEW save (overwriteId is undefined), and the previous game state had a saveId (timelineId),
-      // we need to copy the memories from the old timeline to the new timeline.
-      if (!overwriteId && currentGameState.saveId && savedData && savedData.id && savedData.id !== currentGameState.saveId) {
-          // It's a "Save As" / Branching operation
-          console.log(`[SaveLoadModal] Detected branching save. Duplicating memories from ${currentGameState.saveId} to ${savedData.id}...`);
-          // We do this asynchronously to not block UI
-          Cloud.duplicateMemories(currentGameState.saveId, savedData.id).then(({ error }) => {
-              if (error) console.error("Failed to duplicate memories for new save", error);
-              else console.log("Memories duplicated successfully.");
-          });
-      }
+      await handleMemoryUpdates(overwriteId, savedData?.id, currentGameState.saveId);
 
       // 2. If logged in, Auto-Sync to Cloud
       if (user && savedData && savedData.id) {

@@ -152,6 +152,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
         nodeId: obj.nodeId,
         status: 'ACTIVE' as const,
         progress: typeof obj.progress === 'number' ? obj.progress : 0,
+        detail: obj.detail,
         reward: obj.reward
       })) : undefined;
 

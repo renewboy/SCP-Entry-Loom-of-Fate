@@ -6,6 +6,7 @@ import { aiConfig } from "../config/aiConfig";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult } from "../types";
 import { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate } from "./ai/utils";
 import { archiveMemories, searchMemories } from './supabaseService';
+import { getEmbeddings } from "./ai/providers/embeddingProvider";
 
 // Re-export utils for consumers
 export { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate };
@@ -190,6 +191,4 @@ export const generateImage = async (prompt: string, aspectRatio: "1:1" | "16:9" 
     return imageProvider.generateImage(prompt, aspectRatio);
 };
 
-export const getEmbeddings = async (texts: string[]): Promise<number[][]> => {
-    return getProvider().getEmbeddings(texts);
-};
+export { getEmbeddings };

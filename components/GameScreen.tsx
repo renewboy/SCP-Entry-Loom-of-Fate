@@ -133,22 +133,31 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
     const npcsHere = (gameState.npcs || []).filter(n => n.alive && n.nodeId === runtime.currentNodeId);
     const mainObj = (gameState.objectives || []).find(o => o.type === 'MAIN');
-
+    const currentObj = (gameState.objectives || []).find(o => o.nodeId === runtime.currentNodeId);
     const lines: string[] = [];
     lines.push(`当前位置: ${currentNode?.name || runtime.currentNodeId} (${runtime.currentNodeId})`);
     if (currentNode) lines.push(`危险度: ${currentNode.danger}/100`);
+    if (currentNode?.discoverables?.length) lines.push(`可发现物品: ${currentNode.discoverables.join(', ')}`);
+
     if (neighbors.length) {
       lines.push(`可达邻接地点:`);
       neighbors.forEach(n => lines.push(`- ${n.name} (${n.id})${n.blocked ? ` [门禁: ${n.reason || '阻挡'}]` : ''}`));
     }
     if ((gameState.inventory || []).length) lines.push(`已持有: ${(gameState.inventory || []).map(i => i.id).join(', ')}`);
     if (npcsHere.length) lines.push(`同地点NPC: ${npcsHere.map(n => `${n.name}(${n.id}), 对话目标: ${n.dialogueGoals}`).join(', ')}`);
-    if (mainObj) {
-      const progressText = `${Math.max(0, Math.min(100, Math.round(mainObj.progress)))}%`;
-      lines.push(`主线目标: ${mainObj.title} @ ${mainObj.nodeId}；进度: ${progressText}`);
+    // if (mainObj) {
+    //   const progressText = `${Math.max(0, Math.min(100, Math.round(mainObj.progress)))}%`;
+    //   lines.push(`主线任务: ${mainObj.title} @ ${mainObj.nodeId}；进度: ${progressText}`);
+    // }
+    if (currentObj) {
+      const progressText = `${Math.max(0, Math.min(100, Math.round(currentObj.progress)))}%`;
+      lines.push(`当前地点任务: ${currentObj.title} @ ${currentObj.nodeId}；进度: ${progressText}`);
+      if (currentObj.detail) lines.push(`任务详情: ${currentObj.detail}`);
     }
 
-    lines.push(`规则: 若行动涉及移动，必须只能前往“可达邻接地点”的node_id；移动成功时输出[LOC: node_id]。`);
+
+
+    lines.push(`规则: 若行动涉及移动，移动成功时输出[LOC: node_id]。`);
     return lines.join('\n');
   };
 
@@ -284,13 +293,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
           let chunk = result.value;
 
           // Check for Memory Echo Token
-          if (chunk.includes('\u0000[MEMORY_ACTIVE]\u0000')) {
-             console.log("[GameScreen] Memory Echo Detected!");
-             setMemoryEchoActive(true);
-             chunk = chunk.replace('\u0000[MEMORY_ACTIVE]\u0000', '');
-             // Auto-hide effect after 5 seconds
-             setTimeout(() => setMemoryEchoActive(false), 5000);
-          } else if (chunk.includes('[MEMORY_ACTIVE]')) {
+          if (chunk.includes('[MEMORY_ACTIVE]')) {
              // Fallback for cases where null byte might be stripped
              console.log("[GameScreen] Memory Echo Detected (Fallback)!");
              setMemoryEchoActive(true);

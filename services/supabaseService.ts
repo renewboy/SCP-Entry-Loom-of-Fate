@@ -135,6 +135,22 @@ export const duplicateMemories = async (oldTimelineId: string, newTimelineId: st
     return { error: insertError };
 };
 
+export const deleteMemoriesByTimelineId = async (timelineId: string): Promise<{ error: any }> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const isSandbox = isSandboxUser();
+
+    if (!user && !isSandbox) {
+        return { error: null };
+    }
+
+    const { error } = await supabase
+        .from('memories')
+        .delete()
+        .eq('timeline_id', timelineId);
+
+    return { error };
+};
+
 export const searchMemories = async (
     queryEmbedding: number[], 
     timelineId: string, 
