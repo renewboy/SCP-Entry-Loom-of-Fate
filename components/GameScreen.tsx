@@ -8,17 +8,14 @@ import LegacySidebar from './LegacySidebar';
 import { useTranslation } from '../utils/i18n';
 
 // New Imports
-import { useGameAudio } from '../hooks/useGameAudio';
-import { useGlitchEffect } from '../hooks/useGlitchEffect';
-import VisualEffects from './game/VisualEffects';
 import GameHeader from './game/GameHeader';
 import ChatArea from './game/ChatArea';
 import InputArea from './game/InputArea';
 import EndingOverlay from './game/EndingOverlay';
 import TutorialOverlay from './game/TutorialOverlay';
 import MapPanel from './game/MapPanel';
+import FeedbackOverlay from './game/FeedbackOverlay'; // New Overlay
 import { loadSetting, saveSetting, loadGlobalSettings } from '../services/indexedDBService';
-import { playSfx } from '../services/sfxService';
 
 interface GameScreenProps {
   gameState: GameState;
@@ -47,7 +44,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const prevNodeIdRef = useRef<string | null>(null);
 
   // Check for tutorial on mount
   useEffect(() => {
@@ -73,21 +69,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
   // Use Custom Hooks
   const isPlaying = gameState.status === GameStatus.PLAYING;
-  const isCritical = useGameAudio(gameState.stability, isPlaying);
-  const isGlitching = useGlitchEffect(gameState.stability, isPlaying);
-
-  useEffect(() => {
-    const currentNodeId = gameState.map?.currentNodeId || null;
-    if (!isPlaying || !currentNodeId) {
-      prevNodeIdRef.current = currentNodeId;
-      return;
-    }
-    if (prevNodeIdRef.current && prevNodeIdRef.current !== currentNodeId && gameState.turnCount > 1) {
-      playSfx('footstep');
-    }
-    prevNodeIdRef.current = currentNodeId;
-  }, [gameState.map?.currentNodeId, isPlaying, gameState.turnCount]);
-
+  
   // --- Game Over Trigger Logic ---
   useEffect(() => {
     if (gameState.endingType && gameState.status === GameStatus.PLAYING && gameOverCountdown === null) {
@@ -362,8 +344,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
       const updatedStability = nextStability !== null ? nextStability : gameState.stability;
 
       const mapUpdate = mapUpdateResult.update;
-      let shouldPlayUnlock = false;
-      let shouldPlayObjectiveComplete = false;
+      
+      // Removed direct SFX playback here, moved to FeedbackOverlay
+      
       setGameState(prev => {
         let base: GameState = {
           ...prev,
@@ -393,29 +376,11 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         }
 
         if (mapUpdate) {
-          if (Array.isArray(mapUpdate.addAccessTokens) && mapUpdate.addAccessTokens.length > 0) {
-            shouldPlayUnlock = true;
-          }
-          if (Array.isArray(mapUpdate.objectives)) {
-            mapUpdate.objectives.forEach((u: any) => {
-              const current = (prev.objectives || []).find(o => o.id === u.id);
-              if (!current) return;
-              const nextStatus = typeof u.status === 'string' ? u.status : current.status;
-              if (current.status !== 'COMPLETED' && nextStatus === 'COMPLETED') {
-                shouldPlayObjectiveComplete = true;
-                if (Array.isArray(current.reward?.accessTokens) && current.reward.accessTokens.length > 0) {
-                  shouldPlayUnlock = true;
-                }
-              }
-            });
-          }
+            // Objectives logic moved inside applyMapUpdate but SFX handled by FeedbackOverlay
         }
 
         return applyMapUpdate(base, mapUpdate);
       });
-
-      if (shouldPlayObjectiveComplete) playSfx('objectiveComplete');
-      if (shouldPlayUnlock) playSfx('doorUnlock');
 
       if (visualPrompt) {
         generateIllustration(aiMsgId, visualPrompt);
@@ -548,16 +513,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
       }));
   };
 
-  // --- Visual Effects Calculation ---
+  // --- Visual Effects Calculation (Now handled by StabilityMonitor, but we still need some for Layout) ---
   const instability = 100 - gameState.stability;
   const isUnstable = instability > 30; 
-  
-  // Noise opacity: Starts at instability 20, ramps up. 
-  const noiseOpacity = Math.min(Math.max((instability - 20) / 140, 0), 0.5);
-
-  const distortionScale = isUnstable ? Math.min((instability - 30) * 0.5, 30) : 0;
-  
-  // Check if we are currently viewing the report to disable effects
   const isViewingReport = gameState.status === GameStatus.GAME_OVER && isReportOpen;
 
   const handleNewGamePlus = (legacyData: LegacyData) => {
@@ -584,24 +542,18 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
   return (
     <>
-    <VisualEffects 
-      isCritical={isCritical}
-      isGlitching={isGlitching}
-      isMemoryEcho={isMemoryEchoActive}
-      noiseOpacity={noiseOpacity}
-      distortionScale={distortionScale}
-      showNoise={gameState.status === GameStatus.PLAYING}
-    />
+    {/* Feedback Overlay for SFX and Visual Cues */}
+    <FeedbackOverlay gameState={gameState} />
 
     {/* Main Container */}
     <div 
-        className={`relative z-10 w-full max-w-4xl h-[85vh] md:h-[90vh] flex flex-col bg-black/15 shadow-2xl overflow-hidden crt transition-all duration-1000 ${isGlitching && !isViewingReport ? 'animate-shake' : ''}`}
+        className={`relative z-10 w-full max-w-4xl h-[85vh] md:h-[90vh] flex flex-col bg-black/15 shadow-2xl overflow-hidden crt transition-all duration-1000`}
         style={isUnstable && !isViewingReport ? { filter: 'url(#signal-interference)' } : {}}
     >
       {gameState.legacy && <LegacySidebar legacyData={gameState.legacy} />}
 
-      {/* Main Border */}
-      <div className={`absolute inset-0 border pointer-events-none z-40 transition-colors duration-1000 ${isCritical ? 'border-scp-accent/50' : 'border-scp-gray/50'}`}></div>
+      {/* Main Border - Simplified as StabilityMonitor handles Critical Visuals now */}
+      <div className={`absolute inset-0 border pointer-events-none z-40 transition-colors duration-1000 border-scp-gray/50`}></div>
       
       <GameHeader 
         gameState={gameState} 
@@ -612,7 +564,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         onSave={handleOpenSaveModal}
         onLoad={() => { setSaveLoadMode('load'); setSaveLoadModalOpen(true); }}
         onTerminate={() => setShowAbortModal(true)}
-        isCritical={isCritical}
+        isCritical={false} // Logic moved to StabilityMonitor inside Header
+        isMemoryEchoActive={isMemoryEchoActive}
       />
 
       <ChatArea 

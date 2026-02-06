@@ -83,7 +83,11 @@ export const zh = {
     map_status_active: "进行中",
     map_status_completed: "已完成",
     map_status_failed: "失败",
-    map_tooltip_danger: "危险度"
+    map_tooltip_danger: "危险度",
+    objective_completed: "任务完成",
+    access_granted: "访问权限已获批",
+    entering_zone: "进入区域",
+    system_msg: "系统消息"
   },
   endings: {
     contained: { title: "CONTAINMENT RESTORED", subtitle: "收容措施已重建 // 任务完成" },

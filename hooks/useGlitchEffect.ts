@@ -6,7 +6,10 @@ export const useGlitchEffect = (stability: number, isPlaying: boolean) => {
 
   useEffect(() => {
     // Only active when playing and unstable (stability < 70)
-    if (!isPlaying || stability > 70 || stability <= 0) return;
+    if (!isPlaying || stability > 70 || stability <= 0) {
+        setIsGlitching(false);
+        return;
+    }
 
     let timeout: ReturnType<typeof setTimeout>;
     const triggerGlitch = () => {
@@ -16,14 +19,12 @@ export const useGlitchEffect = (stability: number, isPlaying: boolean) => {
         setTimeout(() => setIsGlitching(false), 150);
         
         // --- Frequency Calculation ---
-        // Stability 70: ~15 seconds delay (Low frequency)
-        // Stability 0: ~2 seconds delay (High frequency)
+        // Stability 70: ~9 seconds delay
+        // Stability 0: ~2 seconds delay
         const maxDelay = 9000;
         const minDelay = 2000;
         
         // Normalize stability (0-70 range) to 0-1 ratio
-        // ratio = 1 means stability is 70 (Max Delay)
-        // ratio = 0 means stability is 0 (Min Delay)
         const ratio = Math.max(0, Math.min(1, stability / 70));
         
         // Calculate delay

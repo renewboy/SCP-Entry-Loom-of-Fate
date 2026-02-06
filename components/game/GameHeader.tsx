@@ -3,6 +3,7 @@ import { GameState, GameStatus } from '../../types';
 import GameLogo from '../GameLogo';
 import SettingsMenu from './SettingsMenu';
 import { ROLE_TRANSLATIONS } from '../../utils/i18n';
+import StabilityMonitor from './StabilityMonitor';
 
 interface GameHeaderProps {
   gameState: GameState;
@@ -13,24 +14,13 @@ interface GameHeaderProps {
   onSave: () => void;
   onLoad: () => void;
   onTerminate: () => void;
-  isCritical: boolean;
+  isCritical: boolean; // Kept for compatibility but logic moved to StabilityMonitor
+  isMemoryEchoActive: boolean; // Passed through to StabilityMonitor
 }
 
 const GameHeader: React.FC<GameHeaderProps> = ({ 
-    gameState, t, language, isReportOpen, setIsReportOpen, onSave, onLoad, onTerminate, isCritical 
+    gameState, t, language, isReportOpen, setIsReportOpen, onSave, onLoad, onTerminate, isCritical, isMemoryEchoActive
 }) => {
-
-  const getStabilityColor = () => {
-    if (gameState.stability > 70) return 'text-scp-term';
-    if (gameState.stability > 30) return 'text-yellow-500';
-    return 'text-scp-accent';
-  };
-
-  const getKantCounterLabel = () => {
-     if (gameState.stability > 70) return t('game.stable');
-     if (gameState.stability > 30) return t('game.fluctuating');
-     return t('game.critical');
-  };
 
   const getDisplayRole = (role: string) => {
       if (language === 'zh') return role;
@@ -40,22 +30,18 @@ const GameHeader: React.FC<GameHeaderProps> = ({
   return (
       <header className="bg-scp-gray/50 p-4 border-b border-scp-dark/50 relative flex justify-between items-center h-20 shrink-0">
         
-        {/* Left Side: Logo & Kant Counter */}
+        {/* Left Side: Logo & Kant Counter (StabilityMonitor) */}
         <div className="flex items-center gap-4 z-10 w-1/3">
            <div className="hidden sm:block">
               <GameLogo className="h-10 w-10 text-scp-text opacity-90" />
            </div>
-           <div className="flex flex-col" id="stability-meter">
-              <span className="text-[10px] text-scp-gray font-mono uppercase tracking-tighter">{t('game.stability_label')}</span>
-              <div className="flex items-center gap-2">
-                <span className={`text-xl font-bold font-mono ${getStabilityColor()} ${isCritical ? 'animate-pulse' : ''}`}>
-                   {t('game.stability')}: {gameState.stability.toFixed(0)}%
-                </span>
-                <span className={`text-[10px] font-mono hidden sm:inline-block ${getStabilityColor()}`}>
-                    {getKantCounterLabel()}
-                </span>
-              </div>
-           </div>
+           
+           {/* New Integrated Stability Monitor (UI + Audio + Visuals) */}
+           <StabilityMonitor 
+              stability={gameState.stability}
+              isPlaying={gameState.status === GameStatus.PLAYING}
+              isMemoryEchoActive={isMemoryEchoActive}
+           />
         </div>
 
         {/* Center: Title */}

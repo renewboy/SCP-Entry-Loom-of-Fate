@@ -83,7 +83,11 @@ export const en = {
     map_status_active: "Active",
     map_status_completed: "Completed",
     map_status_failed: "Failed",
-    map_tooltip_danger: "Danger"
+    map_tooltip_danger: "Danger",
+    objective_completed: "MISSION COMPLETED",
+    access_granted: "ACCESS GRANTED",
+    entering_zone: "ENTERING ZONE",
+    system_msg: "SYSTEM_MSG"
   },
   endings: {
     contained: { title: "CONTAINMENT RESTORED", subtitle: "Procedures Restored // Mission Accomplished" },

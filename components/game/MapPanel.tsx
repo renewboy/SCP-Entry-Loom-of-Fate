@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { GameState } from '../../types';
 import { useTranslation } from '../../utils/i18n';
+import SidePanel from '../common/SidePanel';
 
 interface MapPanelProps {
   gameState: GameState;
@@ -219,7 +220,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
   };
 
   return (
-    <aside className="hidden lg:flex fixed top-16 right-0 bottom-4 w-80 flex-col border-l border-scp-gray/30 bg-black/40 backdrop-blur-sm z-40">
+    <SidePanel side="right" className="hidden lg:flex w-80">
       <div className="p-3 border-b border-scp-gray/30">
         <div className="text-[12px] font-mono tracking-widest text-scp-term uppercase">{t('game.map_title')}</div>
         <div className="text-xs text-scp-text font-mono mt-1">
@@ -229,21 +230,21 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
 
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
         <div>
-          <div className="text-[12px] text-gray-400 font-mono uppercase tracking-wider mb-2">{t('game.map_adjacency')}</div>
+          <h3 className="font-mono text-xs font-bold text-scp-term/80 border-l-2 border-scp-term pl-2 uppercase mb-2">{t('game.map_adjacency')}</h3>
           <div className="space-y-2">
             {data.neighbors.map(n => (
               <button
                 key={n.id}
                 disabled={n.blocked}
                 onClick={() => onQuickAction(`${goVerb} ${n.name}`)}
-                className={`w-full text-left px-2 py-2 border font-mono text-xs transition-colors ${
+                className={`w-full text-left px-2 py-2 border font-mono text-xs transition-colors group ${
                   n.blocked
                     ? 'border-scp-gray/20 text-gray-500 cursor-not-allowed bg-black/20'
-                    : 'border-scp-gray/40 text-scp-text hover:border-scp-term/60 hover:bg-black/30'
+                    : 'bg-black/40 border-scp-gray/30 text-scp-text hover:border-scp-term/60 hover:bg-black/30'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="truncate">{n.name}</span>
+                  <span className={`truncate font-bold transition-colors ${!n.blocked ? 'group-hover:text-scp-term' : ''}`}>{n.name}</span>
                 </div>
                 {n.blocked && (
                   <div className="mt-1 text-[12px] text-scp-accent/80">{n.reason || t('game.map_locked')}</div>
@@ -255,16 +256,16 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
 
         {data.npcsHere.length > 0 && (
           <div>
-            <div className="text-[12px] text-gray-400 font-mono uppercase tracking-wider mb-2">{t('game.map_npc')}</div>
+            <h3 className="font-mono text-xs font-bold text-scp-term/80 border-l-2 border-scp-term pl-2 uppercase mb-2">{t('game.map_npc')}</h3>
             <div className="space-y-2">
               {data.npcsHere.map(n => (
                 <button
                   key={n.id}
                   onClick={() => onQuickAction(`${talkVerb} ${n.name}`)}
-                  className="w-full text-left px-2 py-2 border border-scp-gray/40 text-scp-text hover:border-scp-term/60 hover:bg-black/30 font-mono text-xs transition-colors"
+                  className="w-full text-left px-2 py-2 bg-black/40 border border-scp-gray/30 text-scp-text hover:border-scp-term/60 hover:bg-black/30 font-mono text-xs transition-colors group"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate">{n.name}</span>
+                    <span className="truncate font-bold group-hover:text-scp-term transition-colors">{n.name}</span>
                   </div>
                   <div className="mt-1 text-[12px] text-gray-500">{n.archetype}</div>
                 </button>
@@ -275,16 +276,16 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
 
         {data.objectives.length > 0 && (
           <div>
-            <div className="text-[12px] text-gray-400 font-mono uppercase tracking-wider mb-2">{t('game.map_objectives')}</div>
+            <h3 className="font-mono text-xs font-bold text-scp-term/80 border-l-2 border-scp-term pl-2 uppercase mb-2">{t('game.map_objectives')}</h3>
             <div className="space-y-2">
               {data.objectives.map(o => (
                 <button
                   key={o.id}
                   onClick={() => onQuickAction(`${t('game.map_review_objective')} [${o.title}]`)}
-                  className="w-full text-left px-2 py-2 border border-scp-gray/40 text-scp-text hover:border-scp-term/60 hover:bg-black/30 font-mono text-xs transition-colors"
+                  className="w-full text-left px-2 py-2 bg-black/40 border border-scp-gray/30 text-scp-text hover:border-scp-term/60 hover:bg-black/30 font-mono text-xs transition-colors group"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate">{o.type === 'MAIN' ? 'MAIN' : 'SIDE'} | {o.title}</span>
+                    <span className="truncate font-bold group-hover:text-scp-term transition-colors">{o.type === 'MAIN' ? 'MAIN' : 'SIDE'} | {o.title}</span>
                     <span className={`text-[12px] font-mono ${statusColor(o.status)}`}>{statusLabel(o.status)}</span>
                   </div>
                   <div className="mt-1 text-[12px] text-gray-500">
@@ -298,7 +299,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <div className="text-[12px] text-gray-400 font-mono uppercase tracking-wider">{t('game.map_minimap')}</div>
+            <h3 className="font-mono text-xs font-bold text-scp-term/80 border-l-2 border-scp-term pl-2 uppercase">{t('game.map_minimap')}</h3>
             <button
               onClick={resetView}
               className="text-[10px] font-mono text-scp-text border border-scp-gray/40 px-2 py-1 hover:border-scp-term/60 hover:bg-black/30 transition-colors"
@@ -533,7 +534,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
           </div>
         </div>
       </div>
-    </aside>
+    </SidePanel>
   );
 };
 

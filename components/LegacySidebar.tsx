@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LegacyData } from '../types';
 import { useTranslation } from '../utils/i18n';
+import SidePanel from './common/SidePanel';
 
 interface LegacySidebarProps {
     legacyData: LegacyData;
@@ -16,13 +17,14 @@ const LegacySidebar: React.FC<LegacySidebarProps> = ({ legacyData }) => {
     if (!legacyData) return null;
 
     return createPortal(
-        <div className={`
-            fixed left-0 top-0 bottom-0 z-[100]
-            transition-all duration-300 ease-in-out
-            ${isCollapsed ? 'w-12' : 'w-96'}
-            bg-black/60 border-r border-scp-term/30 backdrop-blur-md
-            flex flex-col shadow-[5px_0_20px_rgba(0,0,0,0.5)]
-        `}>
+        <SidePanel 
+            side="left" 
+            className={`
+                top-0 bottom-0 z-[100] transition-all duration-300 ease-in-out
+                ${isCollapsed ? 'w-12' : 'w-96'}
+                shadow-[5px_0_20px_rgba(0,0,0,0.5)]
+            `}
+        >
             {/* Toggle Button */}
             <button
                 onClick={toggleSidebar}
@@ -125,7 +127,7 @@ const LegacySidebar: React.FC<LegacySidebarProps> = ({ legacyData }) => {
                     </span>
                 </div>
             )}
-        </div>,
+        </SidePanel>,
         document.body
     );
 };
