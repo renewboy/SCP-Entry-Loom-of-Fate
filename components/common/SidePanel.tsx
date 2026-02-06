@@ -8,7 +8,7 @@ interface SidePanelProps {
 }
 
 const SidePanel: React.FC<SidePanelProps> = ({ side, className = '', children }) => {
-  const baseClasses = "fixed top-16 bottom-4 flex flex-col bg-black/40 backdrop-blur-sm z-40 crt transition-all duration-300";
+  const baseClasses = "fixed top-16 bottom-4 flex flex-col bg-black/15 scp-ui z-40 crt transition-all duration-300";
   
   const sideClasses = side === 'left' 
     ? "left-0 border-r border-scp-gray/30" 

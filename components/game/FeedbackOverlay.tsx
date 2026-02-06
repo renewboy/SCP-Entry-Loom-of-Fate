@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { CheckCircle2, MapPin, Unlock } from 'lucide-react';
 import { GameState } from '../../types';
 import { playSfx } from '../../services/sfxService';
 import { useTranslation } from '../../utils/i18n';
@@ -113,11 +114,11 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
   }, [gameState, t]);
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-[150] overflow-hidden flex flex-col items-center justify-start pt-24">
+    <div className="fixed inset-0 pointer-events-none z-[150] overflow-hidden flex flex-col items-center justify-start pt-24 scp-ui">
       
       {/* Location Scan Effect */}
       {locationScanActive && (
-        <div className="absolute inset-0 z-[140] flex items-center justify-center bg-black/40 backdrop-blur-sm transition-opacity duration-500 animate-in fade-in">
+        <div className="absolute inset-0 z-[140] flex items-center justify-center bg-black/40 backdrop-blur-sm transition-opacity duration-500 animate-in fade-in scp-ui">
            <div className="w-full h-[2px] bg-scp-term/50 absolute top-1/2 -translate-y-1/2 animate-[scan-line_2s_ease-in-out]"></div>
            <div className="text-center">
               <div className="text-scp-term text-xs font-mono tracking-[0.5em] uppercase mb-2 animate-pulse">{t('game.entering_zone')}</div>
@@ -134,7 +135,7 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
           <div 
             key={notif.id}
             className={`
-              relative overflow-hidden w-full bg-black/80 border-l-4 p-4 shadow-lg backdrop-blur-md transition-all duration-500 animate-in slide-in-from-top-4 fade-in
+              relative overflow-hidden w-full bg-black/80 border-l-4 p-4 shadow-lg backdrop-blur-md transition-all duration-500 animate-in slide-in-from-top-4 fade-in scp-alert
               ${notif.type === 'UNLOCK' ? 'border-l-emerald-500 text-emerald-400' : ''}
               ${notif.type === 'OBJECTIVE' ? 'border-l-amber-500 text-amber-400' : ''}
               ${notif.type === 'LOCATION' ? 'border-l-sky-500 text-sky-400' : ''}
@@ -155,10 +156,10 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
                    )}
                 </div>
                 {/* Icon placeholder based on type */}
-                <div className="text-2xl opacity-50">
-                    {notif.type === 'UNLOCK' && '🔓'}
-                    {notif.type === 'OBJECTIVE' && '✅'}
-                    {notif.type === 'LOCATION' && '📍'}
+                <div className="opacity-50">
+                    {notif.type === 'UNLOCK' && <Unlock className="w-5 h-5" />}
+                    {notif.type === 'OBJECTIVE' && <CheckCircle2 className="w-5 h-5" />}
+                    {notif.type === 'LOCATION' && <MapPin className="w-5 h-5" />}
                 </div>
              </div>
              

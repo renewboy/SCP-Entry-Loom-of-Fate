@@ -4,7 +4,7 @@ import { useTranslation } from '../utils/i18n';
 import * as IDB from '../services/indexedDBService';
 import * as Cloud from '../services/supabaseService';
 import { SaveGameMetadata } from '../types';
-import { GameState } from '../types';
+import { GameState, GameStatus } from '../types';
 import ConfirmationModal from './ConfirmationModal';
 import CrtSurface from './common/CrtSurface';
 import { User } from '@supabase/supabase-js';
@@ -502,16 +502,30 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
 
   if (!isOpen) return null;
 
+  const isInGame = currentGameState?.status === GameStatus.PLAYING;
+  const accentClasses = {
+    border: isInGame ? 'border-scp-term' : 'border-scp-accent',
+    borderSoft: isInGame ? 'border-scp-term/60' : 'border-scp-accent/50',
+    text: isInGame ? 'text-scp-term' : 'text-scp-accent',
+    bg: isInGame ? 'bg-scp-term' : 'bg-scp-accent',
+    hoverBorder: isInGame ? 'hover:border-scp-term' : 'hover:border-scp-accent',
+    hoverBorderSoft: isInGame ? 'hover:border-scp-term/60' : 'hover:border-scp-accent/50',
+    hoverBg: isInGame ? 'hover:bg-scp-term' : 'hover:bg-scp-accent',
+    hoverText: isInGame ? 'hover:text-black' : 'hover:text-white',
+    hoverIndicator: isInGame ? 'group-hover/btn:text-scp-term' : 'group-hover/btn:text-scp-accent',
+    borderTop: isInGame ? 'border-t-scp-term' : 'border-t-scp-accent'
+  };
+
   const content = (
     <>
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-mono">
-      <CrtSurface className="bg-black border-y sm:border border-scp-accent/50 w-full max-w-3xl shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[85vh] relative overflow-hidden group/modal z-10">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-mono scp-ui">
+      <CrtSurface className={`scp-window border-y sm:border ${accentClasses.borderSoft} w-full max-w-3xl shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[85vh] relative overflow-hidden group/modal z-10`}>
         
         {/* Header with Login */}
-        <div className="bg-black h-14 w-full flex items-center justify-between px-3 sm:px-6 border-b border-scp-gray relative z-20 shrink-0 gap-2">
+        <div className="bg-black h-14 w-full flex items-center justify-between px-3 sm:px-6 border-b border-scp-gray relative z-20 shrink-0 gap-2 scp-window-header">
            <div className="flex items-center gap-3 min-w-0">
              <div className="flex gap-1 shrink-0">
-                <div className="w-3 h-3 bg-scp-accent rounded-full animate-pulse"></div>
+                <div className={`w-3 h-3 ${accentClasses.bg} rounded-full animate-pulse`}></div>
                 <div className="w-3 h-3 border border-scp-gray rounded-full"></div>
                 <div className="w-3 h-3 border border-scp-gray rounded-full"></div>
              </div>
@@ -557,7 +571,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
                     <div className="relative group/login-btn">
                       <button 
                         onClick={handleLogin}
-                        className="text-xs uppercase px-3 py-1 font-bold transition-colors flex items-center gap-2 bg-scp-dark border border-scp-accent text-scp-accent hover:bg-scp-accent hover:text-white"
+                        className={`text-xs uppercase px-3 py-1 font-bold transition-colors flex items-center gap-2 bg-scp-dark ${accentClasses.border} ${accentClasses.text} ${accentClasses.hoverBg} ${accentClasses.hoverText}`}
                       >
                           <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
                             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -590,7 +604,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
 
           {loading && (
              <div className="absolute inset-0 bg-black/80 z-50 flex flex-col items-center justify-center backdrop-blur-sm">
-                <div className="w-12 h-12 border-2 border-scp-gray border-t-scp-accent rounded-full animate-spin mb-4"></div>
+                <div className={`w-12 h-12 border-2 border-scp-gray ${accentClasses.borderTop} rounded-full animate-spin mb-4`}></div>
                 <div className="font-mono text-scp-text text-sm tracking-widest animate-pulse">{t('save_load.loading')}</div>
              </div>
           )}
@@ -607,10 +621,10 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
               <button
                 onClick={() => handleSaveClick()}
                 disabled={loading}
-                className="w-full p-4 border border-dashed border-scp-gray hover:border-scp-accent hover:bg-scp-gray/10 text-scp-text/60 hover:text-scp-text font-mono transition-all flex items-center justify-between group/btn"
+                className={`w-full p-4 border border-dashed border-scp-gray ${accentClasses.hoverBorder} hover:bg-scp-gray/10 text-scp-text/60 hover:text-scp-text font-mono transition-all flex items-center justify-between group/btn`}
               >
                 <span className="flex items-center gap-4">
-                    <span className="text-2xl group-hover/btn:text-scp-accent transition-colors">+</span>
+                    <span className={`text-2xl ${accentClasses.hoverIndicator} transition-colors`}>+</span>
                     <div className="flex flex-col items-start">
                         <span className="tracking-widest text-lg uppercase font-bold font-report shadow-black drop-shadow-md text-shadow-sm leading-none">{t('save_load.create_new')}</span>
                     </div>
@@ -619,9 +633,9 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
             )}
 
             {saves.map((save, index) => (
-              <div key={save.id} className="group relative bg-scp-gray/10 border border-scp-gray/30 hover:border-scp-accent/50 transition-all duration-200 hover:bg-scp-gray/20">
+              <div key={save.id} className={`group relative bg-scp-gray/10 border border-scp-gray/30 ${accentClasses.hoverBorderSoft} transition-all duration-200 hover:bg-scp-gray/20`}>
                 {/* Selection Indicator */}
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-scp-accent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className={`absolute left-0 top-0 bottom-0 w-1 ${accentClasses.bg} opacity-0 group-hover:opacity-100 transition-opacity`}></div>
                 
                 <div className="p-3 flex gap-3 relative z-10">
                   {/* Index Number */}
@@ -645,7 +659,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
                         className="font-mono text-scp-text text-sm tracking-wide font-bold flex items-start gap-2 whitespace-normal break-words line-clamp-2"
                         title={save.summary}
                      >
-                       <span className="opacity-50 text-scp-accent shrink-0">ID:</span>
+                       <span className={`opacity-50 ${accentClasses.text} shrink-0`}>ID:</span>
                        <span>{save.summary ? save.summary : 'UNKNOWN_DATA_FRAGMENT'}</span>
                      </div>
                      
@@ -659,7 +673,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
                         {(mode === 'load' || activeTab === 'cloud') && (
                           <button
                             onClick={() => handleLoad(save)}
-                            className="text-scp-text hover:text-white text-xs uppercase px-3 py-1 border border-scp-gray hover:border-scp-text transition-colors bg-scp-gray/20 flex items-center gap-2"
+                            className={`text-xs uppercase px-3 py-1 ${accentClasses.hoverText} ${accentClasses.hoverBg} border ${accentClasses.borderSoft} transition-colors`}
                           >
                             {activeTab === 'cloud' ? t('save_load.load_cloud_saves') : t('save_load.load_btn')}
                           </button>
@@ -669,7 +683,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
                         {mode === 'save' && activeTab === 'local' && (
                           <button
                             onClick={() => handleSaveClick(save.id)}
-                            className="text-scp-accent hover:text-white hover:bg-scp-accent text-xs uppercase px-3 py-1 border border-scp-accent/50 transition-colors"
+                            className={`text-xs uppercase px-3 py-1 ${accentClasses.hoverText} ${accentClasses.hoverBg} border ${accentClasses.borderSoft} transition-colors`}
                           >
                             {t('save_load.overwrite')}
                           </button>
@@ -717,7 +731,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
 
                         <button
                           onClick={() => handleDeleteClick(save.id)}
-                          className="text-scp-accent hover:text-white hover:bg-scp-accent text-xs uppercase px-3 py-1 border border-scp-accent/50 transition-colors ml-auto"
+                          className={`text-xs uppercase px-3 py-1 ${accentClasses.hoverText} ${accentClasses.hoverBg} border ${accentClasses.borderSoft} transition-colors ml-auto`}
                         >
                           {t('save_load.delete')}
                         </button>

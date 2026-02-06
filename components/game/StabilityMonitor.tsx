@@ -56,7 +56,7 @@ const StabilityMonitor: React.FC<StabilityMonitorProps> = ({ stability, isPlayin
      return t('game.critical');
   };
 
-  const humeValue = 0.5 + (stability / 100) * 1.0;
+  const humeValue = (stability / 100) * 2.0;
   const accentColor = useMemo(() => {
     if (stability > 70) return '#2bdc6b';
     if (stability > 30) return '#f59e0b';
@@ -86,7 +86,7 @@ const StabilityMonitor: React.FC<StabilityMonitorProps> = ({ stability, isPlayin
     const baseAmp = 3.5 + instabilityRatio * 18.0; 
     const chaos = instabilityRatio * instabilityRatio;
     // 显著增加波动速度（频率）
-    const speed = 0.08 + instabilityRatio * 0.45; 
+    const speed = 0.08 + instabilityRatio * 0.25; 
 
     const render = () => {
       phaseRef.current += speed;

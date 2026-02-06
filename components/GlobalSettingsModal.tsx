@@ -47,11 +47,11 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
     };
 
     const content = (
-        <div className="fixed inset-0 z-[50] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-mono">
-            <CrtSurface className="bg-black border border-scp-accent/50 w-full max-w-lg shadow-2xl flex flex-col relative overflow-hidden z-10">
+        <div className="fixed inset-0 z-[50] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-mono scp-ui">
+            <CrtSurface className="scp-window border border-scp-accent/50 w-full max-w-lg shadow-2xl flex flex-col relative overflow-hidden z-10">
                 
                 {/* Header */}
-                <div className="bg-black h-14 w-full flex items-center justify-between px-6 border-b border-scp-gray relative z-20 shrink-0">
+                <div className="bg-black h-14 w-full flex items-center justify-between px-6 border-b border-scp-gray relative z-20 shrink-0 scp-window-header">
                     <div className="flex items-center gap-3">
                         <div className="w-3 h-3 bg-scp-accent rounded-full animate-pulse"></div>
                         <span className="font-report text-xl tracking-widest text-scp-text uppercase shadow-black drop-shadow-md text-shadow-sm">

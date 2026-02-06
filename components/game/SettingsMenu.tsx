@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { AlertTriangle, FolderOpen, Save } from 'lucide-react';
 
 interface SettingsMenuProps {
   onSave: () => void;
@@ -22,7 +23,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onSave, onLoad, onTerminate
   }, []);
 
   return (
-    <div className="relative z-50" ref={menuRef}>
+    <div className="relative z-50 scp-ui" ref={menuRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className="w-8 h-8 flex items-center justify-center border border-scp-gray text-scp-text hover:bg-scp-gray/20 hover:text-white transition-colors"
@@ -34,19 +35,19 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onSave, onLoad, onTerminate
       </button>
       
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-48 bg-black/90 border border-scp-gray shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-sm flex flex-col p-2 space-y-2">
+        <div className="absolute right-0 top-full mt-2 w-48 scp-window border border-scp-gray shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-sm flex flex-col p-2 space-y-2">
            <button
                 onClick={() => { onSave(); setIsOpen(false); }}
                 className="w-full text-left bg-scp-gray/10 hover:bg-scp-gray/30 text-scp-text px-3 py-2 font-mono text-xs transition-colors flex items-center gap-2"
             >
-                <span className="text-lg">💾</span> {t('save_load.save')}
+                <Save className="w-4 h-4" /> {t('save_load.save')}
             </button>
 
             <button
                 onClick={() => { onLoad(); setIsOpen(false); }}
                 className="w-full text-left bg-scp-gray/10 hover:bg-scp-gray/30 text-scp-text px-3 py-2 font-mono text-xs transition-colors flex items-center gap-2"
             >
-                 <span className="text-lg">📂</span> {t('save_load.load')}
+                 <FolderOpen className="w-4 h-4" /> {t('save_load.load')}
             </button>
 
             <div className="h-px bg-scp-gray/30 my-1"></div>
@@ -55,7 +56,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onSave, onLoad, onTerminate
                 onClick={() => { onTerminate(); setIsOpen(false); }}
                 className="w-full text-left bg-red-900/40 hover:bg-red-900/60 text-red-200 border border-red-900/50 px-3 py-2 font-mono text-xs transition-colors flex items-center gap-2"
             >
-                <span className="text-lg">⚠️</span> {t('game.terminate')}
+                <AlertTriangle className="w-4 h-4" /> {t('game.terminate')}
             </button>
         </div>
       )}

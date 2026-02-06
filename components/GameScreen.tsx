@@ -615,7 +615,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
     {/* Main Container */}
     <div 
-        className={`relative z-10 w-full max-w-4xl h-[85vh] md:h-[90vh] flex flex-col bg-black/15 shadow-2xl overflow-hidden crt transition-all duration-1000`}
+        className={`relative z-10 w-full max-w-4xl h-[85vh] md:h-[90vh] flex flex-col bg-black/15 scp-ui shadow-2xl overflow-hidden crt transition-all duration-1000`}
         style={isUnstable && !isViewingReport ? { filter: 'url(#signal-interference)' } : {}}
     >
       {gameState.legacy && <LegacySidebar legacyData={gameState.legacy} />}

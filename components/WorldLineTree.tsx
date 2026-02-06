@@ -3,6 +3,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Message, SCPData, EndingType, GameReviewData, QAPair, LegacyData, Trait, LegacyItem } from '../types';
+import { Dna, Mic, Package, Radio, RotateCcw, Sparkles } from 'lucide-react';
 import { useTranslation } from '../utils/i18n';
 import { generateGameReview, askNarratorQuestion, generateAudioDramaScript, generateLegacyData } from '../services/aiService';
 import GameReviewReport from './GameReviewReport';
@@ -460,22 +461,15 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
   const endConfig = getEndingDisplay();
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-md text-scp-text overflow-y-auto crt border-t border-scp-gray/50">
-      
-      {backgroundImage && (
-        <div className="fixed inset-0 z-0 opacity-20 pointer-events-none">
-            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${backgroundImage})` }}></div>
-            <div className="absolute inset-0 bg-black/50"></div>
-        </div>
-      )}
+    <div className="absolute inset-0 z-50 flex flex-col bg-black/80 backdrop-blur-md text-scp-text overflow-y-auto crt border-t border-scp-gray/50 scp-ui">
 
-      <div className="sticky top-0 z-20 bg-scp-dark/95 border-b border-scp-gray p-4 flex justify-between items-center backdrop-blur-md shadow-lg shrink-0">
+      <div className="sticky top-0 z-20 bg-scp-dark/80 border-b border-scp-gray p-4 flex justify-between items-center backdrop-blur-md shadow-lg shrink-0 scp-window-header">
         <div>
            <h2 className="font-report text-xl md:text-2xl text-scp-term text-shadow-green">{t('report.title')}</h2>
            <p className="font-mono text-[10px] text-gray-500">{t('report.project')}: {scpData?.designation} // {t('report.final_report')}</p>
         </div>
         <div className="flex gap-2 md:gap-3">
-             <button 
+            <button 
                 onClick={handleGenerateDrama}
                 disabled={isGeneratingDrama}
                 className="hidden sm:flex items-center gap-2 px-3 py-1.5 border border-scp-gray text-scp-term font-mono text-xs hover:border-scp-term hover:bg-scp-term/10 transition-colors shadow-lg"
@@ -484,7 +478,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                 {isGeneratingDrama ? (
                     <span className="w-3 h-3 border-2 border-scp-term border-t-transparent rounded-full animate-spin"></span>
                 ) : (
-                    <span>🎙️</span>
+                    <Mic className="w-4 h-4" />
                 )}
                 <span className="hidden lg:inline">{t('report.generate_video_script')}</span>
             </button>
@@ -524,7 +518,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                     <div className={`absolute left-4 md:left-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 z-10 ${index === timelineEvents.length - 1 ? 'bg-red-500 border-red-900 animate-pulse' : 'bg-scp-term border-scp-dark'}`}></div>
 
                     <div className="w-full md:w-[45%] pl-10 md:pl-0">
-                        <div className="bg-black/80 border border-scp-gray/30 p-4 rounded hover:border-scp-term/50 transition-colors group backdrop-blur-sm">
+                        <div className="bg-black/80 border border-scp-gray/30 p-4 rounded hover:border-scp-term/50 transition-colors group backdrop-blur-sm scp-window">
                             {event.image && (
                                 <div className="mb-3 overflow-hidden rounded border border-scp-gray/20">
                                     <img src={event.image} alt="Evidence" className="w-full h-32 object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
@@ -542,7 +536,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
          </div>
 
          <div className="flex flex-col items-center justify-center mt-12 mb-20 space-y-8">
-            <div className={`${endConfig.bg} ${endConfig.border} border p-4 text-center rounded max-w-md backdrop-blur-sm shadow-lg w-full`}>
+            <div className={`${endConfig.bg} ${endConfig.border} border p-4 text-center rounded max-w-md backdrop-blur-sm shadow-lg w-full scp-window`}>
                 <h3 className={`font-report text-xl ${endConfig.color} mb-2 uppercase`}>{endConfig.title}</h3>
                 <p className="font-mono text-xs text-gray-300">
                     {endConfig.text}
@@ -561,7 +555,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                         className="group relative px-8 py-3 bg-scp-dark border border-scp-accent/50 hover:border-scp-accent transition-all overflow-hidden"
                      >
                         <div className="absolute inset-0 bg-scp-accent/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-                        <span className="relative font-mono font-bold text-scp-accent text-sm flex items-center gap-2">
+                    <span className="relative font-mono font-bold text-scp-accent text-sm flex items-center gap-2">
                             {isGenerating ? (
                                 <>
                                     <span className="w-3 h-3 border-2 border-scp-accent border-t-transparent rounded-full animate-spin"></span>
@@ -569,7 +563,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                                 </>
                             ) : (
                                 <>
-                                    <span className="text-lg">✇</span> {t('report.generate_review')}
+                                <Sparkles className="w-4 h-4" /> {t('report.generate_review')}
                                 </>
                             )}
                         </span>
@@ -591,7 +585,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                             </>
                         ) : (
                             <>
-                                <span className="text-lg">🔮</span> {t('legacy.new_game_plus') || 'NEW GAME +'}
+                                <RotateCcw className="w-4 h-4" /> {t('legacy.new_game_plus') || 'NEW GAME +'}
                             </>
                         )}
                     </span>
@@ -606,7 +600,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                     </div>
                     
                     {/* Q&A Section */}
-                    <div className="bg-black/40 border border-scp-gray/30 p-6 rounded-sm shadow-xl backdrop-blur-md">
+                    <div className="bg-black/40 border border-scp-gray/30 p-6 rounded-sm shadow-xl backdrop-blur-md scp-window">
                         <div className="flex items-center justify-between mb-4 border-b border-scp-gray/50 pb-2">
                             <h3 className="font-report text-lg text-scp-text uppercase flex items-center gap-2">
                                 <span className="text-scp-term">?</span> {t('report.qa_title')}
@@ -692,8 +686,8 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
 
       {/* Legacy Selection Modal - Using Portal to render at body level */}
       {showLegacyModal && newLegacyData && createPortal(
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-              <div className="bg-scp-dark border-2 border-scp-term/50 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-[0_0_30px_rgba(51,255,0,0.2)] flex flex-col">
+          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 scp-ui">
+              <div className="scp-window border-2 border-scp-term/50 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-[0_0_30px_rgba(51,255,0,0.2)] flex flex-col">
                   <div className="p-6 border-b border-scp-term/30 sticky top-0 bg-scp-dark z-10">
                       <h2 className="text-2xl font-report text-scp-term mb-2">
                           {t('legacy.modal_title') || 'LEGACY EXTRACTION'}
@@ -707,7 +701,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                       {/* Traits Selection */}
                       <div>
                           <h3 className="font-mono text-sm text-scp-term mb-4 border-l-2 border-scp-term pl-3 flex justify-between items-center">
-                              <span>🧬 {t('legacy.traits') || 'TRAITS'}</span>
+                              <span className="flex items-center gap-2"><Dna className="w-4 h-4" /> {t('legacy.traits') || 'TRAITS'}</span>
                               <span className="text-xs opacity-70">{selectedTraits.length} / 5</span>
                           </h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -716,7 +710,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                                       key={`${trait.name}-${idx}`}
                                       onClick={() => toggleTraitSelection(trait as Trait)}
                                       className={`
-                                          p-3 text-left border transition-all relative group
+                                          p-3 text-left border transition-all relative group scp-window
                                           ${selectedTraits.some(t => t.name === trait.name) 
                                               ? 'bg-scp-term/20 border-scp-term text-scp-term' 
                                               : 'bg-black/40 border-gray-800 text-gray-500 hover:border-gray-600'
@@ -741,7 +735,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                       {/* Items Selection */}
                       <div>
                           <h3 className="font-mono text-sm text-scp-term mb-4 border-l-2 border-scp-term pl-3 flex justify-between items-center">
-                              <span>🎒 {t('legacy.items') || 'REALITY ANCHORS'}</span>
+                              <span className="flex items-center gap-2"><Package className="w-4 h-4" /> {t('legacy.items') || 'REALITY ANCHORS'}</span>
                               <span className="text-xs opacity-70">{selectedItems.length} / 5</span>
                           </h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -750,7 +744,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                                       key={`${item.name}-${idx}`}
                                       onClick={() => toggleItemSelection(item as LegacyItem)}
                                       className={`
-                                          p-3 text-left border transition-all relative group
+                                          p-3 text-left border transition-all relative group scp-window
                                           ${selectedItems.some(i => i.name === item.name) 
                                               ? 'bg-scp-term/20 border-scp-term text-scp-term' 
                                               : 'bg-black/40 border-gray-800 text-gray-500 hover:border-gray-600'
@@ -775,22 +769,22 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                       {/* Echoes Display (Read-only) */}
                       {newLegacyData.echoes && newLegacyData.echoes.length > 0 && (
                           <div>
-                              <h3 className="font-mono text-sm text-scp-term mb-4 border-l-2 border-scp-term pl-3 flex justify-between items-center">
-                                  <span>📢 {t('legacy.echoes') || 'WORLD ECHOES'}</span>
+                          <h3 className="font-mono text-sm text-scp-term mb-4 border-l-2 border-scp-term pl-3 flex justify-between items-center">
+                              <span className="flex items-center gap-2"><Radio className="w-4 h-4" /> {t('legacy.echoes') || 'WORLD ECHOES'}</span>
                                   <span className="text-xs opacity-70">{t('common.read_only') || 'READ ONLY'}</span>
                               </h3>
                               <div className="space-y-3">
                                   {[...newLegacyData.echoes].reverse().map((echo, idx) => (
-                                      <div key={idx} className="bg-black/40 border border-scp-term/30 p-3 rounded relative overflow-hidden">
+                                      <div key={idx} className="bg-black/40 border border-scp-term/30 p-3 rounded relative overflow-hidden scp-window">
                                           <div className="absolute top-0 right-0 p-1">
                                               <span className="text-[9px] bg-scp-term/20 text-scp-term px-1.5 py-0.5 rounded uppercase tracking-wider">
                                                   {echo.endingType}
                                               </span>
                                           </div>
-                                          <div className="text-xs font-bold text-gray-300 font-mono mb-1">
+                                          <div className="text-xs font-bold text-scp-text/90 font-mono mb-1">
                                               "{echo.title}"
                                           </div>
-                                          <p className="text-[10px] text-gray-500 font-mono leading-relaxed italic border-l-2 border-scp-term/50 pl-2">
+                                          <p className="text-[10px] text-scp-text/70 font-mono leading-relaxed italic border-l-2 border-scp-term/50 pl-2">
                                               {echo.summary}
                                           </p>
                                       </div>

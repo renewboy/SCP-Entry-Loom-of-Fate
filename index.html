@@ -18,7 +18,7 @@
               scp: {
                 dark: '#0a0a0a',
                 gray: '#1a1a1a',
-                accent: '#c32e2e', // Alert Red
+                accent: '#c32e20', // Alert Red
                 text: '#e0e0e0',
                 term: '#33ff00',
               }
@@ -38,24 +38,85 @@
       }
     </script>
     <style>
-      body {
-        background-color: #050505;
-        color: #e0e0e0;
-        overflow: hidden; /* App handles scroll */
+      :root {
+        --scp-bg: #050505;
+        --scp-surface: #0a0a0a;
+        --scp-surface-2: #111111;
+        --scp-border: rgba(90, 90, 90, 0.45);
+        --scp-border-strong: rgba(120, 120, 120, 0.75);
+        --scp-text: #e0e0e0;
+        --scp-text-dim: rgba(224, 224, 224, 0.6);
+        --scp-term: #33ff00;
+        --scp-amber: #d9a441;
+        --scp-alert: #c32e2e;
+        --scp-shadow: 0 0 22px rgba(0, 0, 0, 0.6);
+        --scp-glow: 0 0 10px rgba(51, 255, 0, 0.35);
+        --scp-scanline-dark: rgba(0, 0, 0, 0.28);
+        --scp-scanline-rgb-r: rgba(255, 0, 0, 0.04);
+        --scp-scanline-rgb-g: rgba(0, 255, 0, 0.02);
+        --scp-scanline-rgb-b: rgba(0, 0, 255, 0.04);
+        --scp-scrollbar-track: #1a1a1a;
+        --scp-scrollbar-thumb: #333333;
+        --scp-noise-opacity: 0.12;
       }
-      /* Custom Scrollbar */
+      body {
+        background-color: var(--scp-bg);
+        color: var(--scp-text);
+        overflow: hidden;
+      }
       ::-webkit-scrollbar {
         width: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: #1a1a1a;
+        background: var(--scp-scrollbar-track);
       }
       ::-webkit-scrollbar-thumb {
-        background: #333;
+        background: var(--scp-scrollbar-thumb);
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #c32e2e;
+        background: var(--theme-accent, var(--scp-alert));
+      }
+      .scp-ui {
+        color: var(--scp-text);
+        letter-spacing: 0.02em;
+      }
+      .scp-window {
+        background: rgba(10, 10, 10, 0.85);
+        border: 1px solid var(--scp-border);
+        box-shadow: var(--scp-shadow);
+        backdrop-filter: blur(8px);
+      }
+      .scp-window-header {
+        background: linear-gradient(90deg, rgba(30, 30, 30, 0.6), rgba(10, 10, 10, 0.2));
+        border-bottom: 1px solid var(--scp-border);
+        color: var(--scp-text);
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+      }
+      .scp-archive {
+        background: #0b0b0b;
+        border: 1px solid var(--scp-border-strong);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04), var(--scp-shadow);
+      }
+      .scp-alert {
+        border: 1px solid rgba(195, 46, 46, 0.7);
+        box-shadow: 0 0 18px rgba(195, 46, 46, 0.25);
+      }
+      .scp-divider {
+        height: 1px;
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05));
+      }
+      .scp-badge {
+        border: 1px solid var(--scp-border);
+        background: rgba(0, 0, 0, 0.5);
+        color: var(--scp-text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.3em;
+      }
+      .scp-noise {
+        background-image: url('https://www.transparenttextures.com/patterns/noise-lines.png');
+        opacity: var(--scp-noise-opacity);
       }
       .crt::before {
         content: " ";
@@ -65,17 +126,16 @@
         left: 0;
         bottom: 0;
         right: 0;
-        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, var(--scp-scanline-dark) 50%), linear-gradient(90deg, var(--scp-scanline-rgb-r), var(--scp-scanline-rgb-g), var(--scp-scanline-rgb-b));
         z-index: 2;
         background-size: 100% 2px, 3px 100%;
         pointer-events: none;
       }
-      /* Text Shadows for extra glow */
       .text-shadow-green {
-        text-shadow: 0 0 5px rgba(51, 255, 0, 0.5);
+        text-shadow: 0 0 5px rgba(51, 255, 0, 0.45);
       }
       .text-shadow-sm {
-        text-shadow: 0 0 3px rgba(224, 224, 224, 0.3);
+        text-shadow: 0 0 3px rgba(224, 224, 224, 0.28);
       }
       @keyframes scp-stroke {
         from {

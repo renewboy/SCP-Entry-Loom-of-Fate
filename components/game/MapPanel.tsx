@@ -221,7 +221,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
 
   return (
     <SidePanel side="right" className="hidden lg:flex w-80">
-      <div className="p-3 border-b border-scp-gray/30">
+      <div className="p-3 border-b border-scp-gray/30 scp-window-header">
         <div className="text-[12px] font-mono tracking-widest text-scp-term uppercase">{t('game.map_title')}</div>
         <div className="text-xs text-scp-text font-mono mt-1">
           {data.currentNode?.name || runtime!.currentNodeId}
@@ -240,7 +240,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                 className={`w-full text-left px-2 py-2 border font-mono text-xs transition-colors group ${
                   n.blocked
                     ? 'border-scp-gray/20 text-gray-500 cursor-not-allowed bg-black/20'
-                    : 'bg-black/40 border-scp-gray/30 text-scp-text hover:border-scp-term/60 hover:bg-black/30'
+                    : ' border-scp-gray/30 text-scp-text hover:border-scp-term/60 hover:bg-black/30'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -262,7 +262,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                 <button
                   key={n.id}
                   onClick={() => onQuickAction(`${talkVerb} ${n.name}`)}
-                  className="w-full text-left px-2 py-2 bg-black/40 border border-scp-gray/30 text-scp-text hover:border-scp-term/60 hover:bg-black/30 font-mono text-xs transition-colors group"
+                  className="w-full text-left px-2 py-2 border border-scp-gray/30 text-scp-text hover:border-scp-term/60 hover:bg-black/30 font-mono text-xs transition-colors group"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate font-bold group-hover:text-scp-term transition-colors">{n.name}</span>
@@ -282,7 +282,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                 <button
                   key={o.id}
                   onClick={() => onQuickAction(`${t('game.map_review_objective')} [${o.title}]`)}
-                  className="w-full text-left px-2 py-2 bg-black/40 border border-scp-gray/30 text-scp-text hover:border-scp-term/60 hover:bg-black/30 font-mono text-xs transition-colors group"
+                  className="w-full text-left px-2 py-2 border border-scp-gray/30 text-scp-text hover:border-scp-term/60 hover:bg-black/30 font-mono text-xs transition-colors group"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate font-bold group-hover:text-scp-term transition-colors">{o.type === 'MAIN' ? 'MAIN' : 'SIDE'} | {o.title}</span>
@@ -309,7 +309,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
           </div>
           <div
             ref={minimapRef}
-            className="border border-scp-gray/30 bg-black/30 p-2 relative select-none"
+            className="border border-scp-gray/30 p-2 relative select-none"
             onMouseDown={event => {
               if (event.button !== 0) return;
               if (!minimapRef.current) return;

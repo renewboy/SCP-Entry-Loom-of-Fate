@@ -28,7 +28,7 @@ const GameHeader: React.FC<GameHeaderProps> = ({
   };
 
   return (
-      <header className="bg-scp-gray/50 p-4 border-b border-scp-dark/50 relative flex justify-between items-center h-20 shrink-0">
+      <header className="bg-scp-gray/50 p-4 border-b border-scp-dark/50 relative flex justify-between items-center h-20 shrink-0 scp-ui">
         
         {/* Left Side: Logo & Kant Counter (StabilityMonitor) */}
         <div className="flex items-center gap-4 z-10 w-1/3">

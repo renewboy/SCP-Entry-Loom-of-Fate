@@ -15,10 +15,10 @@ const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollR
       <div 
         id="chat-area"
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scroll-smooth text-shadow-sm"
+        className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scroll-smooth text-shadow-sm scp-ui"
       >
         {gameState.stability < 30 && (
-           <div className="sticky top-0 z-50 bg-red-900/80 backdrop-blur border-l-4 border-red-600 p-2 text-red-300 font-mono text-xs animate-pulse shadow-lg mb-4">
+           <div className="sticky top-0 z-50 bg-red-900/80 backdrop-blur border-l-4 border-red-600 p-2 text-red-300 font-mono text-xs animate-pulse shadow-lg mb-4 scp-alert">
               {t('game.alert_integrity')}
            </div>
         )}

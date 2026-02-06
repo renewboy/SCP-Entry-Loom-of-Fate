@@ -200,7 +200,7 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
     const areaPoints = `${points} ${width},${height} 0,${height}`;
 
     return (
-        <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4">
+        <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4 scp-archive">
              <h3 className="text-sm text-scp-text font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
                <span className="w-1 h-4 bg-scp-term block"></span>
                {t('report.stability_chart')}
@@ -259,7 +259,7 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
     const { stablePct, fluctuatingPct, criticalPct } = stats.phase;
     const fmt = (v: number) => `${Math.round(v * 100)}%`;
     return (
-      <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4">
+      <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4 scp-archive">
         <h3 className="text-sm text-scp-text font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
           <span className="w-1 h-4 bg-scp-accent block"></span>
           {t('report.phase_dist')}
@@ -270,15 +270,15 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
           <div style={{ width: `${criticalPct * 100}%` }} className="h-full bg-scp-accent" />
         </div>
         <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2 text-[10px] text-gray-400 font-mono uppercase">
-          <div className="flex items-center justify-between border border-scp-gray/30 bg-black/30 px-2 py-1">
+          <div className="flex items-center justify-between border border-scp-gray/30 bg-black/30 px-2 py-1 scp-archive">
             <span>{t('report.phase_stable')}</span>
             <span className="text-scp-term font-bold">{fmt(stablePct)}</span>
           </div>
-          <div className="flex items-center justify-between border border-scp-gray/30 bg-black/30 px-2 py-1">
+          <div className="flex items-center justify-between border border-scp-gray/30 bg-black/30 px-2 py-1 scp-archive">
             <span>{t('report.phase_fluct')}</span>
             <span className="text-yellow-500 font-bold">{fmt(fluctuatingPct)}</span>
           </div>
-          <div className="flex items-center justify-between border border-scp-gray/30 bg-black/30 px-2 py-1">
+          <div className="flex items-center justify-between border border-scp-gray/30 bg-black/30 px-2 py-1 scp-archive">
             <span>{t('report.phase_critical')}</span>
             <span className="text-scp-accent font-bold">{fmt(criticalPct)}</span>
           </div>
@@ -298,7 +298,7 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
     const barWidth = width / deltas.length;
 
     return (
-      <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4">
+      <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4 scp-archive">
         <h3 className="text-sm text-scp-text font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
           <span className="w-1 h-4 bg-scp-term block"></span>
           {t('report.delta_chart')}
@@ -326,7 +326,7 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
           </svg>
         </div>
         <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px] text-gray-400 font-mono uppercase">
-          <div className="flex items-center justify-between border border-scp-gray/30 bg-black/30 px-2 py-1">
+          <div className="flex items-center justify-between border border-scp-gray/30 bg-black/30 px-2 py-1 scp-archive">
             <span>{t('report.largest_drop')}</span>
             <span className="text-scp-accent font-bold">{stats.largestDrop}</span>
           </div>
@@ -356,7 +356,7 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
     const barWidth = width / values.length;
 
     return (
-      <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4">
+      <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4 scp-archive">
         <h3 className="text-sm text-scp-text font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
           <span className="w-1 h-4 bg-blue-500 block"></span>
           {t('report.engagement_chart')}
@@ -382,19 +382,19 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
           </svg>
         </div>
         <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px] text-gray-400 font-mono uppercase">
-          <div className="flex items-center justify-between border border-scp-gray/30 bg-black/30 px-2 py-1">
+          <div className="flex items-center justify-between border border-scp-gray/30 bg-black/30 px-2 py-1 scp-archive">
             <span>{t('report.turns')}</span>
             <span className="text-white font-bold">{stats.engagement.turns}</span>
           </div>
-          <div className="flex items-center justify-between border border-scp-gray/30 bg-black/30 px-2 py-1">
+          <div className="flex items-center justify-between border border-scp-gray/30 bg-black/30 px-2 py-1 scp-archive">
             <span>{t('report.avg_user_len')}</span>
             <span className="text-white font-bold">{Math.round(stats.engagement.avgUserCharsPerTurn)}</span>
           </div>
-          <div className="flex items-center justify-between border border-scp-gray/30 bg-black/30 px-2 py-1">
+          <div className="flex items-center justify-between border border-scp-gray/30 bg-black/30 px-2 py-1 scp-archive">
             <span>{t('report.avg_narr_len')}</span>
             <span className="text-white font-bold">{Math.round(stats.engagement.avgNarratorCharsPerTurn)}</span>
           </div>
-          <div className="flex items-center justify-between border border-scp-gray/30 bg-black/30 px-2 py-1">
+          <div className="flex items-center justify-between border border-scp-gray/30 bg-black/30 px-2 py-1 scp-archive">
             <span>{t('report.visuals')}</span>
             <span className="text-white font-bold">{stats.engagement.visualsCount}</span>
           </div>
@@ -404,7 +404,7 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
   };
 
   return (
-    <div className="game-review-report w-full max-w-4xl mx-auto border-2 border-scp-gray bg-[#0a0a0a] relative p-6 md:p-12 font-mono text-gray-300 shadow-2xl overflow-hidden mt-8 mb-12">
+    <div className="game-review-report w-full max-w-4xl mx-auto border-2 border-scp-gray bg-[#0a0a0a] relative p-6 md:p-12 font-mono text-gray-300 shadow-2xl overflow-hidden mt-8 mb-12 scp-archive scp-ui">
       {/* Background Watermark */}
       <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none z-0">
          <GameLogo className="w-96 h-96 text-gray-500" />
@@ -431,9 +431,9 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
       </div>
 
       {/* Evaluation Grid */}
-      <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {/* Rank & Score */}
-        <div className="col-span-1 bg-black/40 border border-scp-gray/30 p-4 flex flex-col items-center justify-center relative overflow-hidden group">
+        <div className="col-span-1 bg-black/40 border border-scp-gray/30 p-4 flex flex-col items-center justify-center relative overflow-hidden group scp-archive">
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
           <span className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">{t('report.perf_eval')}</span>
           <div className={`text-6xl font-report font-bold ${getRankColorClass(data.evaluation.rank)} mb-2 text-shadow-sm`}>
@@ -451,7 +451,7 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
         </div>
 
         {/* Executive Summary */}
-        <div className="col-span-1 md:col-span-2 bg-black/40 border border-scp-gray/30 p-5 relative">
+        <div className="col-span-1 md:col-span-2 bg-black/40 border border-scp-gray/30 p-5 relative scp-archive">
           <div className="absolute top-0 right-0 p-1">
              <div className="w-2 h-2 bg-scp-accent rounded-full animate-pulse"></div>
           </div>
@@ -475,14 +475,14 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
 
       {/* Objective Breakdown */}
       {data.objectiveBreakdown && data.objectiveBreakdown.length > 0 && (
-        <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4">
+        <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4 scp-archive">
           <h3 className="text-sm text-scp-text font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
             <span className="w-1 h-4 bg-scp-term block"></span>
             {t('report.objectives')}
           </h3>
           <div className="space-y-3">
             {data.objectiveBreakdown.map((o, idx) => (
-              <div key={idx} className="border border-scp-gray/30 bg-black/30 p-3">
+              <div key={idx} className="border border-scp-gray/30 bg-black/30 p-3 scp-archive">
                 <div className="flex items-center justify-between gap-3 mb-2">
                   <div className="text-xs text-gray-200 font-bold">{o.objective}</div>
                   <div className="text-[10px] text-gray-400 font-mono">{clamp(o.completion, 0, 100)}%</div>
@@ -508,22 +508,22 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
 
       {/* Risk Assessment */}
       {data.riskAssessment && (
-        <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4">
+        <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4 scp-archive">
           <h3 className="text-sm text-scp-text font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
             <span className="w-1 h-4 bg-scp-accent block"></span>
             {t('report.risk')}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="border border-scp-gray/30 bg-black/30 p-3">
+            <div className="border border-scp-gray/30 bg-black/30 p-3 scp-archive">
               <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">{t('report.risk_overall')}</div>
               <div className="text-2xl font-bold text-white font-mono">{clamp(data.riskAssessment.overall, 0, 100)}/100</div>
               <div className="text-[10px] text-gray-400 mt-2">{data.riskAssessment.volatilityComment}</div>
             </div>
-            <div className="md:col-span-2 border border-scp-gray/30 bg-black/30 p-3">
+            <div className="md:col-span-2 border border-scp-gray/30 bg-black/30 p-3 scp-archive">
               <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">{t('report.risk_turns')}</div>
               <div className="space-y-2">
                 {(data.riskAssessment.riskByTurn || []).slice(0, 5).map((r, idx) => (
-                  <div key={idx} className="border border-scp-gray/20 bg-black/20 p-2">
+                  <div key={idx} className="border border-scp-gray/20 bg-black/20 p-2 scp-archive">
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-[10px] text-gray-400 font-mono">{t('report.turn')} {r.turn}</div>
                       <div className="text-[10px] text-scp-accent font-mono">{t('report.risk_level')} {clamp(r.risk, 0, 5)}/5</div>
@@ -540,14 +540,14 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
 
       {/* Tactics Matrix */}
       {data.tacticsMatrix && data.tacticsMatrix.length > 0 && (
-        <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4">
+        <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4 scp-archive">
           <h3 className="text-sm text-scp-text font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
             <span className="w-1 h-4 bg-purple-500 block"></span>
             {t('report.tactics')}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {data.tacticsMatrix.map((item, idx) => (
-              <div key={idx} className="border border-scp-gray/30 bg-black/30 p-3">
+              <div key={idx} className="border border-scp-gray/30 bg-black/30 p-3 scp-archive">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-xs font-bold text-gray-200">{item.tactic}</div>
                   <div className="text-[10px] text-gray-400 font-mono">x{item.count} / {item.effectiveness}</div>
@@ -561,14 +561,14 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
 
       {/* Counterfactuals */}
       {data.counterfactuals && data.counterfactuals.length > 0 && (
-        <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4">
+        <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4 scp-archive">
           <h3 className="text-sm text-scp-text font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
             <span className="w-1 h-4 bg-yellow-500 block"></span>
             {t('report.counterfactuals')}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {data.counterfactuals.slice(0, 4).map((c, idx) => (
-              <div key={idx} className="border border-scp-gray/30 bg-black/30 p-4">
+              <div key={idx} className="border border-scp-gray/30 bg-black/30 p-4 scp-archive">
                 <div className="text-xs font-bold text-gray-200 mb-2">{c.title}</div>
                 <div className="text-[10px] text-gray-400 mb-2">{t('report.change')}: {c.change}</div>
                 <div className="text-[10px] text-gray-300 mb-2">{t('report.expected')}: {c.expectedOutcome}</div>
@@ -589,7 +589,7 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                {data.achievements.map((item, idx) => (
-                  <div key={idx} className="bg-black/60 border border-yellow-900/50 p-4 rounded-sm flex items-start gap-3 hover:border-yellow-500 transition-colors group">
+                  <div key={idx} className="bg-black/60 border border-yellow-900/50 p-4 rounded-sm flex items-start gap-3 hover:border-yellow-500 transition-colors group scp-archive">
                      <div>
                         <p className="text-xs font-bold text-yellow-500 uppercase mb-1">{item.title}</p>
                         <p className="text-[10px] text-gray-400 leading-tight">{item.description}</p>
@@ -639,7 +639,7 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                {data.perspectiveEvaluations.map((item, idx) => (
-                  <div key={idx} className="bg-black/40 border border-scp-gray/30 p-4 flex flex-col">
+                  <div key={idx} className="bg-black/40 border border-scp-gray/30 p-4 flex flex-col scp-archive">
                      <div className="border-b border-gray-700 pb-2 mb-2 flex justify-between items-end">
                         <span className="text-xs font-bold text-scp-text uppercase">{item.sourceName}</span>
                         <span className="text-[10px] text-gray-400 font-mono border border-gray-600 px-1">{item.stance}</span>

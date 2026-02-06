@@ -79,7 +79,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ isVisible, onClose, t
   if (step.position === 'bottom') positionClass = "bottom-24 left-1/2 transform -translate-x-1/2";
 
   return (
-    <div className={`fixed inset-0 z-[202] flex items-center justify-center ${hasTarget ? 'bg-transparent pointer-events-none' : 'bg-black/70 backdrop-blur-sm pointer-events-auto'}`}>
+    <div className={`fixed inset-0 z-[202] flex items-center justify-center ${hasTarget ? 'bg-transparent pointer-events-none' : 'bg-black/70 backdrop-blur-sm pointer-events-auto'} scp-ui`}>
       {/* Highlight Effect (Simulated) */}
       {step.targetId && (
         <style>
@@ -94,7 +94,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ isVisible, onClose, t
         </style>
       )}
 
-      <CrtSurface className={`absolute ${positionClass} w-[90%] max-w-md bg-black border border-scp-term p-6 shadow-[0_0_30px_rgba(0,255,0,0.2)] animate-in fade-in zoom-in-95 duration-300 pointer-events-auto`}>
+      <CrtSurface className={`absolute ${positionClass} w-[90%] max-w-md scp-window border border-scp-term p-6 shadow-[0_0_30px_rgba(0,255,0,0.2)] animate-in fade-in zoom-in-95 duration-300 pointer-events-auto`}>
         <div className="flex justify-between items-start mb-4 border-b border-scp-term/30 pb-2">
           <h3 className="text-xl font-report text-scp-term tracking-widest uppercase">{step.title}</h3>
           <span className="text-xs font-mono text-scp-term/50">STEP {currentStep + 1}/{steps.length}</span>

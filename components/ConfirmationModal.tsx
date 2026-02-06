@@ -18,10 +18,10 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, onConfirm
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <CrtSurface className="bg-scp-dark border-2 border-scp-accent w-full max-w-md shadow-[0_0_30px_rgba(195,46,46,0.3)] relative overflow-hidden">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 scp-ui">
+      <CrtSurface className="scp-window border-2 border-scp-accent w-full max-w-md shadow-[0_0_30px_rgba(195,46,46,0.3)] relative overflow-hidden">
         {/* Striped warning header */}
-        <div className="bg-scp-accent/20 h-8 w-full flex items-center px-4 border-b border-scp-accent relative">
+        <div className="bg-scp-accent/20 h-8 w-full flex items-center px-4 border-b border-scp-accent relative scp-window-header">
            <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,#c32e2e_10px,#c32e2e_20px)]"></div>
            <span className="font-mono text-scp-accent font-bold text-xs tracking-widest relative z-10">{t('modal.warning')}</span>
         </div>

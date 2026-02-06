@@ -257,7 +257,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
         }}
       />
     )}
-    <div className="max-w-xl w-full p-8 bg-black/60 border border-scp-gray relative backdrop-blur-md z-10 crt shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
+    <div className="max-w-xl w-full p-8 scp-window scp-ui border border-scp-gray relative z-10 crt shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
         {legacyData && <LegacySidebar legacyData={legacyData} />}
         <div className="absolute top-0 left-0 w-full h-1 bg-scp-accent shadow-[0_0_10px_rgba(195,46,46,0.5)]"></div>
         <div className="absolute bottom-0 right-0 w-20 h-20 border-r-2 border-b-2 border-scp-gray opacity-50 pointer-events-none"></div>

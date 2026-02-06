@@ -71,7 +71,7 @@ const EndingOverlay: React.FC<EndingOverlayProps> = ({
   
   if (isEndingOverlayCollapsed) {
       return (
-          <div className={`absolute bottom-0 left-0 right-0 z-[60] p-2 flex items-center justify-between ${config.bg} border-t ${config.bar}`}>
+          <div className={`absolute bottom-0 left-0 right-0 z-[60] p-2 flex items-center justify-between ${config.bg} border-t ${config.bar} scp-ui`}>
               <span className="font-mono text-xs text-white px-2 text-shadow-sm font-bold tracking-wider">
                   {t('game.ending_reached')}: {config.title}
               </span>
@@ -86,7 +86,7 @@ const EndingOverlay: React.FC<EndingOverlayProps> = ({
   }
 
   return (
-    <CrtSurface className={`absolute inset-0 z-50 flex flex-col items-center justify-center ${config.bg} backdrop-blur-md animate-in fade-in duration-1000 p-4 text-center`}>
+    <CrtSurface className={`absolute inset-0 z-50 flex flex-col items-center justify-center ${config.bg} backdrop-blur-md animate-in fade-in duration-1000 p-4 text-center scp-ui`}>
         <div className={`absolute top-0 left-0 w-full h-1 ${config.bar} animate-pulse`}></div>
         
         {/* Minimize Button */}
