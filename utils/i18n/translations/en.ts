@@ -259,6 +259,11 @@ export const en = {
     title: "SYSTEM SETTINGS",
     scene_images: "In-Game Scene Image Generation",
     bg_images: "Initial SCP Background Generation",
-    entity_images: "Initial Entity Portrait Generation"
+    entity_images: "Initial Entity Portrait Generation",
+    difficulty: "Game Difficulty",
+    difficulty_easy: "Easy",
+    difficulty_normal: "Normal",
+    difficulty_hard: "Hard",
+    difficulty_insane: "Insane"
   }
 };

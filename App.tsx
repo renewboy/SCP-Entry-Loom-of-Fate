@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GameState, GameStatus } from './types';
 import StartScreen from './components/StartScreen';
 import GameScreen from './components/GameScreen';
 import { LanguageProvider, useTranslation } from './utils/i18n';
+import { playBgm, stopBgm } from './services/bgmService';
 
 const LanguageToggle = () => {
     const { language, setLanguage, t } = useTranslation();
@@ -31,6 +32,14 @@ const AppContent: React.FC = () => {
     turnCount: 0,
     endingType: null
   });
+
+  useEffect(() => {
+    if (gameState.status === GameStatus.PLAYING) {
+      playBgm();
+      return;
+    }
+    stopBgm();
+  }, [gameState.status]);
 
   return (
     <div className="relative w-screen h-screen flex flex-col items-center justify-center overflow-hidden bg-[#0a0a0a] text-scp-text">

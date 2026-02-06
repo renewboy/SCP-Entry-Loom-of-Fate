@@ -91,13 +91,12 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
     try {
       const finalRole = selectedRole === Role.CUSTOM ? customRole : selectedRole;
 
-      // 1. Analyze SCP
-      const scpData = await analyzeSCPUrl(urlInput, language, finalRole);
-      setLoadingStep(t('start.loading_retrieved', { designation: scpData.designation }));
-
-      
-      // Load settings to determine if images should be generated
       const settings = await loadGlobalSettings();
+      const difficulty = settings.difficulty || 'normal';
+
+      // 1. Analyze SCP
+      const scpData = await analyzeSCPUrl(urlInput, language, finalRole, difficulty);
+      setLoadingStep(t('start.loading_retrieved', { designation: scpData.designation }));
 
       // 2. Start Background Image Gen (Async)
       if (settings.enableBackgroundImages) {
@@ -125,7 +124,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
       setLoadingStep(LOADING_MESSAGES[0]);
       
       // Create the generator
-      const stream = initializeGameChatStream(scpData, finalRole, language, legacyData);
+      const stream = initializeGameChatStream(scpData, finalRole, language, legacyData, difficulty);
       const msgId = 'intro';
       let fullText = "";
       let isFirstChunk = true;

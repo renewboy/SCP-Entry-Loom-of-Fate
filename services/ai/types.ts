@@ -1,9 +1,9 @@
 import { Content } from "@google/genai";
-import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult } from '../../types';
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty } from '../../types';
 
 export interface AIService {
-    analyzeSCPUrl(input: string, language: Language, role: string): Promise<SCPData>;
-    initializeGameChatStream(scp: SCPData, role: string, language: Language, legacyData?: LegacyData): AsyncGenerator<string>;
+    analyzeSCPUrl(input: string, language: Language, role: string, difficulty: GameDifficulty): Promise<SCPData>;
+    initializeGameChatStream(scp: SCPData, role: string, language: Language, legacyData: LegacyData | undefined, difficulty: GameDifficulty): AsyncGenerator<string>;
     sendAction(action: string, currentStability: number, turnCount: number, language: Language, ragContext?: string, mapContext?: string): AsyncGenerator<string>;
     getChatHistory(): Promise<any[]>;
     restoreChatSession(history: any[], role: string, language: Language): Promise<void>;

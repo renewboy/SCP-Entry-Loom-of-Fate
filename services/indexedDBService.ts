@@ -16,7 +16,8 @@ const GLOBAL_SETTINGS_KEY = 'global_settings';
 const DEFAULT_SETTINGS: GlobalSettings = {
     enableSceneImages: true,
     enableBackgroundImages: true,
-    enableEntityImages: true
+    enableEntityImages: true,
+    difficulty: 'normal'
 };
 
 interface IDBSaveGame extends SaveGameMetadata {

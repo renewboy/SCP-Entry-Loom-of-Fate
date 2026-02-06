@@ -1,7 +1,7 @@
 import { GoogleGenAI, Chat, Content } from "@google/genai";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { AIService } from "../types";
-import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult } from "../../../types";
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty } from "../../../types";
 import { aiConfig } from "../../../config/aiConfig";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt } from "../prompts";
 import { normalizeGameReviewData, safeParseJson } from "../utils";
@@ -58,9 +58,9 @@ export class GeminiProvider implements AIService {
         }
     }
 
-    async analyzeSCPUrl(input: string, language: Language = 'zh', role: string): Promise<SCPData> {
+    async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal'): Promise<SCPData> {
         try {
-            const prompt = getAnalyzeSCPPrompt(input, language, role);
+            const prompt = getAnalyzeSCPPrompt(input, language, role, difficulty);
             this.client = new GoogleGenAI({ apiKey: aiConfig.apiKey });
             console.log(`[GeminiProvider] Analyzing SCP: ${input}`);
             const response = await this.client.models.generateContent({
@@ -94,7 +94,7 @@ export class GeminiProvider implements AIService {
         }
     }
 
-    async *initializeGameChatStream(scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData): AsyncGenerator<string> {
+    async *initializeGameChatStream(scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData, difficulty: GameDifficulty = 'normal'): AsyncGenerator<string> {
         console.log(`[GeminiProvider] Initializing chat stream for ${scp.designation} as ${role} in ${language}`);
         const systemInstruction = getSystemInstruction(role, language);
         
@@ -111,7 +111,7 @@ export class GeminiProvider implements AIService {
             legacyString = [traitsStr, itemsStr, echoesStr].filter(Boolean).join('\n\n');
         }
 
-        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, legacyString, scp.mapBlueprint);
+        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyString, scp.mapBlueprint);
 
         this.chatSession = {
             chat: this.client.chats.create({

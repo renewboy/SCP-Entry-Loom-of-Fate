@@ -1,4 +1,4 @@
-import { Language, MapBlueprint } from '../../types';
+import { GameDifficulty, Language, MapBlueprint } from '../../types';
 
 export const getSystemInstruction = (role: string, language: Language) => `
 你是一个基于SCP基金会宇宙的文本冒险游戏《SCP 档案：命运织机》的AI主持人。“命运织机”这一名称寓意每一次玩家决策都像织机上的一根经线或纬线，微小的选择在各种变量的作用下交织，逐步塑造世界线的走向。你的核心职责是严格贴合SCP基金会世界观逻辑，为玩家纺织沉浸式、多样性、高自由度的剧情体验。
@@ -22,7 +22,7 @@ export const getSystemInstruction = (role: string, language: Language) => `
 - 为玩家所选角色设定人设和背景故事（不一定都是正面形象，可以是负面）
 - 所有叙事严格通过玩家所选角色的视角、知识与能力进行过滤。
 - 提供有意义的多元路径：避免设计单一通向死胡同的选择。
-- 允许创造性解法：只要符合角色能力和世界观逻辑，允许玩家尝试任何行动。其成功与否取决于逻辑、准备与概率，而非预设的“必败”。
+- 允许创造性解法：只要符合角色能力和世界观逻辑，允许玩家尝试任何行动。其成功与否取决于逻辑、准备与概率。
 
 [任务设计原则]
 - 主线任务要充分结合角色、SCP项目背景、角色人设等设计，保证任务的多样性。
@@ -31,7 +31,7 @@ export const getSystemInstruction = (role: string, language: Language) => `
 
 [叙事韧性协议]
 你必须在生成的叙事中遵循以下原则：
-1. **“逃生舱口”原则**：当稳定性降至危险水平(如<30)时，应在场景中自然地引入一个潜在的逆转要素或紧急逃生途径(如未被注意的备用系统、一个可被利用的SCP次要特性、一次外部干预的征兆等)，逃生舱口也有小概率可能是陷阱。
+1. **“逃生舱口”原则**：当稳定性降至危险水平(如<30)时，应在场景中自然地引入一个潜在的逆转要素或紧急逃生途径(如未被注意的备用系统、一个可被利用的SCP次要特性、一次外部干预的征兆等)，逃生舱口也有概率可能是陷阱。
 2. **“多重失败”原则**：游戏结束（稳定性归零）不应是单一错误行动的即时结果，而应是一系列风险决策累积或一个特别鲁莽的重大错误所导致。
 3. **“破解”鼓励**：对于以智谋、研究和非暴力手段应对异常的角色，应设计可通过分析环境细节、破解密码、利用SCP行为逻辑漏洞等方式推进或破局的情景。
 
@@ -53,7 +53,7 @@ export const getSystemInstruction = (role: string, language: Language) => `
   3. System Tags（位于末尾）：
     - [VISUAL: <English Image Prompt>]：（可选）仅当视觉场景发生显著变化时插入。描述格式要求："cinematic, scp foundation style, horror, dark, <scene details>"。
     - [STABILITY: <Integer>]：（必填）当前计算得出的稳定性数值。
-    - [ENDING: <Type>]：（条件性）仅当达成游戏结束条件时插入。TYPE只能是 COLLAPSE, CONTAINED, DEATH, ESCAPED 其中之一。
+    - [ENDING: <Type>]：（条件性）仅当达成游戏结束条件时插入。
     - [LOC: <node_id>]：（条件性）当玩家位置发生变化时插入。node_id必须是地图节点ID。
     - [MAP_UPDATE: <JSON>]：（可选）当地图状态变化（获得钥匙/解锁门/推进目标/NPC移动等）时插入。JSON必须为单个对象。
   4. 中文常规回复示例："...你听到门后传来了沉重的呼吸声。[VISUAL: dark metal door, scratching marks, cinematic lighting][STABILITY: 85]"   
@@ -62,11 +62,12 @@ export const getSystemInstruction = (role: string, language: Language) => `
 6. 格式：使用Markdown。
 `;
 
-export const getAnalyzeSCPPrompt = (input: string, language: Language, role: string) => {
+export const getAnalyzeSCPPrompt = (input: string, language: Language, role: string, difficulty: GameDifficulty) => {
     const langInstruction = language === 'zh' ? 'Chinese' : 'English';
     return `
 User Input: ${input}
 Player Role: ${role}
+Game Difficulty: ${difficulty}
 Task: Identify the SCP Foundation entry referred to in the input. 
 If it's a URL, extract the SCP designation.
 Use available search tools to conduct thorough research by:
@@ -98,6 +99,10 @@ Also generate two specific visual description strings in English to be inserted 
   - Objectives: exactly 1 MAIN objective and 1 to 2 SIDE objectives
   - Around 20% gated edges with requirements to encourage exploration
 - Nodes are connected via edges; avoid disconnected nodes.
+- Difficulty guidance:
+  - Interpret the provided difficulty as a continuous pressure level that scales map danger, gate density, NPC helpfulness, and resource scarcity in the same direction.
+  - Higher difficulty should make routes riskier and objectives more demanding.
+  - Lower difficulty should make routes safer and objectives clearer.
 - Edge gating: 
   - "requires": a string array of access tokens. Tokens can represent keys, clearance, or flags.
   - "blockedText": the reason why the edge is blocked, if not blocked, leave it empty.
@@ -146,7 +151,7 @@ const getNormalTurnRequirements = (langInstruction: string) => `
 2. 判定是否达成结局 (CONTAINED/DEATH/COLLAPSE/ESCAPED)，如达成必须生成[ENDING: TYPE]。
 3. 如果未达成结局，给玩家2-3个互动选项，并加上“其他（请输入）”，选项用数字编号。
 4. 如果 Stability <= 0，必须强制生成 [ENDING: COLLAPSE]。
-5. 地图机制：如果用户行动涉及移动/前往/进入地点，你必须根据[地图状态]判断可行性：一般只能移动到“可达邻接地点”；若被门禁阻挡，叙事中说明原因并保持位置不变。
+5. 地图机制：如果用户行动涉及前往地点，你必须根据[地图状态]判断可行性：一般只能移动到“可达邻接地点”；若被门禁阻挡，保持位置不变。
 6. 若本回合位置发生变化，你必须在末尾添加 [LOC: <node_id>]（node_id必须是地图节点ID）。
 7. 若发生地图状态变化，你可以在末尾添加 [MAP_UPDATE: <JSON>]。仅在有变化时填写对应字段，JSON字段说明如下：
    - addAccessTokens: ["token_id"],
@@ -158,7 +163,7 @@ const getNormalTurnRequirements = (langInstruction: string) => `
 10. 所有System Tags必须在**最末尾**添加。
 11. 禁止使用任何工具调用。`;
 
-export const getStartGamePrompt = (role: string, scpDesignation: string, containmentClass: string, language: Language, legacyData?: string, mapBlueprint?: MapBlueprint) => {
+export const getStartGamePrompt = (role: string, scpDesignation: string, containmentClass: string, language: Language, difficulty: GameDifficulty, legacyData?: string, mapBlueprint?: MapBlueprint) => {
     const langInstruction = language === 'zh' ? '中文' : '英文';
     const legacyIntro = '[已激活遗产继承系统 - 开启新周目]\n当前时间线受到先前迭代周期的因果影响。玩家角色从过去的世界线中继承了以下特质、物品与记忆回响。\n请将这些要素有机融入叙事与角色初始状态：';
     const legacyEnd = '[遗产数据结束]';
@@ -179,6 +184,7 @@ ${JSON.stringify(mapBlueprint)}
 - 玩家角色：${role}
 - 目标：${scpDesignation}
 - 项目等级：${containmentClass}
+- 游戏难度：${difficulty}
 - 回合: 1
 ${legacyInjection}
 ${mapInjection}
@@ -289,7 +295,7 @@ ${mapSection}
 
 ${normalTurnReminder}
 
-请严格按照【常规回合任务】的要求生成回复。请注意你生成的叙事和选项不要包含node_id,npc_id等不可读信息，要面向玩家。`
+请严格按照【常规回合任务】的要求生成回复，并严格根据游戏难度判定结果。请注意你生成的叙事和选项不要包含node_id,npc_id等不可读信息，要面向玩家。`
     console.log("[getContextPrompt] finalContextPrompt", finalContextPrompt);
     return finalContextPrompt;
 };

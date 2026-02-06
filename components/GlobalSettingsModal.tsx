@@ -19,9 +19,16 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
         }
     }, [isOpen]);
 
-    const handleToggle = (key: keyof GlobalSettings) => {
+    const handleToggle = (key: 'enableSceneImages' | 'enableBackgroundImages' | 'enableEntityImages') => {
         if (!settings) return;
         const newSettings = { ...settings, [key]: !settings[key] };
+        setSettings(newSettings);
+        saveGlobalSettings(newSettings);
+    };
+
+    const handleDifficultyChange = (difficulty: GlobalSettings['difficulty']) => {
+        if (!settings) return;
+        const newSettings = { ...settings, difficulty };
         setSettings(newSettings);
         saveGlobalSettings(newSettings);
     };
@@ -29,8 +36,8 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
     if (!isOpen || !settings) return null;
 
     // Use i18n for labels
-    const getLabel = (key: keyof GlobalSettings) => {
-        const keyMap: Record<keyof GlobalSettings, string> = {
+    const getLabel = (key: 'enableSceneImages' | 'enableBackgroundImages' | 'enableEntityImages') => {
+        const keyMap: Record<'enableSceneImages' | 'enableBackgroundImages' | 'enableEntityImages', string> = {
             enableSceneImages: 'settings.scene_images',
             enableBackgroundImages: 'settings.bg_images',
             enableEntityImages: 'settings.entity_images'
@@ -66,7 +73,27 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
 
                 <div className="p-8 space-y-6">
                     <div className="space-y-4">
-                        {(Object.keys(settings) as Array<keyof GlobalSettings>).map((key) => (
+                        <div className="p-4 border border-scp-gray/30 bg-scp-gray/10">
+                            <div className="text-xs text-gray-400 font-mono uppercase tracking-wider mb-3">
+                                {t('settings.difficulty')}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                {(['easy', 'normal', 'hard', 'insane'] as const).map(level => (
+                                    <button
+                                        key={level}
+                                        onClick={() => handleDifficultyChange(level)}
+                                        className={`h-9 px-3 text-xs font-mono border transition-all text-center whitespace-nowrap ${
+                                            settings.difficulty === level
+                                                ? 'bg-scp-text text-black border-scp-text shadow-[0_0_10px_rgba(224,224,224,0.3)]'
+                                                : 'bg-transparent text-gray-400 border-scp-gray/30 hover:border-scp-gray hover:text-gray-200'
+                                        }`}
+                                    >
+                                        {t(`settings.difficulty_${level}`)}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        {(['enableSceneImages', 'enableBackgroundImages', 'enableEntityImages'] as const).map((key) => (
                             <div key={key} className="flex items-center justify-between p-4 border border-scp-gray/30 bg-scp-gray/10 hover:border-scp-accent/30 transition-colors">
                                 <span className="text-sm text-scp-text font-mono uppercase tracking-wider">
                                     {getLabel(key)}

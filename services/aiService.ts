@@ -3,7 +3,7 @@ import { AIService } from "./ai/types";
 import { GeminiProvider } from "./ai/providers/geminiProvider";
 import { OpenAIProvider } from "./ai/providers/openaiProvider";
 import { aiConfig } from "../config/aiConfig";
-import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult } from "../types";
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty } from "../types";
 import { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate } from "./ai/utils";
 import { archiveMemories, searchMemories } from './supabaseService';
 import { getEmbeddings } from "./ai/providers/embeddingProvider";
@@ -45,12 +45,12 @@ const getProvider = (): AIService => {
 };
 
 // Facade methods
-export const analyzeSCPUrl = async (input: string, language: Language = 'zh', role: string): Promise<SCPData> => {
-    return getProvider().analyzeSCPUrl(input, language, role);
+export const analyzeSCPUrl = async (input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal'): Promise<SCPData> => {
+    return getProvider().analyzeSCPUrl(input, language, role, difficulty);
 };
 
-export const initializeGameChatStream = (scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData): AsyncGenerator<string> => {
-    return getProvider().initializeGameChatStream(scp, role, language, legacyData);
+export const initializeGameChatStream = (scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData, difficulty: GameDifficulty = 'normal'): AsyncGenerator<string> => {
+    return getProvider().initializeGameChatStream(scp, role, language, legacyData, difficulty);
 };
 
 export const retrieveRelevantMemories = async (

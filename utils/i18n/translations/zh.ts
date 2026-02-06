@@ -259,6 +259,11 @@ export const zh = {
     title: "系统设置",
     scene_images: "游戏内场景生图",
     bg_images: "开局 SCP 背景生图",
-    entity_images: "开局实体肖像生图"
+    entity_images: "开局实体肖像生图",
+    difficulty: "游戏难度",
+    difficulty_easy: "简单",
+    difficulty_normal: "标准",
+    difficulty_hard: "困难",
+    difficulty_insane: "疯狂"
   }
 };

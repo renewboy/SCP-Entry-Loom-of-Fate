@@ -350,10 +350,13 @@ export interface AudioDramaScript {
   scenes: AudioDramaScene[];
 }
 
+export type GameDifficulty = 'easy' | 'normal' | 'hard' | 'insane';
+
 export interface GlobalSettings {
   enableSceneImages: boolean; // Per-turn visual prompts
   enableBackgroundImages: boolean; // Initial SCP analysis background
   enableEntityImages: boolean; // Initial entity portrait
+  difficulty: GameDifficulty;
 }
 
 export interface Memory {

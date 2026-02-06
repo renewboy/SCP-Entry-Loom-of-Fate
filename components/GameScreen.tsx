@@ -18,6 +18,7 @@ import EndingOverlay from './game/EndingOverlay';
 import TutorialOverlay from './game/TutorialOverlay';
 import MapPanel from './game/MapPanel';
 import { loadSetting, saveSetting, loadGlobalSettings } from '../services/indexedDBService';
+import { playSfx } from '../services/sfxService';
 
 interface GameScreenProps {
   gameState: GameState;
@@ -46,6 +47,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevNodeIdRef = useRef<string | null>(null);
 
   // Check for tutorial on mount
   useEffect(() => {
@@ -73,6 +75,18 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   const isPlaying = gameState.status === GameStatus.PLAYING;
   const isCritical = useGameAudio(gameState.stability, isPlaying);
   const isGlitching = useGlitchEffect(gameState.stability, isPlaying);
+
+  useEffect(() => {
+    const currentNodeId = gameState.map?.currentNodeId || null;
+    if (!isPlaying || !currentNodeId) {
+      prevNodeIdRef.current = currentNodeId;
+      return;
+    }
+    if (prevNodeIdRef.current && prevNodeIdRef.current !== currentNodeId && gameState.turnCount > 1) {
+      playSfx('footstep');
+    }
+    prevNodeIdRef.current = currentNodeId;
+  }, [gameState.map?.currentNodeId, isPlaying, gameState.turnCount]);
 
   // --- Game Over Trigger Logic ---
   useEffect(() => {
@@ -347,6 +361,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
       
       const updatedStability = nextStability !== null ? nextStability : gameState.stability;
 
+      const mapUpdate = mapUpdateResult.update;
+      let shouldPlayUnlock = false;
+      let shouldPlayObjectiveComplete = false;
       setGameState(prev => {
         let base: GameState = {
           ...prev,
@@ -375,8 +392,30 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
           };
         }
 
-        return applyMapUpdate(base, mapUpdateResult.update);
+        if (mapUpdate) {
+          if (Array.isArray(mapUpdate.addAccessTokens) && mapUpdate.addAccessTokens.length > 0) {
+            shouldPlayUnlock = true;
+          }
+          if (Array.isArray(mapUpdate.objectives)) {
+            mapUpdate.objectives.forEach((u: any) => {
+              const current = (prev.objectives || []).find(o => o.id === u.id);
+              if (!current) return;
+              const nextStatus = typeof u.status === 'string' ? u.status : current.status;
+              if (current.status !== 'COMPLETED' && nextStatus === 'COMPLETED') {
+                shouldPlayObjectiveComplete = true;
+                if (Array.isArray(current.reward?.accessTokens) && current.reward.accessTokens.length > 0) {
+                  shouldPlayUnlock = true;
+                }
+              }
+            });
+          }
+        }
+
+        return applyMapUpdate(base, mapUpdate);
       });
+
+      if (shouldPlayObjectiveComplete) playSfx('objectiveComplete');
+      if (shouldPlayUnlock) playSfx('doorUnlock');
 
       if (visualPrompt) {
         generateIllustration(aiMsgId, visualPrompt);

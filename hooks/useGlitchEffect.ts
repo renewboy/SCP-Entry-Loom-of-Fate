@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { playSfx } from '../services/sfxService';
 
 export const useGlitchEffect = (stability: number, isPlaying: boolean) => {
   const [isGlitching, setIsGlitching] = useState(false);
@@ -10,6 +11,7 @@ export const useGlitchEffect = (stability: number, isPlaying: boolean) => {
     let timeout: ReturnType<typeof setTimeout>;
     const triggerGlitch = () => {
         setIsGlitching(true);
+        playSfx('glitch');
         // Glitch duration: 150ms
         setTimeout(() => setIsGlitching(false), 150);
         
