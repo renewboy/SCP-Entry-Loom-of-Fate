@@ -114,7 +114,15 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
   // Use Custom Hooks
   const isPlaying = gameState.status === GameStatus.PLAYING;
-  
+
+  const stabilityTrend = useMemo(() => {
+    const history = gameState.messages
+      .filter(message => message.sender === 'narrator' && typeof message.stabilitySnapshot === 'number')
+      .map(message => message.stabilitySnapshot as number);
+    if (history.length === 0) return [gameState.stability];
+    return [...history.slice(-9), gameState.stability];
+  }, [gameState.messages, gameState.stability]);
+
   // --- Game Over Trigger Logic ---
   useEffect(() => {
     if (gameState.endingType && gameState.status === GameStatus.PLAYING && gameOverCountdown === null) {
@@ -634,6 +642,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         onTerminate={() => setShowAbortModal(true)}
         isCritical={false} // Logic moved to StabilityMonitor inside Header
         isMemoryEchoActive={isMemoryEchoActive}
+        stabilityTrend={stabilityTrend}
       />
 
       <ChatArea 

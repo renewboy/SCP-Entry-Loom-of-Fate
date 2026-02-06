@@ -9,9 +9,10 @@ interface StabilityMonitorProps {
   stability: number;
   isPlaying: boolean;
   isMemoryEchoActive: boolean;
+  trend?: number[];
 }
 
-const StabilityMonitor: React.FC<StabilityMonitorProps> = ({ stability, isPlaying, isMemoryEchoActive }) => {
+const StabilityMonitor: React.FC<StabilityMonitorProps> = ({ stability, isPlaying, isMemoryEchoActive, trend = [] }) => {
   const { t } = useTranslation();
   const prevStabilityRef = useRef(stability);
   const [delta, setDelta] = useState<{ val: number; id: number } | null>(null);
@@ -45,9 +46,9 @@ const StabilityMonitor: React.FC<StabilityMonitorProps> = ({ stability, isPlayin
   }, [stability]);
 
   const getStabilityColor = () => {
-    if (stability > 70) return 'text-scp-term';
-    if (stability > 30) return 'text-yellow-500';
-    return 'text-scp-accent'; // Red
+    if (stability > 70) return 'text-[color:var(--scp-semantic-ok)]';
+    if (stability > 30) return 'text-[color:var(--scp-semantic-warn)]';
+    return 'text-[color:var(--scp-semantic-danger)]';
   };
 
   const getKantCounterLabel = () => {
@@ -57,6 +58,20 @@ const StabilityMonitor: React.FC<StabilityMonitorProps> = ({ stability, isPlayin
   };
 
   const humeValue = 0.5 + (stability / 100) * 1.0;
+
+  const compactTrend = useMemo(() => {
+    const raw = trend.slice(-10);
+    const values = raw.length ? raw : [stability];
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const span = Math.max(1, max - min);
+    return values.map((val, idx) => {
+      const x = (idx / Math.max(1, values.length - 1)) * 68;
+      const y = 18 - ((val - min) / span) * 16;
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    }).join(' ');
+  }, [trend, stability]);
+
   const accentColor = useMemo(() => {
     if (stability > 70) return '#2bdc6b';
     if (stability > 30) return '#f59e0b';
@@ -298,11 +313,15 @@ const StabilityMonitor: React.FC<StabilityMonitorProps> = ({ stability, isPlayin
               </div>
 
               <div className="hidden sm:flex flex-col gap-1 min-w-[128px]">
-                <div className="flex items-center justify-between gap-3">
-                 
-                
-                </div>
-               
+                <div className="text-[10px] uppercase tracking-widest text-gray-500 font-mono">Trend</div>
+                <svg width="72" height="20" viewBox="0 0 72 20" className="border border-scp-gray/30 bg-black/30">
+                  <polyline
+                    fill="none"
+                    stroke={accentColor}
+                    strokeWidth="1.5"
+                    points={compactTrend}
+                  />
+                </svg>
               </div>
             </div>
           </div>

@@ -16,10 +16,11 @@ interface GameHeaderProps {
   onTerminate: () => void;
   isCritical: boolean; // Kept for compatibility but logic moved to StabilityMonitor
   isMemoryEchoActive: boolean; // Passed through to StabilityMonitor
+  stabilityTrend: number[];
 }
 
 const GameHeader: React.FC<GameHeaderProps> = ({ 
-    gameState, t, language, isReportOpen, setIsReportOpen, onSave, onLoad, onTerminate, isCritical, isMemoryEchoActive
+    gameState, t, language, isReportOpen, setIsReportOpen, onSave, onLoad, onTerminate, isCritical, isMemoryEchoActive, stabilityTrend
 }) => {
 
   const getDisplayRole = (role: string) => {
@@ -41,6 +42,7 @@ const GameHeader: React.FC<GameHeaderProps> = ({
               stability={gameState.stability}
               isPlaying={gameState.status === GameStatus.PLAYING}
               isMemoryEchoActive={isMemoryEchoActive}
+              trend={stabilityTrend}
            />
         </div>
 
@@ -56,10 +58,10 @@ const GameHeader: React.FC<GameHeaderProps> = ({
         
         {/* Right Side: Controls */}
         <div className="flex items-center justify-end gap-2 sm:gap-4 z-10 w-1/3">
-             <div className="text-right text-[10px] font-mono text-gray-500 hidden lg:block bg-black/40 p-1 rounded leading-tight">
+             <div className="text-right text-[10px] font-mono text-gray-400 hidden lg:block bg-black/45 border border-scp-gray/30 px-2 py-1 rounded-sm leading-tight">
+                <p><span className="text-[color:var(--scp-semantic-info)]">STATUS</span>: {gameState.stability > 70 ? t('game.stable') : gameState.stability > 30 ? t('game.fluctuating') : t('game.critical')}</p>
                 <p>{t('game.role')}: {getDisplayRole(gameState.role)}</p>
-                <p>{t('game.class')}: {gameState.scpData?.containmentClass}</p>
-                <p>{t('game.turn')}: {gameState.turnCount}</p>
+                <p>{t('game.class')}: {gameState.scpData?.containmentClass} · {t('game.turn')}: {gameState.turnCount}</p>
             </div>
             
             {/* Show "View Report" button if Game Over and Report Minimized */}
