@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import StaticNoise from './StaticNoise';
 import { useTranslation } from '../../utils/i18n';
 
@@ -15,6 +15,19 @@ const VisualEffects: React.FC<VisualEffectsProps> = ({
   isCritical, isGlitching, isMemoryEcho, noiseOpacity, distortionScale, showNoise 
 }) => {
   const { t } = useTranslation();
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReduceMotion(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  const effectiveGlitching = isGlitching && !reduceMotion;
+  const effectiveNoiseOpacity = reduceMotion ? Math.min(noiseOpacity, 0.12) : noiseOpacity;
+  const effectiveDistortionScale = reduceMotion ? Math.min(distortionScale, 6) : distortionScale;
 
   return (
     <>
@@ -88,7 +101,7 @@ const VisualEffects: React.FC<VisualEffectsProps> = ({
             <feTurbulence type="fractalNoise" baseFrequency="0.005 0.01" numOctaves="2" result="warp">
               <animate attributeName="baseFrequency" values="0.005 0.01; 0.01 0.02; 0.005 0.01" dur="4s" repeatCount="indefinite"/>
             </feTurbulence>
-            <feDisplacementMap xChannelSelector="R" yChannelSelector="G" scale={distortionScale} in="SourceGraphic" in2="warp" />
+            <feDisplacementMap xChannelSelector="R" yChannelSelector="G" scale={effectiveDistortionScale} in="SourceGraphic" in2="warp" />
           </filter>
         </defs>
       </svg>
@@ -118,7 +131,7 @@ const VisualEffects: React.FC<VisualEffectsProps> = ({
       )}
 
       {/* Enhanced Colorful Glitch Art Overlay */}
-      {isGlitching && (
+      {effectiveGlitching && (
         <div className="fixed inset-0 z-[120] pointer-events-none overflow-hidden flex flex-col justify-between">
            {/* Layer 1: Color Shift/Inversion */}
            <div className="absolute inset-0 animate-glitch-color mix-blend-hard-light opacity-80"></div>
@@ -138,8 +151,8 @@ const VisualEffects: React.FC<VisualEffectsProps> = ({
       )}
 
       {/* TV Static Noise Overlay */}
-      {showNoise && noiseOpacity > 0 && (
-          <StaticNoise opacity={noiseOpacity} />
+      {showNoise && effectiveNoiseOpacity > 0 && (
+          <StaticNoise opacity={effectiveNoiseOpacity} />
       )}
     </>
   );

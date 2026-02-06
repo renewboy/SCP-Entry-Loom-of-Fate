@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import CrtSurface from '../common/CrtSurface';
 
 interface TutorialStep {
   targetId?: string; // ID of the element to highlight (optional)
@@ -93,10 +94,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ isVisible, onClose, t
         </style>
       )}
 
-      <div className={`absolute ${positionClass} w-[90%] max-w-md bg-black border border-scp-term p-6 shadow-[0_0_30px_rgba(0,255,0,0.2)] animate-in fade-in zoom-in-95 duration-300 pointer-events-auto`}>
-        {/* CRT Scanline effect for the modal */}
-        <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,rgba(0,255,0,0.03)_3px)] pointer-events-none"></div>
-        
+      <CrtSurface className={`absolute ${positionClass} w-[90%] max-w-md bg-black border border-scp-term p-6 shadow-[0_0_30px_rgba(0,255,0,0.2)] animate-in fade-in zoom-in-95 duration-300 pointer-events-auto`}>
         <div className="flex justify-between items-start mb-4 border-b border-scp-term/30 pb-2">
           <h3 className="text-xl font-report text-scp-term tracking-widest uppercase">{step.title}</h3>
           <span className="text-xs font-mono text-scp-term/50">STEP {currentStep + 1}/{steps.length}</span>
@@ -121,7 +119,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ isVisible, onClose, t
             {isLastStep ? t('tutorial.finish') : t('tutorial.next')}
           </button>
         </div>
-      </div>
+      </CrtSurface>
     </div>
   );
 };

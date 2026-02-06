@@ -35,6 +35,7 @@ export const en = {
     settings: "Settings",
     stability_label: "Hume Field Stability",
     stability: "Stability",
+    hume_label: "HUME",
     stable: "STABLE",
     fluctuating: "FLUCTUATING",
     critical: "CRITICAL",

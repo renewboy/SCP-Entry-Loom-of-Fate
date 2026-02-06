@@ -324,7 +324,7 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
             content: '▋';
             display: inline-block;
             animation: cursor-blink 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-            color: #33ff00;
+            color: var(--theme-accent, #33ff00);
             margin-left: 4px;
             vertical-align: baseline;
           }
@@ -333,7 +333,7 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
             content: '▋';
             display: inline-block;
             animation: cursor-blink 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-            color: #33ff00;
+            color: var(--theme-accent, #33ff00);
           }
         `}
       </style>

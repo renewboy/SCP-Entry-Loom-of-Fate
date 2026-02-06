@@ -1,4 +1,5 @@
 import React from 'react';
+import CrtSurface from '../common/CrtSurface';
 import { EndingType, GameState, GameStatus } from '../../types';
 
 interface EndingOverlayProps {
@@ -85,7 +86,7 @@ const EndingOverlay: React.FC<EndingOverlayProps> = ({
   }
 
   return (
-    <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center ${config.bg} backdrop-blur-md animate-in fade-in duration-1000 p-4 text-center`}>
+    <CrtSurface className={`absolute inset-0 z-50 flex flex-col items-center justify-center ${config.bg} backdrop-blur-md animate-in fade-in duration-1000 p-4 text-center`}>
         <div className={`absolute top-0 left-0 w-full h-1 ${config.bar} animate-pulse`}></div>
         
         {/* Minimize Button */}
@@ -149,7 +150,7 @@ const EndingOverlay: React.FC<EndingOverlayProps> = ({
                 {t('game.review_logs')}
             </button>
         </div>
-    </div>
+    </CrtSurface>
   );
 };
 

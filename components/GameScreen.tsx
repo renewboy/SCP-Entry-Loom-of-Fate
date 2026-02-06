@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { GameState, GameStatus, Message, EndingType, GameReviewData, QAPair, LegacyData } from '../types';
 import { sendAction, extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate, generateImage, getChatHistory, restoreChatSession, clearMemoryCache } from '../services/aiService';
 import ConfirmationModal from './ConfirmationModal';
@@ -44,6 +44,51 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const themeColors = useMemo(() => {
+    if (gameState.stability > 70) {
+      return {
+        accent: '#33ff00',
+        soft: 'rgba(51,255,0,0.18)',
+        underline: 'rgba(51,255,0,0.45)',
+        glow: 'rgba(51,255,0,0.35)'
+      };
+    }
+    if (gameState.stability > 30) {
+      return {
+        accent: '#f59e0b',
+        soft: 'rgba(245,158,11,0.18)',
+        underline: 'rgba(245,158,11,0.45)',
+        glow: 'rgba(245,158,11,0.35)'
+      };
+    }
+    return {
+      accent: '#ef4444',
+      soft: 'rgba(239,68,68,0.18)',
+      underline: 'rgba(239,68,68,0.45)',
+      glow: 'rgba(239,68,68,0.35)'
+    };
+  }, [gameState.stability]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const prev = {
+      accent: root.style.getPropertyValue('--theme-accent'),
+      soft: root.style.getPropertyValue('--theme-accent-soft'),
+      underline: root.style.getPropertyValue('--theme-accent-underline'),
+      glow: root.style.getPropertyValue('--theme-accent-glow')
+    };
+    root.style.setProperty('--theme-accent', themeColors.accent);
+    root.style.setProperty('--theme-accent-soft', themeColors.soft);
+    root.style.setProperty('--theme-accent-underline', themeColors.underline);
+    root.style.setProperty('--theme-accent-glow', themeColors.glow);
+    return () => {
+      root.style.setProperty('--theme-accent', prev.accent || '#33ff00');
+      root.style.setProperty('--theme-accent-soft', prev.soft || 'rgba(51,255,0,0.18)');
+      root.style.setProperty('--theme-accent-underline', prev.underline || 'rgba(51,255,0,0.45)');
+      root.style.setProperty('--theme-accent-glow', prev.glow || 'rgba(51,255,0,0.35)');
+    };
+  }, [themeColors]);
 
   // Check for tutorial on mount
   useEffect(() => {
@@ -542,6 +587,29 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
   return (
     <>
+    <style>{`
+      .text-scp-term { color: var(--theme-accent) !important; }
+      .text-scp-term\\/70 { color: var(--theme-accent) !important; opacity: 0.7; }
+      .text-scp-term\\/80 { color: var(--theme-accent) !important; opacity: 0.8; }
+      .text-scp-term\\/50 { color: var(--theme-accent) !important; opacity: 0.5; }
+      .border-scp-term { border-color: var(--theme-accent) !important; }
+      .border-scp-term\\/30 { border-color: var(--theme-accent-underline) !important; }
+      .border-scp-term\\/60 { border-color: var(--theme-accent-underline) !important; }
+      .bg-scp-term { background-color: var(--theme-accent) !important; }
+      .bg-scp-term\\/20 { background-color: var(--theme-accent-soft) !important; }
+      .bg-scp-term\\/40 { background-color: var(--theme-accent-soft) !important; }
+      .hover\\:bg-scp-term\\/10:hover { background-color: var(--theme-accent-soft) !important; }
+      .hover\\:bg-scp-term:hover { background-color: var(--theme-accent) !important; }
+      .hover\\:text-scp-term:hover { color: var(--theme-accent) !important; }
+      .decoration-scp-term { text-decoration-color: var(--theme-accent) !important; }
+      .decoration-scp-term\\/50 { text-decoration-color: var(--theme-accent-underline) !important; }
+      .hover\\:decoration-scp-term:hover { text-decoration-color: var(--theme-accent) !important; }
+      .focus\\:border-scp-term:focus { border-color: var(--theme-accent) !important; }
+      .focus\\:ring-scp-term\\/50:focus { --tw-ring-color: var(--theme-accent-soft) !important; }
+      .hover\\:border-scp-term:hover { border-color: var(--theme-accent) !important; }
+      .hover\\:border-scp-term\\/60:hover { border-color: var(--theme-accent-underline) !important; }
+      .text-shadow-green { text-shadow: 0 0 8px var(--theme-accent-glow) !important; }
+    `}</style>
     {/* Feedback Overlay for SFX and Visual Cues */}
     <FeedbackOverlay gameState={gameState} />
 

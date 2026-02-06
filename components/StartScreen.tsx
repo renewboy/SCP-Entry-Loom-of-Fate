@@ -5,6 +5,7 @@ import { analyzeSCPUrl, initializeGameChatStream, generateImage, extractVisualPr
 import { loadGlobalSettings } from '../services/indexedDBService';
 import { GameState, GameStatus, Role, LegacyData } from '../types';
 import ParticleText from './ParticleText';
+import BootSequenceOverlay from './BootSequenceOverlay';
 import SaveLoadModal from './SaveLoadModal';
 import { useTranslation, ROLE_TRANSLATIONS } from '../utils/i18n';
 import GameLogo from './GameLogo';
@@ -34,6 +35,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
   const [hasApiKey, setHasApiKey] = useState(false);
   const [saveLoadModalOpen, setSaveLoadModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [showBoot, setShowBoot] = useState(true);
 
   useEffect(() => {
     // Check for API key on mount
@@ -240,6 +242,14 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
   };
 
   return (
+    <>
+    {showBoot && (
+      <BootSequenceOverlay
+        onComplete={() => {
+          setShowBoot(false);
+        }}
+      />
+    )}
     <div className="max-w-xl w-full p-8 bg-black/60 border border-scp-gray relative backdrop-blur-md z-10 crt shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
         {legacyData && <LegacySidebar legacyData={legacyData} />}
         <div className="absolute top-0 left-0 w-full h-1 bg-scp-accent shadow-[0_0_10px_rgba(195,46,46,0.5)]"></div>
@@ -402,6 +412,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
         onClose={() => setSettingsModalOpen(false)} 
       />
     </div>
+    </>
   );
 };
 

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from '../utils/i18n';
 import { loadGlobalSettings, saveGlobalSettings } from '../services/indexedDBService';
 import { GlobalSettings } from '../types';
+import CrtSurface from './common/CrtSurface';
 
 interface GlobalSettingsModalProps {
     isOpen: boolean;
@@ -47,13 +48,7 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
 
     const content = (
         <div className="fixed inset-0 z-[50] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-mono">
-            {/* CRT Scanline Effect Overlay */}
-            <div className="pointer-events-none absolute inset-0 z-0 opacity-10" style={{
-                backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 0, 0, 0.02), rgba(0, 0, 255, 0.06))',
-                backgroundSize: '100% 2px, 3px 100%'
-            }}></div>
-
-            <div className="bg-black border border-scp-accent/50 w-full max-w-lg shadow-2xl flex flex-col relative overflow-hidden z-10">
+            <CrtSurface className="bg-black border border-scp-accent/50 w-full max-w-lg shadow-2xl flex flex-col relative overflow-hidden z-10">
                 
                 {/* Header */}
                 <div className="bg-black h-14 w-full flex items-center justify-between px-6 border-b border-scp-gray relative z-20 shrink-0">
@@ -112,7 +107,7 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
                         ))}
                     </div>
                 </div>
-            </div>
+            </CrtSurface>
         </div>
     );
 
