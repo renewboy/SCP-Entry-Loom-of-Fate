@@ -160,15 +160,15 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
     const neighbors = edges.map(e => {
       const neighborId = e.from === runtime.currentNodeId ? e.to : e.from;
       const neighbor = blueprint.nodes.find(n => n.id === neighborId);
-      const req = Array.isArray(e.requires) ? e.requires : [];
+      const req = Array.isArray(neighbor?.requires) ? neighbor?.requires : [];
       const missing = req.filter(token => !hasToken(token));
       const blocked = missing.length > 0;
-      const reason = blocked ? `缺少通行token:${missing.join(',')}` : '';
+      const reason = blocked ? (neighbor?.blockedText || `缺少通行token:${missing.join(',')}`) : '';
       return {
         id: neighborId,
         name: neighbor?.name || neighborId,
         blocked,
-        reason: reason || e.blockedText || ''
+        reason: reason || neighbor?.blockedText || ''
       };
     });
 

@@ -90,14 +90,14 @@ export interface MapBlueprintNode {
   discoverables?: string[];
   interactables?: string[];
   visualHint?: string;
+  requires?: string[];
+  blockedText?: string;
 }
 
 export interface MapBlueprintEdge {
   from: string;
   to: string;
   bidirectional: boolean;
-  requires?: string[];
-  blockedText?: string;
 }
 
 export interface MapBlueprintNPC {

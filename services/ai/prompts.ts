@@ -97,16 +97,16 @@ Also generate two specific visual description strings in English to be inserted 
   - 5 to 8 nodes (rooms/areas)
   - 2 to 4 NPCs with initial positions
   - Objectives: exactly 1 MAIN objective and 1 to 2 SIDE objectives
-  - Around 20% gated edges with requirements to encourage exploration
+  - Around 20% gated nodes with requirements to encourage exploration
 - Nodes are connected via edges; avoid disconnected nodes.
 - Difficulty guidance:
   - Interpret the provided difficulty as a continuous pressure level that scales map danger, gate density, NPC helpfulness, and resource scarcity in the same direction.
   - Higher difficulty should make routes riskier and objectives more demanding.
   - Lower difficulty should make routes safer and objectives clearer.
-- Edge gating: 
+- Node gating: 
   - "requires": a string array of access tokens. Tokens can represent keys, clearance, or flags.
-  - "blockedText": the reason why the edge is blocked, if not blocked, leave it empty.
-- danger is 0-100 and reflects risk when entering/staying in that node.
+  - "blockedText": the reason why the node is blocked, if not blocked, leave it empty.
+- danger is 0-100 and reflects risk when entering/staying in that node. 0~30 is low, 31~70 is moderate, 71~100 is high.
 - IDs must be stable, lowercase with underscores (e.g. "node_security_checkpoint").
 
 You MUST AND ONLY return a valid JSON object string. Do not use markdown code blocks. DO NOT return any other text.
@@ -122,10 +122,10 @@ Structure:
     "title": "string title in ${langInstruction}",
     "startNodeId": "node_1",
     "nodes": [
-      { "id": "node_1", "name": "string", "danger": 10, "discoverables": ["string"]}
+      { "id": "node_1", "name": "string", "danger": 10, "discoverables": ["string"], "requires": ["key_lvl2", "clearance_level_2", "power_restored"], "blockedText": "string" }
     ],
     "edges": [
-      { "from": "node_1", "to": "node_2", "bidirectional": true, "requires": ["key_lvl2", "clearance_level_2", "power_restored"], "blockedText": "string" }
+      { "from": "node_1", "to": "node_2", "bidirectional": true }
     ],
     "npcs": [
       { "id": "npc_1", "name": "string", "archetype": "string", "initialNodeId": "node_2", "secretTags": ["string"], "dialogueGoals": ["string"] }

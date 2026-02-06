@@ -75,19 +75,15 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
         const currentNodeId = curr.map.currentNodeId;
         const blueprint = curr.scpData.mapBlueprint;
         
-        // Helper to check if a specific edge/neighbor is blocked based on inventory
         const isBlocked = (targetNodeId: string, inventory: any[]) => {
-             const edge = blueprint.edges.find(e => 
-                (e.from === currentNodeId && e.to === targetNodeId) || 
-                (e.bidirectional && e.to === currentNodeId && e.from === targetNodeId)
-             );
-             if (!edge) return false;
+             const node = blueprint.nodes.find(n => n.id === targetNodeId);
+             if (!node) return false;
              
              const inventoryIds = new Set(inventory.map((i: any) => i.id));
              const inventoryTags = new Set(inventory.flatMap((i: any) => i.tags || []));
              const hasToken = (token: string) => inventoryIds.has(token) || inventoryTags.has(token);
              
-             const req = Array.isArray(edge.requires) ? edge.requires : [];
+             const req = Array.isArray(node.requires) ? node.requires : [];
              const missing = req.filter(token => !hasToken(token));
              return missing.length > 0;
         };
