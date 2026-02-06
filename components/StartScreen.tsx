@@ -23,6 +23,8 @@ interface StartScreenProps {
   legacyData?: LegacyData;
 }
 
+let bootShownInSession = false;
+
 const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) => {
   const { t, language } = useTranslation();
   const LOADING_MESSAGES = t('start.loading_msgs') as string[];
@@ -35,7 +37,11 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
   const [hasApiKey, setHasApiKey] = useState(false);
   const [saveLoadModalOpen, setSaveLoadModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
-  const [showBoot, setShowBoot] = useState(true);
+  const [showBoot, setShowBoot] = useState(false);
+
+  useEffect(() => {
+    setShowBoot(!bootShownInSession);
+  }, []);
 
   useEffect(() => {
     // Check for API key on mount
@@ -246,6 +252,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
     {showBoot && (
       <BootSequenceOverlay
         onComplete={() => {
+          bootShownInSession = true;
           setShowBoot(false);
         }}
       />
