@@ -383,11 +383,11 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                 {/* Grid Layer */}
                 <div className="absolute inset-0 pointer-events-none opacity-30">
                     <svg viewBox="0 0 200 200" className="w-full h-full">
-                        <circle cx="100" cy="100" r="98" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-scp-term" />
-                        <circle cx="100" cy="100" r="70" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-scp-term" strokeDasharray="4 2" />
-                        <circle cx="100" cy="100" r="40" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-scp-term" strokeDasharray="4 2" />
-                        <line x1="100" y1="0" x2="100" y2="200" stroke="currentColor" strokeWidth="0.5" className="text-scp-term" />
-                        <line x1="0" y1="100" x2="200" y2="100" stroke="currentColor" strokeWidth="0.5" className="text-scp-term" />
+                        <circle cx="100" cy="100" r="98" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-scp-term_fix" />
+                        <circle cx="100" cy="100" r="70" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-scp-term_fix" strokeDasharray="4 2" />
+                        <circle cx="100" cy="100" r="40" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-scp-term_fix" strokeDasharray="4 2" />
+                        <line x1="100" y1="0" x2="100" y2="200" stroke="currentColor" strokeWidth="0.5" className="text-scp-term_fix" />
+                        <line x1="0" y1="100" x2="200" y2="100" stroke="currentColor" strokeWidth="0.5" className="text-scp-term_fix" />
                     </svg>
                 </div>
 

@@ -45,7 +45,7 @@ const StabilityMonitor: React.FC<StabilityMonitorProps> = ({ stability, isPlayin
   }, [stability]);
 
   const getStabilityColor = () => {
-    if (stability > 70) return 'text-scp-term';
+    if (stability > 70) return 'text-scp-term_fix';
     if (stability > 30) return 'text-yellow-500';
     return 'text-scp-accent'; // Red
   };

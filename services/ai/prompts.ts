@@ -24,11 +24,6 @@ export const getSystemInstruction = (role: string, language: Language) => `
 - 提供有意义的多元路径：避免设计单一通向死胡同的选择。
 - 允许创造性解法：只要符合角色能力和世界观逻辑，允许玩家尝试任何行动。其成功与否取决于逻辑、准备与概率。
 
-[任务设计原则]
-- 主线任务要充分结合角色、SCP项目背景、角色人设等设计，保证任务的多样性。
-- 主线任务无需局限于“正面积极”导向，需严格贴合角色立场
-- 特别注意：休谟场仅为游戏稳定性判定机制，与主线任务无强关联。
-
 [叙事韧性协议]
 你必须在生成的叙事中遵循以下原则：
 1. **“逃生舱口”原则**：当稳定性降至危险水平(如<30)时，应在场景中自然地引入一个潜在的逆转要素或紧急逃生途径(如未被注意的备用系统、一个可被利用的SCP次要特性、一次外部干预的征兆等)，逃生舱口也有概率可能是陷阱。
@@ -68,59 +63,60 @@ export const getAnalyzeSCPPrompt = (input: string, language: Language, role: str
 User Input: ${input}
 Player Role: ${role}
 Game Difficulty: ${difficulty}
-Task: Identify the SCP Foundation entry referred to in the input. 
-If it's a URL, extract the SCP designation.
-Use available search tools to conduct thorough research by:
-   - **Primary Source:** https://scp-wiki.wikidot.com/, https://scp-wiki-cn.wikidot.com/ and google
-   - **Secondary Sources:** If necessary, consult related SCP wiki or SCP CN pages, discussion logs, or explanation hubs for additional context.
+Preferred Human Language: ${langInstruction}
 
-Hint: You can visit the SCP entry site by concatenating scp wiki website and SCP designation, e.g. https://scp-wiki.wikidot.com/[designation]
+Goal:
+1) Determine the referenced SCP designation (e.g., "SCP-173"). If input is a URL, extract the designation from it.
+2) Research (MUST use available search tools): prioritize official pages on scp-wiki.wikidot.com / scp-wiki-cn.wikidot.com; use secondary SCP hubs/discussions only to resolve ambiguity.
+3) Extract:
+   - official title (localized to ${langInstruction})
+   - containmentClass.
+4) Generate two ENGLISH visual strings for image templates:
+- visualDescription: A set of visual keywords describing the TEXTURE, ATMOSPHERE, and MATERIAL essence of the SCP for an abstract background.
+  - Format: comma-separated keywords, nouns/adjectives only, no verbs, no sentences
+  - Context: It will be inserted into "Abstract horror background representing [visualDescription], subtle, texture, scp foundation style, dark moody"
+- entityDescription: A detailed visual description of the entity's physical APPEARANCE. 
+  - Format: Noun phrases describing the subject. No background context.
+  - Context: It will be inserted into "Close up full body shot of [entityDescription]. detailed, photorealistic, containment cell, scp foundation record photo"
 
-**Information Extraction:** find the official title, object class.
+5) **Map Blueprint**:
+  - Generate a small navigable map for the upcoming interactive fiction game session. The map is the physical space where the story takes place and where the player can move and explore.
+  - The map should be a believable SCP Foundation site / facility / area relevant to this SCP and the player's role (${role}).
+  - Requirements:
+    - 5 to 8 nodes (locations/areas), nodes are connected via edges, avoid disconnected nodes.
+    - 2 to 4 NPCs with initial positions
+    - Objectives: exactly 1 MAIN objective and 1 to 2 SIDE objectives
+    - At least 20% nodes should be gated (requires non-empty "requires" and non-empty "blockedText") to encourage exploration
+  - Objective Design Principles
+    - Main objectives shall be fully designed in combination with characters, SCP project background, character settings, etc., to ensure objective diversity.
+    - Main objectives shall not be limited to a "positive and uplifting" orientation; they must strictly align with the stance of the corresponding character.
+  - Difficulty guidance:
+    - Interpret the provided difficulty as a continuous pressure level that scales map danger, gate density, NPC helpfulness, and resource scarcity in the same direction.
+    - Higher difficulty should make routes riskier and objectives more demanding.
+    - Lower difficulty should make routes safer and objectives clearer.
+  - Node rules:
+    - "id": stable, lowercase_with_underscores (e.g. "node_security_checkpoint")
+    - "danger": reflects risk when entering/staying in that node, integer 0..100 (0-30 low, 31-70 moderate, 71-100 high)
+    - "requires": a string array of access tokens (keys, clearance, flags, etc.); ungated node must use [] and blockedText must be ""
+    - "blockedText": the reason why the node is blocked, if not blocked, leave it empty.
 
-Also generate two specific visual description strings in English to be inserted into image generation templates:
-1. 'visualDescription': A set of visual keywords describing the TEXTURE, ATMOSPHERE, and MATERIAL essence of the SCP for an abstract background. 
-   - Format: Comma-separated keywords. No verbs. No full sentences.
-   - Context: It will be inserted into "Abstract horror background representing [visualDescription], subtle, texture, scp foundation style, dark moody"
-   - Example: "rusted metal surfaces, decaying organic matter, green slime, industrial grunge" or "glowing blue geometric fractals, dark stone, cold fog"
+Output:
+Return ONLY one valid JSON object (no markdown, no extra text).
 
-2. 'entityDescription': A detailed visual description of the entity's physical APPEARANCE. 
-   - Format: Noun phrases describing the subject. No background context.
-   - Context: It will be inserted into "Close up full body shot of [entityDescription]. detailed, photorealistic, containment cell, scp foundation record photo"
-   - Example: "a large reptilian creature with exposed bone" or "a concrete statue with krylon brand spray paint on face"
+Missing rules:
+If name or containmentClass not found, fill "???".
 
-**Map Blueprint Generation:**
-- Generate a small navigable map for the upcoming interactive fiction game session. The map is the physical space where the story takes place and where the player can move and explore.
-- The map should be a believable SCP Foundation site / facility / area relevant to this SCP and the player's role (${role}).
-- The player starts at 'startNodeId' as their initial position at the beginning of the story.
-- Map must include:
-  - 5 to 8 nodes (rooms/areas)
-  - 2 to 4 NPCs with initial positions
-  - Objectives: exactly 1 MAIN objective and 1 to 2 SIDE objectives
-  - Around 20% gated nodes with requirements to encourage exploration
-- Nodes are connected via edges; avoid disconnected nodes.
-- Difficulty guidance:
-  - Interpret the provided difficulty as a continuous pressure level that scales map danger, gate density, NPC helpfulness, and resource scarcity in the same direction.
-  - Higher difficulty should make routes riskier and objectives more demanding.
-  - Lower difficulty should make routes safer and objectives clearer.
-- Node gating: 
-  - "requires": a string array of access tokens. Tokens can represent keys, clearance, or flags.
-  - "blockedText": the reason why the node is blocked, if not blocked, leave it empty.
-- danger is 0-100 and reflects risk when entering/staying in that node. 0~30 is low, 31~70 is moderate, 71~100 is high.
-- IDs must be stable, lowercase with underscores (e.g. "node_security_checkpoint").
-
-You MUST AND ONLY return a valid JSON object string. Do not use markdown code blocks. DO NOT return any other text.
 Structure:
 {
   "designation": "e.g., SCP-682",
-  "name": "e.g., 不灭孽蜥",
+  "name": "localized title in ${langInstruction}",
   "containmentClass": "The class in ${langInstruction}",
   "visualDescription": "keywords for background...",
   "entityDescription": "description of entity...",
   "mapBlueprint": {
     "id": "string_id",
     "title": "string title in ${langInstruction}",
-    "startNodeId": "node_1",
+    "startNodeId": "The player's initial position",
     "nodes": [
       { "id": "node_1", "name": "string", "danger": 10, "discoverables": ["string"], "requires": ["key_lvl2", "clearance_level_2", "power_restored"], "blockedText": "string" }
     ],
@@ -136,13 +132,9 @@ Structure:
   }
 }
 
-If any of the keys are not found, fill "???".
-
 Semantic Notes:
-- reward.stabilityDelta: an integer delta applied to the player's current Stability when the objective is COMPLETED (positive increases stability, negative decreases). Use a small range like -30..+30. If absent, assume 0.
+- reward.stabilityDelta: integer delta applied when the objective is COMPLETED (positive: +, negative: -); keep within -20..+20.`;
 
-Output Language for 'visualDescription', 'entityDescription': English.
-Preferred Output Language for 'name': ${langInstruction}.`;
 };
 
 const getNormalTurnRequirements = (langInstruction: string) => `
@@ -177,7 +169,7 @@ ${legacyEnd}
 [地图蓝图]
 ${JSON.stringify(mapBlueprint)}
 [地图蓝图结束]
-指令：起始遭遇必须发生在startNodeId对应地点；主线任务必须与objectives中type=MAIN完全一致；NPC初始位置必须与initialNodeId一致；移动仅允许在edges定义的邻接节点之间发生。
+指令：起始遭遇必须发生在startNodeId对应地点；从地图中提取节点位置、信息、任务、NPC等信息，移动仅允许在edges定义的邻接节点之间发生。
 ` : '';
     return `
 游戏设定：

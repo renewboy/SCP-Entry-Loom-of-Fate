@@ -447,7 +447,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
 
       switch(endingType) {
           case EndingType.CONTAINED:
-              return { title, text, color: "text-scp-term", border: "border-scp-term", bg: "bg-green-900/10" };
+              return { title, text, color: "text-scp-term_fix", border: "border-scp-term_fix", bg: "bg-green-900/10" };
           case EndingType.DEATH:
               return { title, text, color: "text-gray-400", border: "border-gray-500", bg: "bg-gray-900/10" };
           case EndingType.ESCAPED:

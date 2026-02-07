@@ -300,20 +300,34 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
   }, [displayedContent]);
 
   return (
-    <div className={`typewriter-container prose prose-invert prose-p:text-scp-text prose-headings:text-scp-accent max-w-none font-mono text-sm md:text-base leading-relaxed ${isVisualTyping ? 'cursor-active' : ''}`}>
+    <div className={`typewriter-container prose prose-invert prose-p:text-scp-text prose-headings:text-scp-accent max-w-none font-mono text-base md:text-lg leading-7 md:leading-8 tracking-[0.01em] ${isVisualTyping ? 'cursor-active' : ''}`}>
       <style>
         {`
           .typewriter-container ol {
             list-style: decimal !important;
-            padding-left: 2rem !important;
-            margin: 1rem 0 !important;
+            padding-left: 2.25rem !important;
+            margin: 1.1rem 0 !important;
           }
           .typewriter-container ol ol {
             list-style: lower-alpha !important;
-            padding-left: 2.5rem !important;
+            padding-left: 2.75rem !important;
+          }
+          .typewriter-container ul {
+            list-style: disc !important;
+            padding-left: 2.1rem !important;
+            margin: 1.1rem 0 !important;
           }
           .typewriter-container li {
-            margin: 0.5rem 0 !important;
+            margin: 0.65rem 0 !important;
+          }
+          .typewriter-container p {
+            margin: 0.85rem 0 !important;
+          }
+          .typewriter-container h1,
+          .typewriter-container h2,
+          .typewriter-container h3,
+          .typewriter-container h4 {
+            margin: 1.4rem 0 0.8rem !important;
           }
           /* Cursor styling attached to the last element */
           @keyframes cursor-blink {

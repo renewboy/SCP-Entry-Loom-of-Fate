@@ -173,23 +173,18 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
     });
 
     const npcsHere = (gameState.npcs || []).filter(n => n.alive && n.nodeId === runtime.currentNodeId);
-    const mainObj = (gameState.objectives || []).find(o => o.type === 'MAIN');
     const currentObj = (gameState.objectives || []).find(o => o.nodeId === runtime.currentNodeId);
     const lines: string[] = [];
     lines.push(`当前位置: ${currentNode?.name || runtime.currentNodeId} (${runtime.currentNodeId})`);
     if (currentNode) lines.push(`危险度: ${currentNode.danger}/100`);
     if (currentNode?.discoverables?.length) lines.push(`可发现物品: ${currentNode.discoverables.join(', ')}`);
-
+    if (currentNode?.interactables?.length) lines.push(`可互动物品: ${currentNode.interactables.join(', ')}`);
     if (neighbors.length) {
       lines.push(`可达邻接地点:`);
       neighbors.forEach(n => lines.push(`- ${n.name} (${n.id})${n.blocked ? ` [门禁: ${n.reason || '阻挡'}]` : ''}`));
     }
     if ((gameState.inventory || []).length) lines.push(`已持有: ${(gameState.inventory || []).map(i => i.id).join(', ')}`);
-    if (npcsHere.length) lines.push(`同地点NPC: ${npcsHere.map(n => `${n.name}(${n.id}), 对话目标: ${n.dialogueGoals}`).join(', ')}`);
-    // if (mainObj) {
-    //   const progressText = `${Math.max(0, Math.min(100, Math.round(mainObj.progress)))}%`;
-    //   lines.push(`主线任务: ${mainObj.title} @ ${mainObj.nodeId}；进度: ${progressText}`);
-    // }
+    if (npcsHere.length) lines.push(`同地点NPC: ${npcsHere.map(n => `${n.name}(${n.id}), 对话目标: ${n.dialogueGoals}, 秘密标签: ${n.secretTags?.join(',') || '无'}`).join(', ')}`);
     if (currentObj) {
       const progressText = `${Math.max(0, Math.min(100, Math.round(currentObj.progress)))}%`;
       lines.push(`当前地点任务: ${currentObj.title} @ ${currentObj.nodeId}；进度: ${progressText}`);
