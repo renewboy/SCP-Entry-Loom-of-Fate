@@ -74,14 +74,25 @@ export interface Message {
   stabilitySnapshot?: number; // Snapshot of stability at this message, used for history chart
 }
 
+export interface StoryDraft {
+  roleDetails?: string;
+  storyBackground?: string;
+  narrativeConstraints?: string;
+  openingPrompt?: string;
+  backgroundImage?: string; // Data URL or Remote URL
+  entityImage?: string;     // Data URL or Remote URL
+}
+
 export interface SCPData {
   designation: string; // e.g. SCP-173
   name: string; // e.g. The Sculpture
   description: string | null;
   containmentClass: string;
+  role?: string; // Player role name/title
   visualDescription?: string; // Description for background image generation
   entityDescription?: string; // Description for main entity image generation
   mapBlueprint?: MapBlueprint;
+  storyDraft?: StoryDraft;
 }
 
 export interface MapBlueprintNode {

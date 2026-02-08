@@ -1,4 +1,4 @@
-import { GameDifficulty, Language, MapBlueprint } from '../../types';
+import { GameDifficulty, Language, MapBlueprint, StoryDraft } from '../../types';
 
 export const getSystemInstruction = (role: string, language: Language) => `
 你是一个基于SCP基金会宇宙的文本冒险游戏《SCP 档案：命运织机》的AI主持人。“命运织机”这一名称寓意每一次玩家决策都像织机上的一根经线或纬线，微小的选择在各种变量的作用下交织，逐步塑造世界线的走向。你的核心职责是严格贴合SCP基金会世界观逻辑，为玩家纺织沉浸式、多样性、高自由度的剧情体验。
@@ -155,7 +155,7 @@ const getNormalTurnRequirements = (langInstruction: string) => `
 10. 所有System Tags必须在**最末尾**添加。
 11. 禁止使用任何工具调用。`;
 
-export const getStartGamePrompt = (role: string, scpDesignation: string, containmentClass: string, language: Language, difficulty: GameDifficulty, legacyData?: string, mapBlueprint?: MapBlueprint) => {
+export const getStartGamePrompt = (role: string, scpDesignation: string, containmentClass: string, language: Language, difficulty: GameDifficulty, legacyData?: string, mapBlueprint?: MapBlueprint, storyDraft?: StoryDraft) => {
     const langInstruction = language === 'zh' ? '中文' : '英文';
     const legacyIntro = '[已激活遗产继承系统 - 开启新周目]\n当前时间线受到先前迭代周期的因果影响。玩家角色从过去的世界线中继承了以下特质、物品与记忆回响。\n请将这些要素有机融入叙事与角色初始状态：';
     const legacyEnd = '[遗产数据结束]';
@@ -165,6 +165,17 @@ ${legacyData}
 ${legacyEnd}
 ` : '';
     const legacySearchInstruction = legacyData ? '(不要搜索遗产相关数据，只搜索本次SCP的资料)' : '';
+    // 遍历storyDraft的所有字段，判断是否为空
+    const isEmptyStoryDraft = Object.values(storyDraft || {}).every(value => !value);
+
+    const storyDraftInjection = !isEmptyStoryDraft ? `
+[补充设定]
+角色详细设定: ${storyDraft.roleDetails || 'N/A'}
+故事背景: ${storyDraft.storyBackground || 'N/A'}
+叙事约束: ${storyDraft.narrativeConstraints || 'N/A'}
+初始场景补充设定: ${storyDraft.openingPrompt || 'N/A'}
+[补充设定结束]
+` : '';
     const mapInjection = mapBlueprint ? `
 [地图蓝图]
 ${JSON.stringify({
@@ -181,6 +192,7 @@ ${JSON.stringify({
 - 项目等级：${containmentClass}
 - 游戏难度：${difficulty}
 - 回合: 1
+${storyDraftInjection}
 ${legacyInjection}
 ${mapInjection}
 

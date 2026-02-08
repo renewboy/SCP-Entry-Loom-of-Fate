@@ -220,11 +220,9 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                         title={t('editor.click_to_cycle')}
                     >
                         {label}
-                        <span className="text-[10px] opacity-50 border border-scp-amber/30 px-1 rounded">
-                            {currentState === 'bi' ? 'BI' : 'UNI'}
-                        </span>
+                      
                     </button>
-                    <div className="text-[10px] text-gray-500 italic text-center">
+                    <div className="text-[12px] text-gray-500 italic text-center">
                         {t('editor.cycle_hint')}
                     </div>
                 </div>

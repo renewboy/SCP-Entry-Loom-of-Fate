@@ -111,7 +111,7 @@ export class GeminiProvider implements AIService {
             legacyString = [traitsStr, itemsStr, echoesStr].filter(Boolean).join('\n\n');
         }
 
-        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyString, scp.mapBlueprint);
+        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyString, scp.mapBlueprint, scp.storyDraft);
 
         this.chatSession = {
             chat: this.client.chats.create({

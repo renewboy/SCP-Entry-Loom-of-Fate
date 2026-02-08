@@ -79,7 +79,7 @@ export class OpenAIProvider implements AIService {
             legacyString = [traitsStr, itemsStr, echoesStr].filter(Boolean).join('\n\n');
         }
 
-        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyString, scp.mapBlueprint);
+        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyString, scp.mapBlueprint, scp.storyDraft);
 
         // Store initial message for history
         this.messages = [
@@ -87,7 +87,7 @@ export class OpenAIProvider implements AIService {
             { role: "user", content: startPrompt }
         ];
 
-        console.log("[OpenAIProvider] Sending start message...");
+        console.log("[OpenAIProvider] Sending start message... ", startPrompt);
         
         // Use Responses API with streaming
         const responseStream = await this.client.responses.create({

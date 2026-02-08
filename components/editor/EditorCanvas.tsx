@@ -198,7 +198,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(({ blueprint
     };
 
     const radarColors = {
-        low: '#10b981', // Emerald 500 (Safe/Green)
+        low: '#33ff00', // Emerald 500 (Safe/Green)
         medium: '#f59e0b', // Amber 500
         high: '#ef4444' // Red 500
     };

@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { GameState, GameStatus } from '../types';
 import { useTranslation } from '../utils/i18n';
 import EditorCanvas from './editor/EditorCanvas';
-import { initializeGameChatStream, extractStability, extractVisualPrompt, generateImage } from '../services/aiService';
-import { loadGlobalSettings } from '../services/indexedDBService';
-import { setEditingBlueprintCache } from '../services/blueprintCache';
+import { initializeGameChatStream, extractStability, extractVisualPrompt, generateImage, extractLoc, extractMapUpdate } from '../services/aiService';
+import { loadGlobalSettings, saveEditingSCPData } from '../services/indexedDBService';
+import { setEditingStoryCache } from '../services/storyEditorCache';
 import { applyLayoutToBlueprint } from '../utils/mapLayout';
 
 interface TacticalPreviewProps {
@@ -40,10 +40,18 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
         return () => timers.forEach(clearTimeout);
     }, [showIntro]);
 
-    const handleEdit = () => {
-        if (blueprint) {
-            setEditingBlueprintCache(blueprint);
+    const handleEdit = async () => {
+        // Also sync current scpData to IndexedDB to ensure consistency
+        if (gameState.scpData) {
+            const dataToCache = {
+                ...gameState.scpData,
+                mapBlueprint: blueprint || gameState.scpData.mapBlueprint
+            };
+            
+            await saveEditingSCPData(dataToCache);
+            setEditingStoryCache(dataToCache);
         }
+
         setGameState(prev => ({
             ...prev,
             status: GameStatus.MAP_EDITOR
@@ -141,14 +149,15 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
             // Post-process
             const stabilityResult = extractStability(fullText);
             const introStability = stabilityResult.newStability ?? 100;
-            const { cleanText, visualPrompt } = extractVisualPrompt(stabilityResult.cleanText);
-
+            const { cleanText: visualCleanText, visualPrompt } = extractVisualPrompt(stabilityResult.cleanText);
+            const LocResult = extractLoc(visualCleanText);
+            const mapUpdateResult = extractMapUpdate(LocResult.cleanText);
             setGameState(prev => ({
                 ...prev,
                 messages: prev.messages.map(m => 
                     m.id === msgId ? { 
                         ...m, 
-                        content: cleanText, 
+                        content: mapUpdateResult.cleanText, 
                         isTyping: false,
                         stabilitySnapshot: introStability 
                     } : m
@@ -330,9 +339,9 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
                             <div className="mt-8 pt-4 border-t border-dashed border-gray-700">
                                 <button 
                                     onClick={handleEdit}
-                                    className="w-full py-3 border border-dashed border-gray-600 text-gray-400 hover:text-white hover:border-white hover:bg-white/5 transition-all text-xs font-mono tracking-wider flex items-center justify-center gap-2 group"
+                                    className="w-full py-3 bg-scp-accent/90 hover:bg-scp-accent text-white font-report tracking-widest border border-red-500 transition-all shadow-[0_0_15px_rgba(195,46,46,0.3)] hover:shadow-[0_0_25px_rgba(195,46,46,0.6)] flex items-center justify-center gap-2 group active:scale-[0.99]"
                                 >
-                                    <span>{t('editor.btn_edit_blueprint')}</span>
+                                    <span>{t('editor.btn_edit_story')}</span>
                                     <span className="group-hover:translate-x-1 transition-transform">→</span>
                                 </button>
                             </div>
@@ -365,7 +374,8 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
                         <div>
                             <button 
                                 onClick={handleBack}
-                                className="text-gray-300 hover:text-white hover:border-white border border-[var(--scp-border-strong)] transition-colors font-report font-bold text-xl tracking-[0.2em] flex items-center gap-2 px-4 py-2"
+                                disabled={isStarting}
+                                className="text-gray-300 hover:text-white hover:border-white border border-[var(--scp-border-strong)] transition-colors font-report font-bold text-xl tracking-[0.2em] flex items-center gap-2 px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 ← {t('common.back')}
                             </button>

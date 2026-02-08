@@ -302,10 +302,10 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
 
                 <div className="flex gap-2 shrink-0">
                     <button 
-                        onClick={() => setGameState(prev => ({ ...prev, status: GameStatus.MAP_EDITOR }))}
+                        onClick={() => setGameState(prev => ({ ...prev, status: GameStatus.MAP_EDITOR, scpData: null }))}
                         className="flex-1 py-3 bg-scp-gray/20 hover:bg-scp-gray/40 text-gray-300 hover:text-white font-mono text-sm md:text-base border border-scp-gray hover:border-gray-400 transition-all tracking-widest uppercase backdrop-blur-sm"
                     >
-                        {t('editor.title')}
+                        {t('story_editor.title')}
                     </button>
                     <button 
                         onClick={() => setSaveLoadModalOpen(true)}

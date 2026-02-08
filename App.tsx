@@ -6,7 +6,7 @@ import GameScreen from './components/GameScreen';
 import { LanguageProvider, useTranslation } from './utils/i18n';
 import { playBgm, stopBgm } from './services/bgmService';
 
-import MapEditor from './components/editor/MapEditor';
+import StoryEditor from './components/editor/StoryEditor';
 import TacticalPreview from './components/TacticalPreview';
 import FeedbackOverlay from './components/game/FeedbackOverlay';
 
@@ -89,7 +89,7 @@ const AppContent: React.FC = () => {
           <TacticalPreview gameState={gameState} setGameState={setGameState} />
         )}
         {gameState.status === GameStatus.MAP_EDITOR && (
-          <MapEditor gameState={gameState} setGameState={setGameState} />
+          <StoryEditor gameState={gameState} setGameState={setGameState} />
         )}
         {(gameState.status === GameStatus.PLAYING || gameState.status === GameStatus.GAME_OVER) && (
           <GameScreen gameState={gameState} setGameState={setGameState} />
