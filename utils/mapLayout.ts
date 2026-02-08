@@ -5,6 +5,7 @@ type LayoutOptions = {
     height?: number;
     paddingX?: number;
     paddingY?: number;
+    useExistingLayout?: boolean;
 };
 
 export const buildLayout = (blueprint: MapBlueprint, options: LayoutOptions = {}) => {
@@ -12,6 +13,7 @@ export const buildLayout = (blueprint: MapBlueprint, options: LayoutOptions = {}
     const height = options.height ?? 200;
     const paddingX = options.paddingX ?? 24;
     const paddingY = options.paddingY ?? 24;
+    const useExistingLayout = options.useExistingLayout ?? true;
 
     const nodes = blueprint.nodes;
     const adjacency = new Map<string, Set<string>>();
@@ -71,11 +73,13 @@ export const buildLayout = (blueprint: MapBlueprint, options: LayoutOptions = {}
         });
     });
 
-    nodes.forEach(node => {
-        if (node.layout) {
-            positionById.set(node.id, { x: node.layout.x, y: node.layout.y });
-        }
-    });
+    if (useExistingLayout) {
+        nodes.forEach(node => {
+            if (node.layout) {
+                positionById.set(node.id, { x: node.layout.x, y: node.layout.y });
+            }
+        });
+    }
 
     return { positionById, levels };
 };

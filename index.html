@@ -22,6 +22,9 @@
                 text: '#e0e0e0',
                 term: '#33ff00',
                 term_fix: '#33ff00',
+                alert: '#ef4444',
+                amber: '#f59e0b',
+                cyan: '#06b6d4'
               }
             },
             animation: {
@@ -54,57 +57,149 @@
         --scp-bg: #050505;
         --scp-surface: #0a0a0a;
         --scp-surface-2: #111111;
-        --scp-border: rgba(90, 90, 90, 0.45);
-        --scp-border-strong: rgba(120, 120, 120, 0.75);
-        --scp-text: #e0e0e0;
-        --scp-text-dim: rgba(224, 224, 224, 0.6);
-        --scp-term: #33ff00;
-        --scp-amber: #d9a441;
-        --scp-alert: #c32e2e;
-        --scp-shadow: 0 0 22px rgba(0, 0, 0, 0.6);
-        --scp-glow: 0 0 10px rgba(51, 255, 0, 0.35);
+        --scp-surface-light: #1c1c1e;
+        --scp-border: rgba(148, 163, 184, 0.15);
+        --scp-border-strong: rgba(148, 163, 184, 0.3);
+        --scp-text: #e2e8f0;
+        --scp-text-dim: rgba(148, 163, 184, 0.6);
+        --scp-term: #33ff00; /* Muted Emerald */
+        --scp-cyan: #06b6d4;
+        --scp-amber: #f59e0b;
+        --scp-alert: #ef4444;
+        --scp-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+        --scp-glow: 0 0 15px rgba(16, 185, 129, 0.15);
         --scp-scanline-dark: rgba(0, 0, 0, 0.28);
         --scp-scanline-rgb-r: rgba(255, 0, 0, 0.04);
         --scp-scanline-rgb-g: rgba(0, 255, 0, 0.02);
         --scp-scanline-rgb-b: rgba(0, 0, 255, 0.04);
-        --scp-scrollbar-track: #1a1a1a;
-        --scp-scrollbar-thumb: #333333;
-        --scp-noise-opacity: 0.12;
+        --scp-scrollbar-track: #0f0f0f;
+        --scp-scrollbar-thumb: #2d2d2d;
+        --scp-noise-opacity: 0.03;
       }
       body {
         background-color: var(--scp-bg);
         color: var(--scp-text);
         overflow: hidden;
+        background-image: 
+          linear-gradient(rgba(18, 18, 20, 0.95), rgba(18, 18, 20, 0.95)),
+          url('https://www.transparenttextures.com/patterns/cubes.png');
       }
       ::-webkit-scrollbar {
-        width: 8px;
+        width: 6px;
+        height: 6px;
       }
       ::-webkit-scrollbar-track {
         background: var(--scp-scrollbar-track);
       }
       ::-webkit-scrollbar-thumb {
         background: var(--scp-scrollbar-thumb);
-        border-radius: 4px;
+        border-radius: 3px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: var(--theme-accent, var(--scp-alert));
+        background: var(--scp-border-strong);
       }
       .scp-ui {
         color: var(--scp-text);
-        letter-spacing: 0.02em;
+        letter-spacing: 0.01em;
+      }
+      .scp-panel {
+        background: rgba(15, 15, 18, 0.85);
+        border: 1px solid var(--scp-border);
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(12px);
+        position: relative;
+      }
+      .scp-panel::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; width: 8px; height: 8px;
+        border-top: 2px solid var(--scp-border-strong);
+        border-left: 2px solid var(--scp-border-strong);
+        pointer-events: none;
+      }
+      .scp-panel::after {
+        content: "";
+        position: absolute;
+        bottom: 0; right: 0; width: 8px; height: 8px;
+        border-bottom: 2px solid var(--scp-border-strong);
+        border-right: 2px solid var(--scp-border-strong);
+        pointer-events: none;
+      }
+      .scp-panel-header {
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid var(--scp-border);
+        padding: 0.5rem 1rem;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--scp-text-dim);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .scp-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid transparent;
+        transition: all 0.2s ease;
+      }
+      .scp-card:hover {
+        background: rgba(255, 255, 255, 0.04);
+        border-color: var(--scp-border);
+      }
+      .scp-btn-action {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--scp-border);
+        color: var(--scp-text);
+        font-family: 'JetBrains Mono', monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        transition: all 0.2s ease;
+        position: relative;
+        overflow: hidden;
+      }
+      .scp-btn-action:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: var(--scp-text-dim);
+        box-shadow: 0 0 15px rgba(255, 255, 255, 0.05);
+      }
+      .scp-btn-action:active {
+        transform: translateY(1px);
+      }
+      .scp-btn-primary {
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid var(--scp-amber);
+        color: var(--scp-amber);
+      }
+      .scp-btn-primary:hover {
+        background: rgba(245, 158, 11, 0.2);
+        box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
+      }
+      .scp-btn-danger {
+        background: rgba(220, 38, 38, 0.1);
+        border: 1px solid var(--scp-alert);
+        color: var(--scp-alert);
+      }
+      .scp-btn-danger:hover {
+        background: rgba(220, 38, 38, 0.25);
+        box-shadow: 0 0 20px rgba(220, 38, 38, 0.3);
+      }
+      .scp-glass {
+        background: rgba(10, 10, 12, 0.7);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
       }
       .scp-window {
-        background: rgba(10, 10, 10, 0.85);
+        background: rgba(15, 15, 18, 0.95);
         border: 1px solid var(--scp-border);
         box-shadow: var(--scp-shadow);
-        backdrop-filter: blur(8px);
       }
       .scp-window-header {
-        background: linear-gradient(90deg, rgba(30, 30, 30, 0.6), rgba(10, 10, 10, 0.2));
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), transparent);
         border-bottom: 1px solid var(--scp-border);
         color: var(--scp-text);
         text-transform: uppercase;
-        letter-spacing: 0.22em;
+        letter-spacing: 0.15em;
       }
       .scp-archive {
         background: #0b0b0b;

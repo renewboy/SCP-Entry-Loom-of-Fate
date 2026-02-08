@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from '../../utils/i18n';
+import { inputBase, inputGroup, labelBase } from './editorStyles';
 
 interface TagInputProps {
     label: string;
@@ -35,28 +36,28 @@ const TagInput: React.FC<TagInputProps> = ({ label, tags = [], onChange, placeho
     };
 
     return (
-        <div className="space-y-1">
-            <label className="text-xs text-scp-term/70 uppercase font-mono">{label}</label>
-            <div className="flex flex-wrap gap-1 mb-1">
+        <div className={inputGroup}>
+            <label className={labelBase}>{label}</label>
+            <div className="flex flex-wrap gap-1 mb-1 group">
                 {tags.map(tag => (
-                    <span key={tag} className="px-1 bg-scp-term/20 text-scp-term text-xs border border-scp-term/30 flex items-center gap-1">
+                    <span key={tag} className="px-1 bg-scp-cyan/10 text-scp-cyan text-xs border border-scp-cyan/30 group-hover:border-scp-alert/50 group-hover:text-scp-alert flex items-center gap-1">
                         {tag}
                         <button onClick={() => removeTag(tag)} className="hover:text-white font-bold px-1">×</button>
                     </span>
                 ))}
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1 group">
                 <input 
                     type="text" 
                     value={inputValue}
                     onChange={e => setInputValue(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder={placeholder || t('editor.tags_placeholder')}
-                    className="flex-1 bg-black/50 border border-scp-term/50 p-1 text-sm font-mono text-scp-text focus:border-scp-term outline-none"
+                    className={`${inputBase} flex-1`}
                 />
                 <button 
                     onClick={addTag}
-                    className="px-2 bg-scp-term/20 border border-scp-term/50 text-scp-term hover:bg-scp-term/40 text-xs font-bold"
+                    className="px-2 bg-scp-cyan/10 border border-scp-cyan/30 text-scp-cyan group-hover:border-scp-alert/60 group-hover:text-scp-alert hover:bg-scp-cyan/20 text-xs font-bold"
                 >
                     +
                 </button>

@@ -119,9 +119,7 @@ export class GeminiProvider implements AIService {
                 config: {
                     systemInstruction,
                     temperature: aiConfig.generation.temperature,
-                    tools: [
-                        { googleSearch: {} }
-                    ],
+                    
                 }
             }),
             systemInstruction: systemInstruction,
@@ -130,7 +128,14 @@ export class GeminiProvider implements AIService {
 
         console.log("[GeminiProvider] Sending start message... ", startPrompt);
         const result = await this.chatSession.chat.sendMessageStream({
-            message: startPrompt
+            message: startPrompt,
+            config: {
+                systemInstruction: this.chatSession.systemInstruction,
+                temperature: this.chatSession.temperature,
+                tools: [
+                    { googleSearch: {} }
+                ],
+            }
         });
         for await (const chunk of result) {
             if (chunk.text) {
@@ -197,9 +202,6 @@ export class GeminiProvider implements AIService {
                 config: {
                     systemInstruction,
                     temperature: aiConfig.generation.temperature,
-                    tools: [
-                        { googleSearch: {} }
-                    ],
                 },
                 history: history
             }),

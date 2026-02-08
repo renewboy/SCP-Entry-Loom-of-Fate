@@ -110,7 +110,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
     const nodes = blueprint.nodes;
     const width = 200;
     const height = 200;
-    const { positionById, levels } = buildLayout(blueprint, { width, height, paddingX: 24, paddingY: 24 });
+    const { positionById, levels } = buildLayout(blueprint, { width, height, paddingX: 40, paddingY: 40, useExistingLayout: false });
 
     const labelOffsetById = new Map<string, { dx: number; dy: number }>();
     Array.from(levels.entries()).sort((a, b) => a[0] - b[0]).forEach(([, ids]) => {

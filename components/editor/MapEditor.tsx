@@ -1,12 +1,35 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapBlueprint, MapBlueprintNode, MapBlueprintEdge, MapBlueprintNPC, MapBlueprintObjective, GameState, GameStatus } from '../../types';
 import { useTranslation } from '../../utils/i18n';
-import EditorCanvas from './EditorCanvas';
+import EditorCanvas, { EditorCanvasRef } from './EditorCanvas';
 import PropertyInspector from './PropertyInspector';
 import ConfirmationModal from '../ConfirmationModal';
+import SidePanel from '../common/SidePanel';
+import {
+    addEntityButtonNpc,
+    addEntityButtonObj,
+    editorPanelHeader,
+    editorPanelTitle,
+    listItemBase,
+    listItemInactive,
+    listItemNpcActive,
+    listItemObjectiveActive,
+    panelContainerBase,
+    modalOverlay,
+    modalPanel,
+    modalHeader,
+    modalBody,
+    modalFooter,
+    toolbarHistoryButton,
+    toolbarButtonBase,
+    toolbarButtonGhost,
+    toolbarGroupDivider,
+    toolbarIconButton
+} from './editorStyles';
 import { loadEditingBlueprint, saveEditingBlueprint } from '../../services/indexedDBService';
 import { getEditingBlueprintCache, setEditingBlueprintCache, clearEditingBlueprintCache } from '../../services/blueprintCache';
 import { applyLayoutToBlueprint } from '../../utils/mapLayout';
+import { useHistory } from '../../hooks/useHistory';
 
 interface MapEditorProps {
     gameState: GameState;
@@ -30,19 +53,17 @@ const DEFAULT_BLUEPRINT: MapBlueprint = {
     objectives: []
 };
 
-import { useHistory } from '../../hooks/useHistory';
-
 const MapEditor: React.FC<MapEditorProps> = ({ gameState, setGameState }) => {
     const { t } = useTranslation();
     const { state: blueprintState, setState: setBlueprint, undo, redo, canUndo, canRedo } = useHistory<MapBlueprint>(DEFAULT_BLUEPRINT);
     
-    // Safety check: ensure blueprint is never undefined
     const blueprint = blueprintState || DEFAULT_BLUEPRINT;
 
     const [selection, setSelection] = useState<{ type: 'node' | 'edge' | 'npc' | 'objective', id: string } | null>(null);
     const [modal, setModal] = useState<{ isOpen: boolean; title: string; content: React.ReactNode; onConfirm?: () => void } | null>(null);
     const [showNewMapConfirm, setShowNewMapConfirm] = useState(false);
     const hasLoadedRef = useRef(false);
+    const canvasRef = useRef<EditorCanvasRef>(null);
 
     useEffect(() => {
         if (hasLoadedRef.current) return;
@@ -69,10 +90,8 @@ const MapEditor: React.FC<MapEditorProps> = ({ gameState, setGameState }) => {
         setEditingBlueprintCache(blueprint);
     }, [blueprint]);
 
-    // Keyboard Shortcuts for Undo/Redo
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Ignore if focus is in an input or textarea
             if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
 
             if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
@@ -101,7 +120,7 @@ const MapEditor: React.FC<MapEditorProps> = ({ gameState, setGameState }) => {
                 <div className="space-y-4">
                     <p className="text-xs text-scp-text/70">{t('editor.msg_import')}</p>
                     <textarea 
-                        className="w-full h-40 bg-black/50 border border-scp-term/50 text-xs font-mono p-2 text-scp-text focus:outline-none focus:border-scp-term"
+                        className="w-full h-40 bg-black/50 border border-[var(--scp-border)] text-xs font-mono p-2 text-scp-text focus:outline-none focus:border-scp-alert"
                         onChange={e => importText = e.target.value}
                         placeholder="{ ... }"
                     />
@@ -114,7 +133,7 @@ const MapEditor: React.FC<MapEditorProps> = ({ gameState, setGameState }) => {
                         setBlueprint(applyLayoutToBlueprint(json, { width: 720, height: 420, paddingX: 60, paddingY: 50 }));
                         closeModal();
                     } else {
-                        alert(t('editor.validation_error')); // Fallback or better error handling
+                        alert(t('editor.validation_error')); 
                     }
                 } catch (e) {
                     alert(t('editor.json_error'));
@@ -134,13 +153,12 @@ const MapEditor: React.FC<MapEditorProps> = ({ gameState, setGameState }) => {
                     <textarea 
                         readOnly
                         value={json}
-                        className="w-full h-40 bg-black/50 border border-scp-term/50 text-xs font-mono p-2 text-scp-text focus:outline-none focus:border-scp-term select-all"
+                        className="w-full h-40 bg-black/50 border border-[var(--scp-border)] text-xs font-mono p-2 text-scp-text focus:outline-none focus:border-scp-alert select-all"
                     />
                 </div>
             ),
             onConfirm: () => {
                 navigator.clipboard.writeText(json);
-                // Optional: show toast
                 closeModal();
             }
         });
@@ -160,16 +178,7 @@ const MapEditor: React.FC<MapEditorProps> = ({ gameState, setGameState }) => {
         }
     };
 
-    const handleImport = () => {
-        showImportModal();
-    };
-
-    const handleExport = () => {
-        showExportModal();
-    };
-
     const handleTestRun = () => {
-        // Inject the blueprint into a mock game state
         setGameState(prev => ({
             ...prev,
             status: GameStatus.PLAYING,
@@ -200,17 +209,14 @@ const MapEditor: React.FC<MapEditorProps> = ({ gameState, setGameState }) => {
 
     const updateNode = (id: string, updates: Partial<MapBlueprintNode>) => {
         setBlueprint(prev => {
-            // Check if ID is being updated
             if (updates.id && updates.id !== id) {
                 const newId = updates.id;
-                // Update selection if necessary
                 if (selection?.type === 'node' && selection.id === id) {
                     setSelection(s => s ? { ...s, id: newId } : null);
                 }
                 return {
                     ...prev,
                     nodes: prev.nodes.map(n => n.id === id ? { ...n, ...updates } : n),
-                    // Update all references to this node
                     edges: prev.edges.map(e => ({
                         ...e,
                         from: e.from === id ? newId : e.from,
@@ -227,7 +233,6 @@ const MapEditor: React.FC<MapEditorProps> = ({ gameState, setGameState }) => {
                     startNodeId: prev.startNodeId === id ? newId : prev.startNodeId
                 };
             }
-
             return {
                 ...prev,
                 nodes: prev.nodes.map(n => n.id === id ? { ...n, ...updates } : n)
@@ -283,7 +288,6 @@ const MapEditor: React.FC<MapEditorProps> = ({ gameState, setGameState }) => {
     };
 
     const addEdge = (from: string, to: string) => {
-        // Check if edge already exists
         const exists = blueprint.edges.some(e => 
             (e.from === from && e.to === to) || (e.bidirectional && e.from === to && e.to === from)
         );
@@ -297,9 +301,7 @@ const MapEditor: React.FC<MapEditorProps> = ({ gameState, setGameState }) => {
 
     const addNPC = () => {
         const id = `npc_${Math.floor(Math.random() * 900) + 100}`;
-        // Determine target node: selected node or start node
         const targetNodeId = (selection?.type === 'node' && selection.id) ? selection.id : blueprint.startNodeId;
-        
         const newNPC: MapBlueprintNPC = {
             id,
             name: 'New NPC',
@@ -312,9 +314,7 @@ const MapEditor: React.FC<MapEditorProps> = ({ gameState, setGameState }) => {
 
     const addObjective = () => {
         const id = `obj_${Math.floor(Math.random() * 900) + 100}`;
-        // Determine target node: selected node or start node
         const targetNodeId = (selection?.type === 'node' && selection.id) ? selection.id : blueprint.startNodeId;
-
         const newObj: MapBlueprintObjective = {
             id,
             title: 'New Objective',
@@ -332,7 +332,9 @@ const MapEditor: React.FC<MapEditorProps> = ({ gameState, setGameState }) => {
             setBlueprint(prev => ({
                 ...prev,
                 nodes: prev.nodes.filter(n => n.id !== selection.id),
-                edges: prev.edges.filter(e => e.from !== selection.id && e.to !== selection.id)
+                edges: prev.edges.filter(e => e.from !== selection.id && e.to !== selection.id),
+                npcs: prev.npcs.filter(n => n.initialNodeId !== selection.id),
+                objectives: prev.objectives.filter(o => o.nodeId !== selection.id)
             }));
         } else if (selection.type === 'edge') {
             const [from, to] = selection.id.split('-');
@@ -349,24 +351,24 @@ const MapEditor: React.FC<MapEditorProps> = ({ gameState, setGameState }) => {
     };
 
     return (
-        <div className="w-full h-full flex flex-col bg-[#0a0a0a] text-scp-text overflow-hidden relative">
+        <div className="w-full h-full flex flex-col bg-[var(--scp-bg)] text-[var(--scp-text)] overflow-hidden relative font-mono">
             {/* Custom Modal Overlay */}
             {modal && modal.isOpen && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-                    <div className="bg-scp-dark border border-scp-term p-4 w-3/4 max-w-2xl shadow-[0_0_30px_rgba(51,255,0,0.2)]">
-                        <div className="flex justify-between items-center mb-4 border-b border-scp-term/30 pb-2">
-                            <h3 className="text-scp-term font-bold font-mono text-lg">{modal.title}</h3>
-                            <button onClick={closeModal} className="text-scp-text hover:text-scp-term">×</button>
+                <div className={modalOverlay}>
+                    <div className={modalPanel}>
+                        <div className={modalHeader}>
+                            <span>{modal.title}</span>
+                            <button onClick={closeModal} className="hover:text-white">×</button>
                         </div>
-                        <div className="mb-6">
+                        <div className={modalBody}>
                             {modal.content}
                         </div>
-                        <div className="flex justify-end gap-4">
-                            <button onClick={closeModal} className="px-4 py-2 border border-scp-gray text-gray-400 hover:text-white font-mono text-sm">
+                        <div className={modalFooter}>
+                            <button onClick={closeModal} className={toolbarButtonGhost}>
                                 {t('editor.btn_close')}
                             </button>
                             {modal.onConfirm && (
-                                <button onClick={modal.onConfirm} className="px-4 py-2 bg-scp-term/20 border border-scp-term text-scp-term hover:bg-scp-term/40 font-mono text-sm font-bold">
+                                <button onClick={modal.onConfirm} className={toolbarButtonBase}>
                                     {modal.title === t('editor.delete_confirm_title') ? t('common.delete') : (modal.title === t('editor.import') ? t('editor.btn_import') : t('editor.btn_copy'))}
                                 </button>
                             )}
@@ -388,124 +390,175 @@ const MapEditor: React.FC<MapEditorProps> = ({ gameState, setGameState }) => {
             />
 
             {/* Toolbar */}
-            <div className="h-12 border-b border-scp-term/30 flex items-center justify-between px-4 bg-scp-dark/90 backdrop-blur shrink-0 z-10">
+            <div className="h-12 border-b border-[var(--scp-border)] flex items-center justify-between px-4 bg-[var(--scp-surface)] shrink-0 z-10 shadow-md scp-ui crt">
                 <div className="flex items-center gap-4">
-                    <button onClick={handleBack} className="text-scp-text hover:text-scp-term font-mono text-sm flex items-center gap-1">
-                        <span>&lt;</span> {t('common.back')}
+                    <button onClick={handleBack} className={toolbarButtonBase}>
+                        <span>←</span> {t('common.back')}
                     </button>
-                    <span className="text-scp-term font-bold font-mono hidden sm:inline">{t('editor.title')}</span>
+                    <div className={toolbarGroupDivider}></div>
+                    <span className="text-scp-text-dim font-bold font-mono text-xs tracking-wider">{t('editor.title')}</span>
                     
                     {/* Undo/Redo Controls */}
-                    <div className="flex items-center gap-1 ml-4 border-l border-scp-term/30 pl-4">
+                    <div className="flex items-center gap-1 ml-4 pl-4 border-l border-[var(--scp-border)]">
                         <button 
                             onClick={undo} 
                             disabled={!canUndo}
-                            className={`px-2 py-1 text-xs font-mono border border-scp-gray/50 ${canUndo ? 'hover:border-scp-term hover:text-scp-term cursor-pointer' : 'opacity-30 cursor-not-allowed'}`}
+                            className={toolbarHistoryButton(canUndo)}
                             title="Undo (Ctrl+Z)"
                         >
-                            ← {t('common.undo') || 'Undo'}
+                            <span className="text-lg leading-none">↺</span> {t('common.undo')}
                         </button>
                         <button 
                             onClick={redo} 
                             disabled={!canRedo}
-                            className={`px-2 py-1 text-xs font-mono border border-scp-gray/50 ${canRedo ? 'hover:border-scp-term hover:text-scp-term cursor-pointer' : 'opacity-30 cursor-not-allowed'}`}
+                            className={toolbarHistoryButton(canRedo)}
                             title="Redo (Ctrl+Shift+Z)"
                         >
-                            {t('common.redo') || 'Redo'} →
+                            <span className="text-lg leading-none">↻</span> {t('common.redo')}
                         </button>
                     </div>
                     
-                    {/* Add Entity Buttons (Moved from floating list) */}
-                    <div className="flex items-center gap-2 ml-4 border-l border-scp-term/30 pl-4">
+                    {/* Add Entity Buttons */}
+                    <div className="flex items-center gap-2 ml-4">
                         <button 
                             onClick={addNPC}
-                            className="px-2 py-1 text-xs font-mono border border-scp-amber/50 text-scp-amber hover:bg-scp-amber/10 hover:border-scp-amber"
+                            className={addEntityButtonNpc}
                             title={t('editor.add_npc')}
                         >
                             + NPC
                         </button>
                          <button 
                             onClick={addObjective}
-                            className="px-2 py-1 text-xs font-mono border border-scp-alert/50 text-scp-alert hover:bg-scp-alert/10 hover:border-scp-alert"
+                            className={addEntityButtonObj}
                             title={t('editor.add_objective')}
                         >
                             + OBJ
                         </button>
                     </div>
+                    
+                    {/* Zoom Controls */}
+                    <div className="flex items-center gap-1 ml-4 pl-4 border-l border-[var(--scp-border)]">
+                        <button 
+                            onClick={() => canvasRef.current?.zoomOut()}
+                            className={toolbarIconButton}
+                            title={t('editor.zoom')}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                <line x1="8" y1="11" x2="14" y2="11"></line>
+                            </svg>
+                        </button>
+                        <button 
+                            onClick={() => canvasRef.current?.zoomIn()}
+                            className={toolbarIconButton}
+                            title={t('editor.zoom')}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                <line x1="11" y1="8" x2="11" y2="14"></line>
+                                <line x1="8" y1="11" x2="14" y2="11"></line>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
-                <div className="flex gap-2 mr-32">
-                    <button onClick={() => setShowNewMapConfirm(true)} className="px-3 py-1 border border-scp-gray/50 hover:border-scp-term text-xs font-mono">{t('editor.new_map')}</button>
-                    <button onClick={handleImport} className="px-3 py-1 border border-scp-gray/50 hover:border-scp-term text-xs font-mono">{t('editor.import')}</button>
-                    <button onClick={handleExport} className="px-3 py-1 border border-scp-gray/50 hover:border-scp-term text-xs font-mono">{t('editor.export')}</button>
-                    <button onClick={handleTestRun} className="px-3 py-1 bg-scp-term/20 border border-scp-term hover:bg-scp-term/40 text-xs font-mono font-bold text-scp-term">{t('editor.test_run')}</button>
+                <div className="flex gap-2 pr-32">
+                    <button onClick={() => setShowNewMapConfirm(true)} className={toolbarButtonGhost}>{t('editor.new_map')}</button>
+                    <button onClick={() => showImportModal()} className={toolbarButtonGhost}>{t('editor.import')}</button>
+                    <button onClick={() => showExportModal()} className={toolbarButtonGhost}>{t('editor.export')}</button>
+                    <button onClick={handleTestRun} className="scp-btn-action px-4 py-1 text-xs font-bold text-scp-white hover:text-scp-alert border-scp-gray/30 hover:border-scp-alert/60">
+                        ▶ {t('editor.test_run')}
+                    </button>
                 </div>
             </div>
 
             {/* Main Area */}
-            <div className="flex-1 flex overflow-hidden">
-                {/* Canvas */}
-                <div className="flex-1 relative bg-black/50">
-                    <EditorCanvas 
-                        blueprint={blueprint} 
-                        selection={selection} 
-                        setSelection={setSelection} 
-                        updateNode={updateNode}
-                        addNode={addNode}
-                        addEdge={addEdge}
-                        onDeleteSelection={handleDeleteSelection}
-                    />
+            <div className="flex-1 relative overflow-hidden">
+                <div className="absolute inset-0 bg-[#050505] scp-ui crt pl-56 pr-80 box-border">
+                    <div className="absolute inset-0 bg-grid-pattern opacity-10 pointer-events-none"></div>
+                    <div className="relative w-full h-full">
+                        <EditorCanvas 
+                            ref={canvasRef}
+                            blueprint={blueprint} 
+                            selection={selection} 
+                            setSelection={setSelection} 
+                            updateNode={updateNode}
+                            addNode={addNode}
+                            addEdge={addEdge}
+                            onDeleteSelection={handleDeleteSelection}
+                        />
+                    </div>
                 </div>
 
-                {/* Entity List Panel */}
-                <div className="w-48 border-l border-scp-term/30 bg-black/80 overflow-y-auto flex flex-col">
-                    <div className="p-2 border-b border-scp-term/30 bg-scp-term/10 font-bold text-xs text-scp-term uppercase sticky top-0">
-                        {t('editor.npcs')} ({blueprint.npcs.length})
+                <SidePanel side="left" className={`top-12 bottom-0 w-56 ${panelContainerBase}`}>
+                    <div className={editorPanelHeader}>
+                        <div className={editorPanelTitle}>
+                            {t('editor.entity_list')}
+                        </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto min-h-0">
-                        {blueprint.npcs.map(npc => (
-                            <div 
-                                key={npc.id}
-                                onClick={() => setSelection({ type: 'npc', id: npc.id })}
-                                className={`p-2 text-xs border-b border-scp-gray/20 cursor-pointer hover:bg-scp-term/10 ${selection?.type === 'npc' && selection.id === npc.id ? 'bg-scp-term/20 border-l-2 border-l-scp-term' : ''}`}
-                            >
-                                <div className="font-mono text-scp-amber truncate">{npc.name}</div>
-                                <div className="text-[10px] text-gray-500 truncate">{npc.id}</div>
+                    <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-3 space-y-4">
+                        {/* NPCs Section */}
+                        <div>
+                            <div className="text-[10px] text-scp-text-dim uppercase font-bold mb-2 px-1 tracking-wider">
+                                {t('editor.npcs')} ({blueprint.npcs.length})
                             </div>
-                        ))}
-                        {blueprint.npcs.length === 0 && <div className="p-4 text-xs text-gray-600 text-center italic">No NPCs</div>}
-                    </div>
-
-                    <div className="p-2 border-b border-scp-term/30 border-t border-t-scp-term/30 bg-scp-term/10 font-bold text-xs text-scp-term uppercase sticky top-0">
-                        {t('editor.objectives')} ({blueprint.objectives.length})
-                    </div>
-                    <div className="flex-1 overflow-y-auto min-h-0">
-                        {blueprint.objectives.map(obj => (
-                            <div 
-                                key={obj.id}
-                                onClick={() => setSelection({ type: 'objective', id: obj.id })}
-                                className={`p-2 text-xs border-b border-scp-gray/20 cursor-pointer hover:bg-scp-term/10 ${selection?.type === 'objective' && selection.id === obj.id ? 'bg-scp-term/20 border-l-2 border-l-scp-term' : ''}`}
-                            >
-                                <div className="font-mono text-scp-alert truncate">{obj.title}</div>
-                                <div className="text-[10px] text-gray-500 truncate">{obj.type}</div>
+                            <div className="space-y-1">
+                                {blueprint.npcs.map(npc => (
+                                    <div 
+                                        key={npc.id}
+                                        onClick={() => setSelection({ type: 'npc', id: npc.id })}
+                                        className={`${listItemBase} ${selection?.type === 'npc' && selection.id === npc.id ? listItemNpcActive : listItemInactive}`}
+                                    >
+                                        <div className="font-bold truncate">{npc.name}</div>
+                                        <div className="text-[10px] opacity-60 truncate">{npc.archetype}</div>
+                                    </div>
+                                ))}
+                                {blueprint.npcs.length === 0 && <div className="p-2 text-[10px] text-gray-600 italic text-center border border-dashed border-gray-800 rounded">No Entities</div>}
                             </div>
-                        ))}
-                        {blueprint.objectives.length === 0 && <div className="p-4 text-xs text-gray-600 text-center italic">No Objectives</div>}
-                    </div>
-                </div>
+                        </div>
 
-                {/* Inspector */}
-                <div className="w-80 border-l border-scp-term/30 bg-scp-dark/90 overflow-y-auto">
-                    <PropertyInspector 
-                        blueprint={blueprint}
-                        selection={selection}
-                        setSelection={setSelection}
-                        updateNode={updateNode}
-                        updateEdge={updateEdge}
-                        updateNPC={updateNPC}
-                        updateObjective={updateObjective}
-                        setBlueprint={setBlueprint}
-                    />
-                </div>
+                        {/* Objectives Section */}
+                        <div>
+                            <div className="text-[10px] text-scp-text-dim uppercase font-bold mb-2 px-1 tracking-wider border-t border-[var(--scp-border)] pt-4">
+                                {t('editor.objectives')} ({blueprint.objectives.length})
+                            </div>
+                            <div className="space-y-1">
+                                {blueprint.objectives.map(obj => (
+                                    <div 
+                                        key={obj.id}
+                                        onClick={() => setSelection({ type: 'objective', id: obj.id })}
+                                        className={`${listItemBase} ${selection?.type === 'objective' && selection.id === obj.id ? listItemObjectiveActive : listItemInactive}`}
+                                    >
+                                        <div className="font-bold truncate">{obj.title}</div>
+                                        <div className="text-[10px] opacity-60 truncate">{obj.type}</div>
+                                    </div>
+                                ))}
+                                {blueprint.objectives.length === 0 && <div className="p-2 text-[10px] text-gray-600 italic text-center border border-dashed border-gray-800 rounded">No Objectives</div>}
+                            </div>
+                        </div>
+                    </div>
+                </SidePanel>
+
+                <SidePanel side="right" className={`top-12 bottom-0 w-80 ${panelContainerBase}`}>
+                    <div className={editorPanelHeader}>
+                        <div className={editorPanelTitle}>
+                            {t('editor.properties')}
+                        </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar">
+                        <PropertyInspector 
+                            blueprint={blueprint}
+                            selection={selection}
+                            setSelection={setSelection}
+                            updateNode={updateNode}
+                            updateEdge={updateEdge}
+                            updateNPC={updateNPC}
+                            updateObjective={updateObjective}
+                            setBlueprint={setBlueprint}
+                        />
+                    </div>
+                </SidePanel>
             </div>
         </div>
     );
