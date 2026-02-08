@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { GameState } from '../../types';
 import { useTranslation } from '../../utils/i18n';
+import { buildLayout } from '../../utils/mapLayout';
 import SidePanel from '../common/SidePanel';
 
 interface MapPanelProps {
@@ -107,61 +108,9 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
     });
 
     const nodes = blueprint.nodes;
-    const adjacency = new Map<string, Set<string>>();
-    nodes.forEach(node => adjacency.set(node.id, new Set()));
-    blueprint.edges.forEach(edge => {
-      adjacency.get(edge.from)?.add(edge.to);
-      if (edge.bidirectional) adjacency.get(edge.to)?.add(edge.from);
-    });
-
-    const startId = blueprint.startNodeId;
-    const levelById = new Map<string, number>();
-    const queue: string[] = [];
-    if (startId) {
-      levelById.set(startId, 0);
-      queue.push(startId);
-    }
-    while (queue.length) {
-      const current = queue.shift() as string;
-      const level = levelById.get(current) ?? 0;
-      const neighbors = Array.from(adjacency.get(current) || []);
-      neighbors.forEach(next => {
-        if (!levelById.has(next)) {
-          levelById.set(next, level + 1);
-          queue.push(next);
-        }
-      });
-    }
-    let maxLevel = 0;
-    levelById.forEach(value => {
-      if (value > maxLevel) maxLevel = value;
-    });
-    const fallbackLevel = maxLevel + 1;
-
-    const levels = new Map<number, string[]>();
-    nodes.forEach(node => {
-      const level = levelById.get(node.id) ?? fallbackLevel;
-      if (!levels.has(level)) levels.set(level, []);
-      levels.get(level)?.push(node.id);
-    });
-
     const width = 200;
     const height = 200;
-    const paddingX = 24; // Increased padding
-    const paddingY = 24;
-    const levelCount = Math.max(1, levels.size);
-    const levelGap = levelCount > 1 ? (width - paddingX * 2) / (levelCount - 1) : 0;
-
-    const positionById = new Map<string, { x: number; y: number }>();
-    Array.from(levels.entries()).sort((a, b) => a[0] - b[0]).forEach(([level, ids]) => {
-      const count = ids.length;
-      const gap = count > 1 ? (height - paddingY * 2) / (count - 1) : 0;
-      ids.forEach((id, index) => {
-        const x = paddingX + levelGap * level;
-        const y = paddingY + (count > 1 ? gap * index : (height - paddingY * 2) / 2);
-        positionById.set(id, { x, y });
-      });
-    });
+    const { positionById, levels } = buildLayout(blueprint, { width, height, paddingX: 24, paddingY: 24 });
 
     const labelOffsetById = new Map<string, { dx: number; dy: number }>();
     Array.from(levels.entries()).sort((a, b) => a[0] - b[0]).forEach(([, ids]) => {

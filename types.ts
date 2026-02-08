@@ -2,6 +2,8 @@
 export enum GameStatus {
   IDLE = 'IDLE',
   ANALYZING = 'ANALYZING', // Analyzing the SCP URL
+  TACTICAL_PREVIEW = 'TACTICAL_PREVIEW', // Pre-game preview and edit
+  MAP_EDITOR = 'MAP_EDITOR', // Creating/Editing Map Blueprint
   PLAYING = 'PLAYING',
   GAME_OVER = 'GAME_OVER'
 }
@@ -92,6 +94,7 @@ export interface MapBlueprintNode {
   visualHint?: string;
   requires?: string[];
   blockedText?: string;
+  layout?: { x: number; y: number }; // Optional: normalized coordinates (0-100) for editor/custom maps
 }
 
 export interface MapBlueprintEdge {

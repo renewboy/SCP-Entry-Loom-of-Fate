@@ -1,4 +1,4 @@
-import { GameState, SaveGameMetadata, GlobalSettings } from '../types';
+import { GameState, SaveGameMetadata, GlobalSettings, MapBlueprint } from '../types';
 import { compressGameState, createThumbnail, decompressGameState } from '../utils/saveHelpers';
 
 export const ERROR_CODES = {
@@ -12,6 +12,7 @@ const STORE_NAME = 'saves';
 const CLOUD_STORE_NAME = 'cloud_saves';
 const SETTINGS_STORE_NAME = 'settings';
 const GLOBAL_SETTINGS_KEY = 'global_settings';
+const EDITING_BLUEPRINT_KEY = 'editing_blueprint';
 
 const DEFAULT_SETTINGS: GlobalSettings = {
     enableSceneImages: true,
@@ -62,6 +63,19 @@ export const loadGlobalSettings = async (): Promise<GlobalSettings> => {
     const settings = await loadSetting(GLOBAL_SETTINGS_KEY);
     if (!settings) return DEFAULT_SETTINGS;
     return { ...DEFAULT_SETTINGS, ...settings };
+};
+
+export const saveEditingBlueprint = async (blueprint: MapBlueprint | null): Promise<void> => {
+    return saveSetting(EDITING_BLUEPRINT_KEY, blueprint || null);
+};
+
+export const loadEditingBlueprint = async (): Promise<MapBlueprint | null> => {
+    const blueprint = await loadSetting(EDITING_BLUEPRINT_KEY);
+    return blueprint || null;
+};
+
+export const clearEditingBlueprint = async (): Promise<void> => {
+    return saveSetting(EDITING_BLUEPRINT_KEY, null);
 };
 
 export const saveGame = async (gameState: GameState, id?: string, createdAtOverride?: string): Promise<{ data: any; error: any }> => {

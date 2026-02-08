@@ -104,6 +104,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
 
       // 1. Analyze SCP
       const scpData = await analyzeSCPUrl(urlInput, language, finalRole, difficulty);
+      console.log("[StartScreen] SCP Analysis Result:", scpData);
       setLoadingStep(t('start.loading_retrieved', { designation: scpData.designation }));
 
       // 2. Start Background Image Gen (Async)
@@ -128,111 +129,18 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
           });
       }
 
-      // 4. Initialize Chat with Stream
-      setLoadingStep(LOADING_MESSAGES[0]);
-      
-      // Create the generator
-      const stream = initializeGameChatStream(scpData, finalRole, language, legacyData, difficulty);
-      const msgId = 'intro';
-      let fullText = "";
-      let isFirstChunk = true;
-      const blueprint = scpData.mapBlueprint;
-      const initialMap = blueprint ? {
-        id: blueprint.id,
-        title: blueprint.title,
-        currentNodeId: blueprint.startNodeId,
-        discoveredNodeIds: [blueprint.startNodeId]
-      } : undefined;
-      const initialNpcs = blueprint ? blueprint.npcs.map(npc => ({
-        id: npc.id,
-        name: npc.name,
-        archetype: npc.archetype,
-        nodeId: npc.initialNodeId,
-        alive: true,
-        secretTags: npc.secretTags,
-        dialogueGoals: npc.dialogueGoals
-      })) : undefined;
-      const initialObjectives = blueprint ? blueprint.objectives.map(obj => ({
-        id: obj.id,
-        title: obj.title,
-        type: obj.type,
-        nodeId: obj.nodeId,
-        status: 'ACTIVE' as const,
-        progress: typeof obj.progress === 'number' ? obj.progress : 0,
-        detail: obj.detail,
-        reward: obj.reward
-      })) : undefined;
-
-      for await (const chunk of stream) {
-        fullText += chunk;
-        
-        if (isFirstChunk) {
-            // SWITCH TO GAME SCREEN IMMEDIATELY ON FIRST TEXT
-            setGameState(prev => ({
-                ...prev,
-                status: GameStatus.PLAYING,
-                scpData,
-                role: finalRole,
-                stability: 100,
-                turnCount: 0,
-                map: initialMap,
-                npcs: initialNpcs,
-                objectives: initialObjectives,
-                inventory: [],
-                messages: [{
-                    id: msgId,
-                    sender: 'narrator',
-                    content: fullText,
-                    timestamp: Date.now(),
-                    isTyping: true
-                }],
-                legacy: legacyData
-            }));
-            isFirstChunk = false;
-        } else {
-             // Update the message content in real-time
-             setGameState(prev => ({
-                ...prev,
-                messages: prev.messages.map(m => 
-                    m.id === msgId ? { ...m, content: fullText } : m
-                )
-             }));
-        }
-      }
-
-      // 5. Post-process the full text (once stream is done)
-      // Extract stability, visuals and clean tags
-      const stabilityResult = extractStability(fullText);
-      const textAfterStability = stabilityResult.cleanText;
-      const introStability = stabilityResult.newStability ?? 100;
-
-      const { cleanText, visualPrompt } = extractVisualPrompt(textAfterStability);
-      
+      // 4. Transition to Tactical Preview
+      setLoadingStep(null);
       setGameState(prev => ({
-        ...prev,
-        messages: prev.messages.map(m => 
-            m.id === msgId ? { 
-                ...m, 
-                content: cleanText, 
-                isTyping: false,
-                stabilitySnapshot: introStability 
-            } : m
-        )
+          ...prev,
+          status: GameStatus.TACTICAL_PREVIEW,
+          scpData,
+          role: finalRole,
+          stability: 100,
+          turnCount: 0,
+          inventory: [],
+          legacy: legacyData
       }));
-
-      // Generate intro image if prompt exists
-      if (visualPrompt && settings.enableSceneImages) {
-          generateImage(visualPrompt, "16:9").then(introImageUrl => {
-               if (introImageUrl) {
-                    setGameState(prev => ({
-                        ...prev,
-                        messages: prev.messages.map(m => 
-                            m.id === msgId ? { ...m, imageUrl: introImageUrl } : m
-                        )
-                    }));
-               }
-          });
-      }
 
     } catch (e) {
       console.error(e);
@@ -392,12 +300,20 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
                     {t('start.btn_start')}
                 </button>
 
-                <button 
-                    onClick={() => setSaveLoadModalOpen(true)}
-                    className="w-full py-3 bg-scp-gray/20 hover:bg-scp-gray/40 text-gray-300 hover:text-white font-mono text-lg border border-scp-gray hover:border-gray-400 transition-all shrink-0 tracking-widest uppercase backdrop-blur-sm"
-                >
-                    {t('save_load.load')}
-                </button>
+                <div className="flex gap-2 shrink-0">
+                    <button 
+                        onClick={() => setGameState(prev => ({ ...prev, status: GameStatus.MAP_EDITOR }))}
+                        className="flex-1 py-3 bg-scp-gray/20 hover:bg-scp-gray/40 text-gray-300 hover:text-white font-mono text-sm md:text-base border border-scp-gray hover:border-gray-400 transition-all tracking-widest uppercase backdrop-blur-sm"
+                    >
+                        {t('editor.title')}
+                    </button>
+                    <button 
+                        onClick={() => setSaveLoadModalOpen(true)}
+                        className="flex-1 py-3 bg-scp-gray/20 hover:bg-scp-gray/40 text-gray-300 hover:text-white font-mono text-sm md:text-base border border-scp-gray hover:border-gray-400 transition-all tracking-widest uppercase backdrop-blur-sm"
+                    >
+                        {t('save_load.load')}
+                    </button>
+                </div>
             </div>
         )}
 

@@ -6,6 +6,10 @@ import GameScreen from './components/GameScreen';
 import { LanguageProvider, useTranslation } from './utils/i18n';
 import { playBgm, stopBgm } from './services/bgmService';
 
+import MapEditor from './components/editor/MapEditor';
+import TacticalPreview from './components/TacticalPreview';
+import FeedbackOverlay from './components/game/FeedbackOverlay';
+
 const LanguageToggle = () => {
     const { language, setLanguage, t } = useTranslation();
     
@@ -44,6 +48,7 @@ const AppContent: React.FC = () => {
   return (
     <div className="relative w-screen h-screen flex flex-col items-center justify-center overflow-hidden bg-[#0a0a0a] text-scp-text">
       <LanguageToggle />
+      <FeedbackOverlay gameState={gameState} />
       
       {/* Dynamic Background Layer - z-0 */}
       <div className="absolute inset-0 z-0">
@@ -77,9 +82,16 @@ const AppContent: React.FC = () => {
 
       {/* Main Content Container - z-10 */}
       <div className="relative z-10 w-full flex justify-center items-center p-2 sm:p-4 h-full">
-        {gameState.status === GameStatus.IDLE ? (
+        {gameState.status === GameStatus.IDLE && (
           <StartScreen setGameState={setGameState} legacyData={gameState.legacy} />
-        ) : (
+        )}
+        {gameState.status === GameStatus.TACTICAL_PREVIEW && (
+          <TacticalPreview gameState={gameState} setGameState={setGameState} />
+        )}
+        {gameState.status === GameStatus.MAP_EDITOR && (
+          <MapEditor gameState={gameState} setGameState={setGameState} />
+        )}
+        {(gameState.status === GameStatus.PLAYING || gameState.status === GameStatus.GAME_OVER) && (
           <GameScreen gameState={gameState} setGameState={setGameState} />
         )}
       </div>

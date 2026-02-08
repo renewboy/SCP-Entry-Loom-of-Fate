@@ -14,7 +14,6 @@ import InputArea from './game/InputArea';
 import EndingOverlay from './game/EndingOverlay';
 import TutorialOverlay from './game/TutorialOverlay';
 import MapPanel from './game/MapPanel';
-import FeedbackOverlay from './game/FeedbackOverlay'; // New Overlay
 import { loadSetting, saveSetting, loadGlobalSettings } from '../services/indexedDBService';
 
 interface GameScreenProps {
@@ -467,6 +466,21 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   };
 
   const handleAbort = () => {
+    // Check if we are in a Test Run
+    if (gameState.scpData?.designation === 'TEST-RUN') {
+        setGameState(prev => ({
+            ...prev,
+            status: GameStatus.MAP_EDITOR,
+            scpData: null,
+            role: '',
+            messages: [],
+            stability: 100,
+            turnCount: 0
+        }));
+        setShowAbortModal(false);
+        return;
+    }
+
     // Clear memory cache when resetting the game
     clearMemoryCache();
     
@@ -605,9 +619,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
       .hover\\:border-scp-term\\/60:hover { border-color: var(--theme-accent-underline) !important; }
       .text-shadow-green { text-shadow: 0 0 8px var(--theme-accent-glow) !important; }
     `}</style>
-    {/* Feedback Overlay for SFX and Visual Cues */}
-    <FeedbackOverlay gameState={gameState} />
-
     {/* Main Container */}
     <div 
         className={`relative z-10 w-full max-w-4xl h-[85vh] md:h-[90vh] flex flex-col bg-black/15 scp-ui shadow-2xl overflow-hidden crt transition-all duration-1000`}
@@ -626,7 +637,13 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         setIsReportOpen={setIsReportOpen}
         onSave={handleOpenSaveModal}
         onLoad={() => { setSaveLoadMode('load'); setSaveLoadModalOpen(true); }}
-        onTerminate={() => setShowAbortModal(true)}
+        onTerminate={() => {
+            if (gameState.scpData?.designation === 'TEST-RUN') {
+                 handleAbort();
+            } else {
+                 setShowAbortModal(true);
+            }
+        }}
         isCritical={false} // Logic moved to StabilityMonitor inside Header
         isMemoryEchoActive={isMemoryEchoActive}
       />

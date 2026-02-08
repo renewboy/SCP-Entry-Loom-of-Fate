@@ -63,7 +63,7 @@ export const getAnalyzeSCPPrompt = (input: string, language: Language, role: str
 User Input: ${input}
 Player Role: ${role}
 Game Difficulty: ${difficulty}
-Preferred Human Language: ${langInstruction}
+Preferred Human Language for text: ${langInstruction}
 
 Goal:
 1) Determine the referenced SCP designation (e.g., "SCP-173"). If input is a URL, extract the designation from it.
@@ -167,7 +167,10 @@ ${legacyEnd}
     const legacySearchInstruction = legacyData ? '(不要搜索遗产相关数据，只搜索本次SCP的资料)' : '';
     const mapInjection = mapBlueprint ? `
 [地图蓝图]
-${JSON.stringify(mapBlueprint)}
+${JSON.stringify({
+    ...mapBlueprint,
+    nodes: mapBlueprint.nodes.map(({ layout, ...rest }) => rest)
+})}
 [地图蓝图结束]
 指令：起始遭遇必须发生在startNodeId对应地点；从地图中提取节点位置、信息、任务、NPC等信息，移动仅允许在edges定义的邻接节点之间发生。
 ` : '';

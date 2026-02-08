@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, MapPin, Unlock } from 'lucide-react';
-import { GameState } from '../../types';
+import { GameState, GameStatus } from '../../types';
 import { playSfx } from '../../services/sfxService';
 import { useTranslation } from '../../utils/i18n';
 
@@ -10,10 +10,11 @@ interface FeedbackOverlayProps {
 
 interface Notification {
   id: string;
-  type: 'UNLOCK' | 'OBJECTIVE' | 'LOCATION';
+  type: 'UNLOCK' | 'OBJECTIVE' | 'LOCATION' | 'SYSTEM';
   message: string;
   subMessage?: string;
   timestamp: number;
+  durationMs: number;
 }
 
 const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
@@ -24,14 +25,13 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
   const [scanLocationName, setScanLocationName] = useState('');
 
   // Helper to add notification
-  const addNotification = (type: Notification['type'], message: string, subMessage?: string) => {
+  const addNotification = (type: Notification['type'], message: string, subMessage?: string, durationMs: number = 4000) => {
     const id = Date.now().toString() + Math.random().toString();
-    setNotifications(prev => [...prev, { id, type, message, subMessage, timestamp: Date.now() }]);
+    setNotifications(prev => [...prev, { id, type, message, subMessage, timestamp: Date.now(), durationMs }]);
     
-    // Auto remove after 4 seconds
     setTimeout(() => {
       setNotifications(prev => prev.filter(n => n.id !== id));
-    }, 4000);
+    }, durationMs);
   };
 
   useEffect(() => {
@@ -42,6 +42,10 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
 
     const prev = prevGameStateRef.current;
     const curr = gameState;
+
+    if (prev.status === GameStatus.MAP_EDITOR && (curr.status === GameStatus.TACTICAL_PREVIEW || curr.status === GameStatus.IDLE)) {
+      addNotification('SYSTEM', t('editor.auto_saved'), undefined, 2000);
+    }
 
     // 1. Check Location Change
     if (curr.map?.currentNodeId && prev.map?.currentNodeId !== curr.map.currentNodeId) {
@@ -135,6 +139,7 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
               ${notif.type === 'UNLOCK' ? 'border-l-emerald-500 text-emerald-400' : ''}
               ${notif.type === 'OBJECTIVE' ? 'border-l-amber-500 text-amber-400' : ''}
               ${notif.type === 'LOCATION' ? 'border-l-sky-500 text-sky-400' : ''}
+              ${notif.type === 'SYSTEM' ? 'border-l-emerald-500 text-emerald-400' : ''}
             `}
           >
              <div className="flex justify-between items-start">
@@ -156,11 +161,15 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
                     {notif.type === 'UNLOCK' && <Unlock className="w-5 h-5" />}
                     {notif.type === 'OBJECTIVE' && <CheckCircle2 className="w-5 h-5" />}
                     {notif.type === 'LOCATION' && <MapPin className="w-5 h-5" />}
+                    {notif.type === 'SYSTEM' && <CheckCircle2 className="w-5 h-5" />}
                 </div>
              </div>
              
              {/* Progress bar timer */}
-             <div className="absolute bottom-0 left-0 h-[2px] bg-current opacity-30 w-full animate-[shrink-width_4s_linear_forwards]"></div>
+             <div 
+                className="absolute bottom-0 left-0 h-[2px] bg-current opacity-30 w-full"
+                style={{ animation: `shrink-width ${notif.durationMs}ms linear forwards` }}
+             ></div>
           </div>
         ))}
       </div>
