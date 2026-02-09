@@ -43,8 +43,8 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
     const prev = prevGameStateRef.current;
     const curr = gameState;
 
-    if (prev.status === GameStatus.MAP_EDITOR && (curr.status === GameStatus.TACTICAL_PREVIEW || curr.status === GameStatus.IDLE)) {
-      addNotification('SYSTEM', t('editor.auto_saved'), undefined, 2000);
+    if (prev.status === GameStatus.STORY_EDITOR && (curr.status === GameStatus.TACTICAL_PREVIEW || curr.status === GameStatus.IDLE)) {
+      addNotification('SYSTEM', t('map_editor.auto_saved'), undefined, 2000);
     }
 
     // 1. Check Location Change
@@ -135,11 +135,11 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
           <div 
             key={notif.id}
             className={`
-              relative overflow-hidden w-full bg-black/80 border-l-4 p-4 shadow-lg backdrop-blur-md transition-all duration-500 animate-in slide-in-from-top-4 fade-in scp-alert
-              ${notif.type === 'UNLOCK' ? 'border-l-emerald-500 text-emerald-400' : ''}
+              relative overflow-hidden w-full bg-black/80 border-l-4 p-4 shadow-lg backdrop-blur-md transition-all duration-500 animate-in slide-in-from-top-4 fade-in scp-term_fix
+              ${notif.type === 'UNLOCK' ? 'border-l-scp-term_fix text-scp-term_fix' : ''}
               ${notif.type === 'OBJECTIVE' ? 'border-l-amber-500 text-amber-400' : ''}
               ${notif.type === 'LOCATION' ? 'border-l-sky-500 text-sky-400' : ''}
-              ${notif.type === 'SYSTEM' ? 'border-l-emerald-500 text-emerald-400' : ''}
+              ${notif.type === 'SYSTEM' ? 'border-l-scp-alert text-scp-alert/80' : ''}
             `}
           >
              <div className="flex justify-between items-start">

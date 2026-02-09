@@ -3,7 +3,7 @@ export enum GameStatus {
   IDLE = 'IDLE',
   ANALYZING = 'ANALYZING', // Analyzing the SCP URL
   TACTICAL_PREVIEW = 'TACTICAL_PREVIEW', // Pre-game preview and edit
-  MAP_EDITOR = 'MAP_EDITOR', // Creating/Editing Map Blueprint
+  STORY_EDITOR = 'STORY_EDITOR', // Creating/Editing Map Blueprint
   PLAYING = 'PLAYING',
   GAME_OVER = 'GAME_OVER'
 }
@@ -86,9 +86,8 @@ export interface StoryDraft {
 export interface SCPData {
   designation: string; // e.g. SCP-173
   name: string; // e.g. The Sculpture
-  description: string | null;
   containmentClass: string;
-  role?: string; // Player role name/title
+  role: string; // Player role name/title
   visualDescription?: string; // Description for background image generation
   entityDescription?: string; // Description for main entity image generation
   mapBlueprint?: MapBlueprint;
@@ -320,6 +319,7 @@ export interface GameState {
   qaHistory?: QAPair[]; // Persisted Q&A history
   legacy?: LegacyData; // New Game+ Legacy Data
   saveId?: string; // The UUID of the save slot this game belongs to (for RAG context)
+  returnFromEditor?: boolean; // Transient flag to indicate return from Story Editor
 }
 
 export interface SaveGameMetadata {
@@ -371,6 +371,7 @@ export interface GlobalSettings {
   enableBackgroundImages: boolean; // Initial SCP analysis background
   enableEntityImages: boolean; // Initial entity portrait
   difficulty: GameDifficulty;
+  skipTacticalPrep?: boolean;
 }
 
 export interface Memory {

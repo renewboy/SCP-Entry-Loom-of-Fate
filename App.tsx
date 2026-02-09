@@ -82,13 +82,13 @@ const AppContent: React.FC = () => {
 
       {/* Main Content Container - z-10 */}
       <div className="relative z-10 w-full flex justify-center items-center p-2 sm:p-4 h-full">
-        {gameState.status === GameStatus.IDLE && (
-          <StartScreen setGameState={setGameState} legacyData={gameState.legacy} />
+        {(gameState.status === GameStatus.IDLE || gameState.status === GameStatus.ANALYZING) && (
+          <StartScreen gameState={gameState} setGameState={setGameState} legacyData={gameState.legacy} />
         )}
         {gameState.status === GameStatus.TACTICAL_PREVIEW && (
           <TacticalPreview gameState={gameState} setGameState={setGameState} />
         )}
-        {gameState.status === GameStatus.MAP_EDITOR && (
+        {gameState.status === GameStatus.STORY_EDITOR && (
           <StoryEditor gameState={gameState} setGameState={setGameState} />
         )}
         {(gameState.status === GameStatus.PLAYING || gameState.status === GameStatus.GAME_OVER) && (

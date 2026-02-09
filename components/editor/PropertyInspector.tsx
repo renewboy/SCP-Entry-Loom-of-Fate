@@ -43,22 +43,22 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
             <div className="p-4 font-mono">
                 <div className="space-y-4">
                     <div className={inputGroup}>
-                        <label className={labelBase}>{t('editor.map_id')}</label>
+                        <label className={labelBase}>{t('map_editor.map_id')}</label>
                         <input type="text" value={blueprint.id} onChange={e => setBlueprint(prev => ({...prev, id: e.target.value}))} className={inputBase} />
                     </div>
                     <div className={inputGroup}>
-                        <label className={labelBase}>{t('editor.map_title')}</label>
+                        <label className={labelBase}>{t('map_editor.map_title')}</label>
                         <input type="text" value={blueprint.title} onChange={e => setBlueprint(prev => ({...prev, title: e.target.value}))} className={inputBase} />
                     </div>
                      <CustomSelect 
-                        label={t('editor.start_node_id')}
+                        label={t('map_editor.start_node_id')}
                         value={blueprint.startNodeId}
                         onChange={(val) => setBlueprint(prev => ({...prev, startNodeId: val}))}
                         options={blueprint.nodes.map(n => ({ value: n.id, label: `${n.name} (${n.id})` }))}
                     />
                 </div>
                  <div className={emptyStateBox}>
-                    {t('editor.no_selection')}
+                    {t('map_editor.no_selection')}
                 </div>
             </div>
         );
@@ -71,7 +71,7 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
         return (
             <div className="space-y-4 p-4">
                 <div className={inputGroup}>
-                    <label className={labelBase}>{t('editor.node_id')}</label>
+                    <label className={labelBase}>{t('map_editor.node_id')}</label>
                     <input 
                         type="text" 
                         value={node.id} 
@@ -80,7 +80,7 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                     />
                 </div>
                 <div className={inputGroup}>
-                    <label className={labelBase}>{t('editor.node_name')}</label>
+                    <label className={labelBase}>{t('map_editor.node_name')}</label>
                     <input 
                         type="text" 
                         value={node.name} 
@@ -102,14 +102,14 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                     </div>
                 </div>
                 
-                <TagInput label={t('editor.requires')} tags={node.requires} onChange={(newTags) => updateNode(node.id, { requires: newTags })} />
+                <TagInput label={t('map_editor.requires')} tags={node.requires} onChange={(newTags) => updateNode(node.id, { requires: newTags })} />
                 
-                <TagInput label={t('editor.discoverables')} tags={node.discoverables} onChange={(newTags) => updateNode(node.id, { discoverables: newTags })} />
+                <TagInput label={t('map_editor.discoverables')} tags={node.discoverables} onChange={(newTags) => updateNode(node.id, { discoverables: newTags })} />
                 
-                <TagInput label={t('editor.interactables')} tags={node.interactables} onChange={(newTags) => updateNode(node.id, { interactables: newTags })} />
+                <TagInput label={t('map_editor.interactables')} tags={node.interactables} onChange={(newTags) => updateNode(node.id, { interactables: newTags })} />
 
                 <div className={inputGroup}>
-                    <label className={labelBase}>{t('editor.visual_hint')}</label>
+                    <label className={labelBase}>{t('map_editor.visual_hint')}</label>
                     <input 
                         type="text" 
                         value={node.visualHint || ''} 
@@ -119,7 +119,7 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                 </div>
 
                  <div className={inputGroup}>
-                    <label className={labelBase}>{t('editor.blocked_text')}</label>
+                    <label className={labelBase}>{t('map_editor.blocked_text')}</label>
                     <textarea 
                         value={node.blockedText || ''} 
                         onChange={(e) => updateNode(node.id, { blockedText: e.target.value })}
@@ -213,17 +213,17 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
         return (
             <div className="space-y-4 p-4">
                 <div className="space-y-2">
-                    <label className={labelBase}>{t('editor.direction')}</label>
+                    <label className={labelBase}>{t('map_editor.direction')}</label>
                     <button
                         onClick={handleDirectionCycle}
                         className="w-full py-2 text-xs font-mono border bg-scp-amber/5 border-scp-amber/30 text-scp-amber hover:bg-scp-amber/10 flex items-center justify-center gap-2 transition-colors"
-                        title={t('editor.click_to_cycle')}
+                        title={t('map_editor.click_to_cycle')}
                     >
                         {label}
                       
                     </button>
                     <div className="text-[12px] text-gray-500 italic text-center">
-                        {t('editor.cycle_hint')}
+                        {t('map_editor.cycle_hint')}
                     </div>
                 </div>
                 
@@ -251,25 +251,25 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
         return (
             <div className="space-y-4 p-4">
                 <div className={inputGroup}>
-                    <label className={labelBase}>{t('editor.npc_id')}</label>
+                    <label className={labelBase}>{t('map_editor.npc_id')}</label>
                     <input type="text" value={npc.id} onChange={e => updateNPC(npc.id, { id: e.target.value })} className={inputBase} />
                 </div>
                 <div className={inputGroup}>
-                    <label className={labelBase}>{t('editor.npc_name')}</label>
+                    <label className={labelBase}>{t('map_editor.npc_name')}</label>
                     <input type="text" value={npc.name} onChange={e => updateNPC(npc.id, { name: e.target.value })} className={inputBase} />
                 </div>
                 <div className={inputGroup}>
-                    <label className={labelBase}>{t('editor.npc_archetype')}</label>
+                    <label className={labelBase}>{t('map_editor.npc_archetype')}</label>
                     <input type="text" value={npc.archetype} onChange={e => updateNPC(npc.id, { archetype: e.target.value })} className={inputBase} />
                 </div>
                  <CustomSelect 
-                    label={t('editor.initial_node_id')}
+                    label={t('map_editor.initial_node_id')}
                     value={npc.initialNodeId}
                     onChange={(val) => updateNPC(npc.id, { initialNodeId: val })}
                     options={blueprint.nodes.map(n => ({ value: n.id, label: `${n.name} (${n.id})` }))}
                 />
-                <TagInput label={t('editor.secret_tags')} tags={npc.secretTags} onChange={(newTags) => updateNPC(npc.id, { secretTags: newTags })} />
-                <TagInput label={t('editor.dialogue_goals')} tags={npc.dialogueGoals} onChange={(newTags) => updateNPC(npc.id, { dialogueGoals: newTags })} />
+                <TagInput label={t('map_editor.secret_tags')} tags={npc.secretTags} onChange={(newTags) => updateNPC(npc.id, { secretTags: newTags })} />
+                <TagInput label={t('map_editor.dialogue_goals')} tags={npc.dialogueGoals} onChange={(newTags) => updateNPC(npc.id, { dialogueGoals: newTags })} />
                 
                 <div className="pt-4 border-t border-[var(--scp-border)]">
                      <button onClick={() => { setBlueprint(prev => ({ ...prev, npcs: prev.npcs.filter(n => n.id !== npc.id) })); }} className={deleteButton}>{t('common.delete')}</button>
@@ -285,35 +285,35 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
         return (
             <div className="space-y-4 p-4">
                 <div className={inputGroup}>
-                    <label className={labelBase}>{t('editor.obj_id')}</label>
+                    <label className={labelBase}>{t('map_editor.obj_id')}</label>
                     <input type="text" value={obj.id} onChange={e => updateObjective(obj.id, { id: e.target.value })} className={inputBase} />
                 </div>
                 <div className={inputGroup}>
-                    <label className={labelBase}>{t('editor.obj_title')}</label>
+                    <label className={labelBase}>{t('map_editor.obj_title')}</label>
                     <input type="text" value={obj.title} onChange={e => updateObjective(obj.id, { title: e.target.value })} className={inputBase} />
                 </div>
                  <CustomSelect 
-                    label={t('editor.obj_type')}
+                    label={t('map_editor.obj_type')}
                     value={obj.type}
                     onChange={(val) => updateObjective(obj.id, { type: val as any })}
-                    options={[{ value: 'MAIN', label: t('editor.obj_main') }, { value: 'SIDE', label: t('editor.obj_side') }]}
+                    options={[{ value: 'MAIN', label: t('map_editor.obj_main') }, { value: 'SIDE', label: t('map_editor.obj_side') }]}
                 />
                  <CustomSelect 
-                    label={t('editor.target_node_id')}
+                    label={t('map_editor.target_node_id')}
                     value={obj.nodeId}
                     onChange={(val) => updateObjective(obj.id, { nodeId: val })}
                     options={blueprint.nodes.map(n => ({ value: n.id, label: `${n.name} (${n.id})` }))}
                 />
                  <div className={inputGroup}>
-                    <label className={labelBase}>{t('editor.obj_detail')}</label>
+                    <label className={labelBase}>{t('map_editor.obj_detail')}</label>
                     <textarea value={obj.detail || ''} onChange={e => updateObjective(obj.id, { detail: e.target.value })} className={`${textareaBase} h-20`} />
                 </div>
                 
                 <div className="space-y-2 border-t border-[var(--scp-border)] pt-2 mt-2">
-                    <label className="text-xs text-scp-text-dim uppercase font-bold font-mono block">{t('editor.rewards')}</label>
+                    <label className="text-xs text-scp-text-dim uppercase font-bold font-mono block">{t('map_editor.rewards')}</label>
                     
                     <CustomSelect 
-                        label={t('editor.add_access_token')}
+                        label={t('map_editor.add_access_token')}
                         value=""
                         onChange={(val) => {
                              const current = obj.reward?.accessTokens || [];
@@ -321,7 +321,7 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                                  updateObjective(obj.id, { reward: { ...obj.reward, accessTokens: [...current, val] } });
                              }
                         }}
-                        options={[{ value: '', label: t('editor.select_token') }, ...getAllRequiredTokens()]}
+                        options={[{ value: '', label: t('map_editor.select_token') }, ...getAllRequiredTokens()]}
                     />
                     
                     <div className="flex flex-wrap gap-1 mb-1">
@@ -336,7 +336,7 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                     </div>
 
                     <div className={inputGroup}>
-                        <label className={labelBase}>{t('editor.stability_delta')}</label>
+                        <label className={labelBase}>{t('map_editor.stability_delta')}</label>
                         <input 
                             type="number" 
                             value={obj.reward?.stabilityDelta || 0} 

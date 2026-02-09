@@ -18,7 +18,8 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     enableSceneImages: true,
     enableBackgroundImages: true,
     enableEntityImages: true,
-    difficulty: 'normal'
+    difficulty: 'normal',
+    skipTacticalPrep: false
 };
 
 interface IDBSaveGame extends SaveGameMetadata {

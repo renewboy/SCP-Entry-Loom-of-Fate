@@ -1,7 +1,7 @@
 
 
-import React, { useState, useEffect } from 'react';
-import { analyzeSCPUrl, initializeGameChatStream, generateImage, extractVisualPrompt, extractStability, restoreChatSession } from '../services/aiService';
+import React, { useState, useEffect, useRef } from 'react';
+import { analyzeSCPUrl, restoreChatSession } from '../services/aiService';
 import { loadGlobalSettings } from '../services/indexedDBService';
 import { GameState, GameStatus, Role, LegacyData } from '../types';
 import ParticleText from './ParticleText';
@@ -11,6 +11,7 @@ import { useTranslation, ROLE_TRANSLATIONS } from '../utils/i18n';
 import GameLogo from './GameLogo';
 import LegacySidebar from './LegacySidebar';
 import GlobalSettingsModal from './GlobalSettingsModal';
+import { startGameProcess } from '../utils/gameStart';
 
 declare global {
     interface Window {
@@ -19,15 +20,17 @@ declare global {
 }
 
 interface StartScreenProps {
+  gameState: GameState;
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
   legacyData?: LegacyData;
 }
 
 let bootShownInSession = false;
 
-const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) => {
+const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, legacyData }) => {
   const { t, language } = useTranslation();
-  const LOADING_MESSAGES = t('start.loading_msgs') as string[];
+  const LOADING_MESSAGES = React.useMemo(() => t('start.loading_msgs') as string[], [t]);
+  const autoStartRef = useRef(false);
 
   const [urlInput, setUrlInput] = useState('');
   const [selectedRole, setSelectedRole] = useState<Role>(Role.RESEARCHER);
@@ -56,6 +59,26 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
     };
     checkKey();
   }, []);
+
+  useEffect(() => {
+    if (gameState.status !== GameStatus.ANALYZING) {
+      autoStartRef.current = false;
+      return;
+    }
+    if (!gameState.scpData || autoStartRef.current) return;
+
+    autoStartRef.current = true;
+    setError(null);
+    
+    setLoadingStep(t('start.loading_retrieved', { designation: gameState.scpData.designation }));
+
+    startGameProcess({ gameState, setGameState, language, t }).catch((e) => {
+      console.error(e);
+      setError(t('start.error_conn'));
+      setLoadingStep(null);
+      setGameState(prev => ({ ...prev, status: GameStatus.IDLE }));
+    });
+  }, [gameState.status, gameState.scpData, language, t, setGameState]);
 
   // Effect to cycle through loading messages if the current one is in the list
   useEffect(() => {
@@ -104,30 +127,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
 
       // 1. Analyze SCP
       const scpData = await analyzeSCPUrl(urlInput, language, finalRole, difficulty);
-      console.log("[StartScreen] SCP Analysis Result:", scpData);
       setLoadingStep(t('start.loading_retrieved', { designation: scpData.designation }));
-
-      // 2. Start Background Image Gen (Async)
-      if (settings.enableBackgroundImages) {
-          console.log("[StartScreen] Initiating background image generation...");
-          
-          const bgDescription = scpData.visualDescription || `texture and atmosphere of ${scpData.name}`;
-          const bgPrompt = `Atmospheric, cinematic lighting, abstract horror background representing ${bgDescription}, subtle, texture, scp foundation style, dark moody`;
-          
-          generateImage(bgPrompt, "16:9").then(bgUrl => {
-             if(bgUrl) setGameState(prev => ({...prev, backgroundImage: bgUrl}));
-          });
-      }
-
-      // 3. Generate Main SCP Image (Async)
-      if (settings.enableEntityImages) {
-          const entityDescription = scpData.entityDescription;
-          const mainPrompt = `Close up full body shot of ${scpData.name}: ${entityDescription}. detailed, photorealistic, containment cell, scp foundation record photo`;
-          
-          generateImage(mainPrompt, "1:1").then(mainUrl => {
-             if(mainUrl) setGameState(prev => ({...prev, mainImage: mainUrl}));
-          });
-      }
 
       // 4. Transition to Tactical Preview
       setLoadingStep(null);
@@ -139,7 +139,8 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
           stability: 100,
           turnCount: 0,
           inventory: [],
-          legacy: legacyData
+          legacy: legacyData,
+          returnFromEditor: false
       }));
 
     } catch (e) {
@@ -302,7 +303,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState, legacyData }) =
 
                 <div className="flex gap-2 shrink-0">
                     <button 
-                        onClick={() => setGameState(prev => ({ ...prev, status: GameStatus.MAP_EDITOR, scpData: null }))}
+                        onClick={() => setGameState(prev => ({ ...prev, status: GameStatus.STORY_EDITOR, scpData: null }))}
                         className="flex-1 py-3 bg-scp-gray/20 hover:bg-scp-gray/40 text-gray-300 hover:text-white font-mono text-sm md:text-base border border-scp-gray hover:border-gray-400 transition-all tracking-widest uppercase backdrop-blur-sm"
                     >
                         {t('story_editor.title')}

@@ -256,8 +256,7 @@ export const zh = {
     undo: "撤销",
     redo: "重做",
   },
-  editor: {
-    title: "地图编辑器",
+  map_editor: {
     new_map: "新建地图",
     import: "导入 JSON",
     export: "导出 JSON",
@@ -326,11 +325,16 @@ export const zh = {
     intel_summary: "情报摘要",
     continue_game: "继续游戏",
     awaiting_command: "等待指令",
+    enter_prep_checkbox: "进入战术准备 (取消则自动开始)",
+    auto_deploy_msg: "即将自动部署...",
     secure_terminal: "安全终端 // 8829-AZ",
     top_secret: "绝密档案",
     eyes_only: "仅限查阅",
-    entity_list: "实体列表",
+    entity_list: "NPC和任务",
     properties: "属性",
+    reset_title: "重置故事模板",
+    reset_confirm_msg: "确定要重置为默认模板吗？当前的所有修改都将丢失。",
+    btn_reset_confirm: "确认重置",
   },
   settings: {
     title: "系统设置",

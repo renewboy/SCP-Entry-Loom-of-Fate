@@ -79,15 +79,16 @@ export class GeminiProvider implements AIService {
 
             const parsed = safeParseJson(text);
             if (!parsed) throw new Error("Failed to parse analysis JSON");
+            parsed.role = role;
             return parsed as SCPData;
 
         } catch (e) {
             console.error("Failed to analyze SCP:", e);
             return {
+                role: role,
                 designation: "???",
                 name: "异常实体",
                 containmentClass: "未知",
-                description: "数据删除。请求的文件已损坏或不存在。",
                 visualDescription: "dark abstract glitch horror texture, scp foundation aesthetic",
                 entityDescription: "unknown anomaly, redacted silhouette, scp foundation record"
             };

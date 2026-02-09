@@ -470,7 +470,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
     if (gameState.scpData?.designation === 'TEST-RUN') {
         setGameState(prev => ({
             ...prev,
-            status: GameStatus.MAP_EDITOR,
+            status: GameStatus.STORY_EDITOR,
             scpData: null,
             role: '',
             messages: [],
@@ -492,7 +492,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         backgroundImage: null,
         mainImage: null,
         stability: 100,
-        turnCount: 1,
+        turnCount: 0,
         endingType: null,
         gameReview: null,
         qaHistory: []

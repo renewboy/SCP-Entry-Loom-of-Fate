@@ -40,6 +40,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(({ blueprint
     const [panStart, setPanStart] = useState<{ x: number, y: number } | null>(null);
     const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
     const [dragPosition, setDragPosition] = useState<{ x: number, y: number } | null>(null);
+    const viewTransformRef = useRef(viewTransform);
 
     // Expose zoom methods via ref
     useImperativeHandle(ref, () => ({
@@ -57,23 +58,30 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(({ blueprint
     const [connectionEndPos, setConnectionEndPos] = useState<{ x: number, y: number } | null>(null);
     const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
-    // Zoom handlers
-    const handleWheel = (e: React.WheelEvent) => {
-        e.preventDefault();
-        
-        // Check for pinch-zoom (ctrlKey) or standard wheel zoom (often ctrl+wheel)
-        // Mac trackpad pinch usually triggers wheel with ctrlKey
-        if (e.ctrlKey || e.metaKey) {
-            const scaleChange = e.deltaY * -0.001;
-            const newScale = Math.min(Math.max(0.1, viewTransform.scale + scaleChange), 5);
-            setViewTransform(prev => ({ ...prev, scale: newScale }));
-        } else {
-            // Pan
-            const dx = -e.deltaX;
-            const dy = -e.deltaY;
-            setViewTransform(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
-        }
-    };
+    useEffect(() => {
+        viewTransformRef.current = viewTransform;
+    }, [viewTransform]);
+
+    useEffect(() => {
+        const node = svgRef.current;
+        if (!node) return;
+        const handleWheel = (e: WheelEvent) => {
+            e.preventDefault();
+            if (e.ctrlKey || e.metaKey) {
+                const scaleChange = e.deltaY * -0.001;
+                const nextScale = Math.min(Math.max(0.1, viewTransformRef.current.scale + scaleChange), 5);
+                setViewTransform(prev => ({ ...prev, scale: nextScale }));
+            } else {
+                const dx = -e.deltaX;
+                const dy = -e.deltaY;
+                setViewTransform(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
+            }
+        };
+        node.addEventListener('wheel', handleWheel, { passive: false });
+        return () => {
+            node.removeEventListener('wheel', handleWheel);
+        };
+    }, []);
 
     // Coordinate conversion
     const getSVGPoint = (clientX: number, clientY: number) => {
@@ -238,7 +246,6 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(({ blueprint
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
-                onWheel={handleWheel}
             >
                 <defs>
                     <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -428,27 +435,27 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(({ blueprint
                         onClick={addNode}
                         className={canvasAddButton}
                     >
-                        + {t('editor.add_node')}
+                        + {t('map_editor.add_node')}
                     </button>
                 </div>
             )}
             
             <div className={canvasOverlay}>
                 <div className={canvasOverlayHeader}>
-                    <span className={canvasOverlayDot}>●</span> {t('editor.controls')}
+                    <span className={canvasOverlayDot}>●</span> {t('map_editor.controls')}
                 </div>
                 <ul className={canvasOverlayList}>
-                    <li><span className={canvasOverlayAccent}>Left Click + Drag</span>: {t('editor.pan')}</li>
-                    <li><span className={canvasOverlayAccent}>Node Drag</span>: {t('editor.select_drag')}</li>
-                    <li><span className={canvasOverlayAccent}>Drag Handle</span>: {t('editor.connect_nodes')}</li>
-                    <li><span className={canvasOverlayAccent}>Shift + Click</span>: {t('editor.connect_nodes')}</li>
-                    <li><span className={canvasOverlayAccent}>Scroll</span>: {t('editor.zoom')}</li>
+                    <li><span className={canvasOverlayAccent}>Left Click + Drag</span>: {t('map_editor.pan')}</li>
+                    <li><span className={canvasOverlayAccent}>Node Drag</span>: {t('map_editor.select_drag')}</li>
+                    <li><span className={canvasOverlayAccent}>Drag Handle</span>: {t('map_editor.connect_nodes')}</li>
+                    <li><span className={canvasOverlayAccent}>Shift + Click</span>: {t('map_editor.connect_nodes')}</li>
+                    <li><span className={canvasOverlayAccent}>Scroll</span>: {t('map_editor.zoom')}</li>
                 </ul>
                 <div className={canvasOverlayStat}>
-                    <span>{t('editor.nodes')}: {blueprint.nodes.length}</span>
-                    <span>{t('editor.edges')}: {blueprint.edges.length}</span>
+                    <span>{t('map_editor.nodes')}: {blueprint.nodes.length}</span>
+                    <span>{t('map_editor.edges')}: {blueprint.edges.length}</span>
                 </div>
-                {isConnecting && <div className={canvasOverlayConnecting}>[{t('editor.connecting')}...]</div>}
+                {isConnecting && <div className={canvasOverlayConnecting}>[{t('map_editor.connecting')}...]</div>}
             </div>
             <div className={canvasWatermark}>
                 <GameLogo className={canvasWatermarkLogo} color="#ef4444" />

@@ -52,7 +52,7 @@ const TagInput: React.FC<TagInputProps> = ({ label, tags = [], onChange, placeho
                     value={inputValue}
                     onChange={e => setInputValue(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={placeholder || t('editor.tags_placeholder')}
+                    placeholder={placeholder || t('map_editor.tags_placeholder')}
                     className={`${inputBase} flex-1`}
                 />
                 <button 

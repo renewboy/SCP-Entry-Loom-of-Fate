@@ -24,14 +24,12 @@ import {
     toolbarButtonBase,
     toolbarButtonGhost,
     toolbarGroupDivider,
-    toolbarIconButton
 } from './editorStyles';
-import { loadEditingSCPData, saveEditingSCPData, loadGlobalSettings } from '../../services/indexedDBService';
+import { loadEditingSCPData, saveEditingSCPData } from '../../services/indexedDBService';
 import { getEditingStoryCache, setEditingStoryCache } from '../../services/storyEditorCache';
 import { applyLayoutToBlueprint } from '../../utils/mapLayout';
 import { useHistory } from '../../hooks/useHistory';
-import { generateImage, initializeGameChatStream, extractStability, extractVisualPrompt } from '../../services/aiService';
-import SaveLoadModal from '../SaveLoadModal';
+import { generateImage } from '../../services/aiService';
 
 interface StoryEditorProps {
     gameState: GameState;
@@ -39,20 +37,42 @@ interface StoryEditorProps {
 }
 
 const DEFAULT_BLUEPRINT: MapBlueprint = {
-    id: 'new_map',
-    title: 'New SCP Facility',
-    startNodeId: 'node_start',
+    id: 'scp_173_map',
+    title: 'SCP-173 Containment Wing',
+    startNodeId: 'node_control',
     nodes: [
-        { id: 'node_start', name: 'Entrance', danger: 0, layout: { x: 100, y: 100 } },
-        { id: 'node_hallway', name: 'Hallway', danger: 20, layout: { x: 180, y: 100 } },
-        { id: 'node_containment', name: 'Containment', danger: 80, requires: ['key_card_3'], layout: { x: 260, y: 100 } }
+        { id: 'node_control', name: 'Control Room', danger: 0, layout: { x: 100, y: 100 } },
+        { id: 'node_airlock', name: 'Airlock', danger: 20, requires: ['access_code'], layout: { x: 220, y: 100 } },
+        { id: 'node_containment', name: 'Containment Chamber', danger: 90, requires: ['key_card_4'], layout: { x: 340, y: 100 } },
+        { id: 'node_hallway_a', name: 'Hallway A', danger: 10, layout: { x: 100, y: 200 } },
+        { id: 'node_storage', name: 'Equipment Storage', danger: 5, layout: { x: 220, y: 200 } }
     ],
     edges: [
-        { from: 'node_start', to: 'node_hallway', bidirectional: true },
-        { from: 'node_hallway', to: 'node_containment', bidirectional: true }
+        { from: 'node_control', to: 'node_airlock', bidirectional: true },
+        { from: 'node_airlock', to: 'node_containment', bidirectional: true },
+        { from: 'node_control', to: 'node_hallway_a', bidirectional: true },
+        { from: 'node_hallway_a', to: 'node_storage', bidirectional: true }
     ],
     npcs: [],
-    objectives: []
+    objectives: [
+        { id: 'obj_clean', title: 'Clean Containment', type: 'MAIN', nodeId: 'node_containment' }
+     ]
+ };
+
+const SCP173_TEMPLATE: SCPData = {
+    designation: 'SCP-173',
+    name: 'The Sculpture',
+    containmentClass: 'Euclid',
+    role: 'Class D Personnel',
+    entityDescription: 'Constructed from concrete and rebar with traces of Krylon brand spray paint. SCP-173 is animate and extremely hostile. The object cannot move while within a direct line of sight.',
+    visualDescription: 'A sterile, dimly lit containment chamber with concrete walls. The floor is covered in a reddish-brown substance. Heavy steel doors seal the entrance.',
+    storyDraft: {
+        roleDetails: 'You are D-9341, a test subject assigned to SCP-173 for routine testing.',
+        storyBackground: 'SCP-173 is a concrete sculpture that moves when not observed. It attacks by snapping the neck at the base of the skull.',
+        narrativeConstraints: 'Maintain direct eye contact at all times. Alert others before blinking.',
+        openingPrompt: 'The containment door slides open with a heavy grind. The air is stale and smells of blood and feces.'
+    },
+    mapBlueprint: DEFAULT_BLUEPRINT
 };
 
 const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) => {
@@ -72,20 +92,31 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
     const [scpData, setScpData] = useState<SCPData>({
         designation: '',
         name: '',
-        containmentClass: 'Unknown',
-        description: null,
+        containmentClass: '',
+        role: '',
         storyDraft: {},
         mapBlueprint: DEFAULT_BLUEPRINT
     });
 
     const [generatingState, setGeneratingState] = useState<{ bg: boolean; entity: boolean }>({ bg: false, entity: false });
     const [isStarting, setIsStarting] = useState(false);
-    const [saveLoadModalOpen, setSaveLoadModalOpen] = useState(false);
-    const [pendingGameState, setPendingGameState] = useState<GameState | null>(null);
+    const [showValidationErrors, setShowValidationErrors] = useState(false);
 
     const [bgImagePrompt, setBgImagePrompt] = useState('');
     const [entityImagePrompt, setEntityImagePrompt] = useState('');
     const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
+    const getBgPrompt = (data: SCPData) => {
+        return data.visualDescription ? 
+            `Atmospheric, cinematic lighting, abstract horror background representing ${data.visualDescription}, subtle, texture, scp foundation style, dark moody` : 
+            `Atmospheric, cinematic lighting, abstract horror background representing SCP Foundation, subtle, texture, scp foundation style, dark moody`;
+    };
+
+    const getEntityPrompt = (data: SCPData) => {
+        return data.entityDescription ? 
+            `Close up full body shot of ${data.name}. ${data.entityDescription}. detailed, photorealistic, containment cell, scp foundation record photo` : 
+            `Close up full body shot of entity. SCP entity, detailed, photorealistic, containment cell, scp foundation record photo`;
+    };
 
     useEffect(() => {
         if (hasLoadedRef.current) return;
@@ -111,7 +142,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                 
                 const initialStoryDraft = gameState.scpData.storyDraft || {
                     roleDetails: gameState.role !== 'CUSTOM' ? gameState.role : '',
-                    storyBackground: gameState.scpData.description || '',
+                    storyBackground: '',
                     backgroundImage: gameState.backgroundImage || undefined,
                     entityImage: gameState.mainImage || undefined
                 };
@@ -119,19 +150,17 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                 setScpData({
                     ...gameState.scpData,
                     storyDraft: initialStoryDraft,
-                    role: gameState.scpData.role || gameState.role || 'CUSTOM'
+                    role: gameState.scpData.role || gameState.role || SCP173_TEMPLATE.role
                 });
+            } else {
+                 // No data, initialize with template
+                 setScpData(SCP173_TEMPLATE);
             }
 
-            const sourceData = loadedData || gameState.scpData;
+            const sourceData = loadedData || gameState.scpData || SCP173_TEMPLATE;
             
-            setBgImagePrompt(sourceData?.visualDescription ? 
-                `Atmospheric, cinematic lighting, abstract horror background representing ${sourceData.visualDescription}, subtle, texture, scp foundation style, dark moody` : 
-                `Atmospheric, cinematic lighting, abstract horror background representing SCP Foundation, subtle, texture, scp foundation style, dark moody`);
-            
-            setEntityImagePrompt(sourceData?.entityDescription ? 
-                `Close up full body shot of ${sourceData.name}. ${sourceData.entityDescription}. detailed, photorealistic, containment cell, scp foundation record photo` : 
-                `Close up full body shot of entity. SCP entity, detailed, photorealistic, containment cell, scp foundation record photo`);
+            setBgImagePrompt(getBgPrompt(sourceData));
+            setEntityImagePrompt(getEntityPrompt(sourceData));
         };
         loadInitial();
     }, [gameState.scpData, setBlueprint, gameState.role, gameState.backgroundImage, gameState.mainImage]);
@@ -169,10 +198,10 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         let importText = '';
         setModal({
             isOpen: true,
-            title: t('editor.import'),
+            title: t('map_editor.import'),
             content: (
                 <div className="space-y-4">
-                    <p className="text-xs text-scp-text/70">{t('editor.msg_import')}</p>
+                    <p className="text-xs text-scp-text/70">{t('map_editor.msg_import')}</p>
                     <textarea 
                         className="w-full h-40 bg-black/50 border border-[var(--scp-border)] text-xs font-mono p-2 text-scp-text focus:outline-none focus:border-scp-alert"
                         onChange={e => importText = e.target.value}
@@ -193,11 +222,30 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                         }));
                         closeModal();
                     } else {
-                        alert(t('editor.validation_error')); 
+                        alert(t('map_editor.validation_error')); 
                     }
                 } catch (e) {
-                    alert(t('editor.json_error'));
+                    alert(t('map_editor.json_error'));
                 }
+            }
+        });
+    };
+
+    const handleReset = () => {
+        setModal({
+            isOpen: true,
+            title: t('map_editor.reset_title'),
+            content: (
+                <div className="space-y-4">
+                    <p className="text-xs text-scp-text/70">{t('map_editor.reset_confirm_msg')}</p>
+                </div>
+            ),
+            onConfirm: () => {
+                setScpData(SCP173_TEMPLATE);
+                setBlueprint(DEFAULT_BLUEPRINT);
+                setBgImagePrompt(getBgPrompt(SCP173_TEMPLATE));
+                setEntityImagePrompt(getEntityPrompt(SCP173_TEMPLATE));
+                closeModal();
             }
         });
     };
@@ -205,17 +253,21 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
     const showExportModal = () => {
         const exportData = {
             ...blueprint,
-            storyDraft: scpData.storyDraft,
+            storyDraft: {
+                ...scpData.storyDraft,
+                backgroundImage: undefined, // Exclude images to reduce size
+                entityImage: undefined
+            },
             designation: scpData.designation,
             name: scpData.name
         };
         const json = JSON.stringify(exportData, null, 2);
         setModal({
             isOpen: true,
-            title: t('editor.export'),
+            title: t('map_editor.export'),
             content: (
                 <div className="space-y-4">
-                    <p className="text-xs text-scp-text/70">{t('editor.msg_export')}</p>
+                    <p className="text-xs text-scp-text/70">{t('map_editor.msg_export')}</p>
                     <textarea 
                         readOnly
                         value={json}
@@ -230,7 +282,30 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         });
     };
 
+    const validateInputs = () => {
+        const isValid = !!(scpData.designation && scpData.name && scpData.role);
+        if (!isValid) {
+            setShowValidationErrors(true);
+            if (activeTab !== 'STORY') {
+                setActiveTab('STORY');
+            }
+        }
+        return isValid;
+    };
+
+    const getInputClass = (value: string | undefined) => {
+        const baseClass = "w-full bg-black/50 border p-1 text-xs text-scp-text focus:outline-none transition-colors";
+        const borderClass = showValidationErrors && !value 
+            ? "border-red-500 focus:border-red-500 placeholder-red-900/50" 
+            : "border-gray-700 focus:border-scp-accent";
+        return `${baseClass} ${borderClass}`;
+    };
+
     const handleBack = async () => {
+        if (!validateInputs()) {
+            return;
+        }
+
         const fullData: SCPData = {
             ...scpData,
             mapBlueprint: blueprint
@@ -239,99 +314,54 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         await saveEditingSCPData(fullData);
         
         // Logic: If we have scpData (Tactical Preview mode), return to Tactical Preview
-        // If we are in "Create New" mode (IDLE -> MAP_EDITOR), return to IDLE
+        // If we are in "Create New" mode (IDLE -> STORY_EDITOR), return to IDLE
         
-        if (gameState.scpData && gameState.status === GameStatus.MAP_EDITOR) {
+        if (gameState.scpData && gameState.status === GameStatus.STORY_EDITOR) {
              setGameState(prev => ({
                 ...prev,
                 status: GameStatus.TACTICAL_PREVIEW,
                 scpData: fullData,
-                role: scpData.role
+                role: scpData.role,
+                returnFromEditor: true
             }));
         } else {
-            setGameState(prev => ({ ...prev, status: GameStatus.IDLE }));
+            setGameState(prev => ({ ...prev, scpData: null, status: GameStatus.IDLE }));
         }
     };
 
     const handleSaveAndPlay = async () => {
+        if (!validateInputs()) {
+            return;
+        }
+
         setIsStarting(true);
         try {
-            const fullData: SCPData = {
-                ...scpData,
-                mapBlueprint: blueprint
-            };
-            setEditingStoryCache(fullData);
-            await saveEditingSCPData(fullData);
-
-            const settings = await loadGlobalSettings();
-            const difficulty = settings.difficulty || 'normal';
-            
             const finalScpData: SCPData = {
                 ...scpData,
                 mapBlueprint: blueprint,
-                designation: scpData.designation || 'CUSTOM-SCENARIO',
-                name: scpData.name || 'Custom Story',
-                description: scpData.description || scpData.storyDraft?.storyBackground || 'Custom Scenario'
+                designation: scpData.designation || SCP173_TEMPLATE.designation,
+                name: scpData.name || SCP173_TEMPLATE.name
             };
 
-            const stream = initializeGameChatStream(finalScpData, scpData.role || gameState.role || 'CUSTOM', language, gameState.legacy, difficulty);
-            
-            let fullText = "";
-            for await (const chunk of stream) {
-                fullText += chunk;
-            }
-            
-            const stabilityResult = extractStability(fullText);
-            const introStability = stabilityResult.newStability ?? 100;
-            const { cleanText } = extractVisualPrompt(stabilityResult.cleanText);
-            
-            const newGameState: GameState = {
-                ...gameState,
-                status: GameStatus.PLAYING,
+            setEditingStoryCache(finalScpData);
+            await saveEditingSCPData(finalScpData);
+
+            setGameState(prev => ({
+                ...prev,
+                status: GameStatus.ANALYZING,
                 scpData: finalScpData,
-                role: scpData.role || gameState.role,
-                stability: introStability,
-                turnCount: 1,
-                map: {
-                    id: blueprint.id,
-                    title: blueprint.title,
-                    currentNodeId: blueprint.startNodeId,
-                    discoveredNodeIds: [blueprint.startNodeId]
-                },
-                npcs: blueprint.npcs.map(n => ({
-                    id: n.id,
-                    name: n.name,
-                    archetype: n.archetype,
-                    nodeId: n.initialNodeId,
-                    alive: true,
-                    secretTags: n.secretTags,
-                    dialogueGoals: n.dialogueGoals
-                })),
-                objectives: blueprint.objectives.map(o => ({
-                    id: o.id,
-                    title: o.title,
-                    type: o.type,
-                    nodeId: o.nodeId,
-                    status: 'ACTIVE',
-                    progress: 0,
-                    detail: o.detail,
-                    reward: o.reward
-                })),
-                inventory: [],
-                messages: [{
-                    id: 'msg_intro',
-                    sender: 'narrator',
-                    content: cleanText,
-                    timestamp: Date.now(),
-                    stabilitySnapshot: introStability,
-                    imageUrl: scpData.storyDraft?.backgroundImage
-                }],
-                backgroundImage: scpData.storyDraft?.backgroundImage || gameState.backgroundImage,
-                mainImage: scpData.storyDraft?.entityImage || gameState.mainImage
-            };
-            
-            setPendingGameState(newGameState);
-            setSaveLoadModalOpen(true);
+                role: scpData.role || prev.role || SCP173_TEMPLATE.role,
+                backgroundImage: scpData.storyDraft?.backgroundImage || prev.backgroundImage,
+                mainImage: scpData.storyDraft?.entityImage || prev.mainImage,
+                messages: [],
+                stability: 100,
+                turnCount: 0,
+                endingType: null,
+                map: undefined,
+                npcs: undefined,
+                objectives: undefined,
+                inventory: []
+            }));
 
         } catch (e) {
             console.error(e);
@@ -523,6 +553,16 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         }
     };
 
+    const handleDeleteImage = (type: 'bg' | 'entity') => {
+        setScpData(prev => ({
+            ...prev,
+            storyDraft: {
+                ...(prev.storyDraft || {}),
+                [type === 'bg' ? 'backgroundImage' : 'entityImage']: undefined
+            }
+        }));
+    };
+
     return (
         <div className="w-full h-full flex flex-col bg-[var(--scp-bg)] text-[var(--scp-text)] overflow-hidden relative font-mono">
             {/* Custom Modal Overlay */}
@@ -538,11 +578,15 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                         </div>
                         <div className={modalFooter}>
                             <button onClick={closeModal} className={toolbarButtonGhost}>
-                                {t('editor.btn_close')}
+                                {t('map_editor.btn_close')}
                             </button>
                             {modal.onConfirm && (
                                 <button onClick={modal.onConfirm} className={toolbarButtonBase}>
-                                    {modal.title === t('editor.delete_confirm_title') ? t('common.delete') : (modal.title === t('editor.import') ? t('editor.btn_import') : t('editor.btn_copy'))}
+                                    {modal.title === t('map_editor.delete_confirm_title') 
+                                        ? t('common.delete') 
+                                        : (modal.title === t('map_editor.import') 
+                                            ? t('map_editor.btn_import') 
+                                            : (modal.title === t('map_editor.reset_title') ? t('map_editor.btn_reset_confirm') : t('map_editor.btn_copy')))}
                                 </button>
                             )}
                         </div>
@@ -571,21 +615,9 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                     setBlueprint(DEFAULT_BLUEPRINT);
                     setShowNewMapConfirm(false);
                 }}
-                title={t('editor.new_map_confirm_title')}
-                message={t('editor.new_map_confirm_msg')}
+                title={t('map_editor.new_map_confirm_title')}
+                message={t('map_editor.new_map_confirm_msg')}
                 confirmText={t('common.confirm')}
-            />
-
-            <SaveLoadModal
-                isOpen={saveLoadModalOpen}
-                onClose={() => setSaveLoadModalOpen(false)}
-                mode="save"
-                currentGameState={pendingGameState!}
-                onSaveComplete={() => {
-                    setGameState(pendingGameState!);
-                    setSaveLoadModalOpen(false);
-                }}
-                onLoadGame={() => {}}
             />
 
             {/* Toolbar */}
@@ -634,20 +666,36 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                                     <span className="text-lg leading-none">↻</span> {t('common.redo')}
                                 </button>
                             </div>
+                            <div className="flex items-center gap-1 ml-4 pl-4 border-l border-[var(--scp-border)]">
+                                <button
+                                    onClick={() => canvasRef.current?.zoomIn()}
+                                    className={toolbarHistoryButton(true)}
+                                    title="Zoom In"
+                                >
+                                    <span className="material-icons text-[16px] leading-none">zoom_in</span>
+                                </button>
+                                <button
+                                    onClick={() => canvasRef.current?.zoomOut()}
+                                    className={toolbarHistoryButton(true)}
+                                    title="Zoom Out"
+                                >
+                                    <span className="material-icons text-[16px] leading-none">zoom_out</span>
+                                </button>
+                            </div>
                             
                             {/* Add Entity Buttons */}
                             <div className="flex items-center gap-2 ml-4">
                                 <button 
                                     onClick={addNPC}
                                     className={addEntityButtonNpc}
-                                    title={t('editor.add_npc')}
+                                    title={t('map_editor.add_npc')}
                                 >
                                     + NPC
                                 </button>
                                 <button 
                                     onClick={addObjective}
                                     className={addEntityButtonObj}
-                                    title={t('editor.add_objective')}
+                                    title={t('map_editor.add_objective')}
                                 >
                                     + OBJ
                                 </button>
@@ -656,12 +704,15 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                     )}
                 </div>
                 <div className="flex gap-2 pr-32">
-                    <button onClick={() => setShowNewMapConfirm(true)} className={toolbarButtonGhost}>{t('editor.new_map')}</button>
-                    <button onClick={() => showImportModal()} className={toolbarButtonGhost}>{t('editor.import')}</button>
-                    <button onClick={() => showExportModal()} className={toolbarButtonGhost}>{t('editor.export')}</button>
+                    <button onClick={() => setShowNewMapConfirm(true)} className={toolbarButtonGhost}>{t('map_editor.new_map')}</button>
+                    <button onClick={() => showImportModal()} className={toolbarButtonGhost}>{t('map_editor.import')}</button>
+                    <button onClick={() => showExportModal()} className={toolbarButtonGhost}>{t('map_editor.export')}</button>
+                    <button onClick={handleReset} className={toolbarButtonGhost} title="Reset Story Template">
+                        {t('map_editor.reset_title')}
+                    </button>
                     
                     {/* Mode B: Direct Entry -> Save & Play */}
-                    {(!gameState.scpData || gameState.scpData.designation === 'CUSTOM-SCENARIO') && (
+                    {(!gameState.scpData || gameState.scpData.designation === SCP173_TEMPLATE.designation) && (
                         <button 
                             onClick={handleSaveAndPlay}
                             disabled={isStarting}
@@ -698,14 +749,14 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                 <SidePanel side="left" className={`top-12 bottom-0 w-56 ${panelContainerBase}`}>
                     <div className={editorPanelHeader}>
                         <div className={editorPanelTitle}>
-                            {t('editor.entity_list')}
+                            {t('map_editor.entity_list')}
                         </div>
                     </div>
                     <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-3 space-y-4">
                         {/* NPCs Section */}
                         <div>
                             <div className="text-[12px] text-scp-text-dim uppercase font-bold mb-2 px-1 tracking-wider">
-                                {t('editor.npcs')} ({blueprint.npcs.length})
+                                {t('map_editor.npcs')} ({blueprint.npcs.length})
                             </div>
                             <div className="space-y-1">
                                 {blueprint.npcs.map(npc => (
@@ -725,7 +776,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                         {/* Objectives Section */}
                         <div>
                             <div className="text-[12px] text-scp-text-dim uppercase font-bold mb-2 px-1 tracking-wider border-t border-[var(--scp-border)] pt-4">
-                                {t('editor.objectives')} ({blueprint.objectives.length})
+                                {t('map_editor.objectives')} ({blueprint.objectives.length})
                             </div>
                             <div className="space-y-1">
                                 {blueprint.objectives.map(obj => (
@@ -747,7 +798,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                 <SidePanel side="right" className={`top-12 bottom-0 w-80 ${panelContainerBase}`}>
                     <div className={editorPanelHeader}>
                         <div className={editorPanelTitle}>
-                            {activeTab === 'MAP' ? t('editor.properties') : t('story_editor.title')}
+                            {activeTab === 'MAP' ? t('map_editor.properties') : t('story_editor.title')}
                         </div>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -767,13 +818,16 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                                 {/* Designation, Class, Role, Name */}
                                 <div className="grid grid-cols-1 gap-4">
                                     <div className="space-y-1">
-                                        <label className="text-[12px] text-scp-text-dim font-bold uppercase block">{t('story_editor.designation')}</label>
+                                        <label className="text-[12px] text-scp-text-dim font-bold uppercase block">
+                                            {t('story_editor.designation')} <span className="text-red-500">*</span>
+                                        </label>
                                         <input 
                                             type="text"
                                             value={scpData.designation}
                                             onChange={e => setScpData({...scpData, designation: e.target.value})}
-                                            className="w-full bg-black/50 border border-gray-700 p-1 text-xs text-scp-text focus:border-scp-accent focus:outline-none"
+                                            className={getInputClass(scpData.designation)}
                                             placeholder="SCP-XXX"
+                                            required
                                         />
                                     </div>
                                     <div className="space-y-1">
@@ -787,23 +841,29 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-[12px] text-scp-text-dim font-bold uppercase block">{t('story_editor.player_role')}</label>
+                                        <label className="text-[12px] text-scp-text-dim font-bold uppercase block">
+                                            {t('story_editor.player_role')} <span className="text-red-500">*</span>
+                                        </label>
                                         <input 
                                             type="text"
                                             value={scpData.role || ''}
                                             onChange={e => setScpData({...scpData, role: e.target.value})}
-                                            className="w-full bg-black/50 border border-gray-700 p-1 text-xs text-scp-text focus:border-scp-accent focus:outline-none"
+                                            className={getInputClass(scpData.role)}
                                             placeholder="Researcher"
+                                            required
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-[12px] text-scp-text-dim font-bold uppercase block">{t('story_editor.name')}</label>
+                                        <label className="text-[12px] text-scp-text-dim font-bold uppercase block">
+                                            {t('story_editor.name')} <span className="text-red-500">*</span>
+                                        </label>
                                         <input 
                                             type="text"
                                             value={scpData.name}
                                             onChange={e => setScpData({...scpData, name: e.target.value})}
-                                            className="w-full bg-black/50 border border-gray-700 p-1 text-xs text-scp-text focus:border-scp-accent focus:outline-none"
+                                            className={getInputClass(scpData.name)}
                                             placeholder="The ..."
+                                            required
                                         />
                                     </div>
                                 </div>
@@ -877,6 +937,20 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                                             className="w-full aspect-video bg-black/50 border border-gray-800 relative flex items-center justify-center overflow-hidden group cursor-pointer"
                                             onClick={() => scpData.storyDraft?.backgroundImage && setLightboxImage(scpData.storyDraft.backgroundImage)}
                                         >
+                                            {scpData.storyDraft?.backgroundImage && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteImage('bg');
+                                                    }}
+                                                    className="absolute top-1 right-1 bg-black/70 hover:bg-red-900/80 text-white p-1 rounded-sm z-20 transition-colors opacity-0 group-hover:opacity-100"
+                                                    title={t('common.delete')}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            )}
                                             {generatingState.bg && (
                                                 <div className="absolute inset-0 bg-black/80 flex flex-col gap-2 items-center justify-center z-10 cursor-default" onClick={(e) => e.stopPropagation()}>
                                                     <div className="w-8 h-8 border-2 border-scp-accent border-t-transparent rounded-full animate-spin"></div>
@@ -919,6 +993,20 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                                             className="w-full aspect-square bg-black/50 border border-gray-800 relative flex items-center justify-center overflow-hidden group cursor-pointer"
                                             onClick={() => scpData.storyDraft?.entityImage && setLightboxImage(scpData.storyDraft.entityImage)}
                                         >
+                                            {scpData.storyDraft?.entityImage && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteImage('entity');
+                                                    }}
+                                                    className="absolute top-1 right-1 bg-black/70 hover:bg-red-900/80 text-white p-1 rounded-sm z-20 transition-colors opacity-0 group-hover:opacity-100"
+                                                    title={t('common.delete')}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            )}
                                             {generatingState.entity && (
                                                 <div className="absolute inset-0 bg-black/80 flex flex-col gap-2 items-center justify-center z-10 cursor-default" onClick={(e) => e.stopPropagation()}>
                                                     <div className="w-8 h-8 border-2 border-scp-accent border-t-transparent rounded-full animate-spin"></div>

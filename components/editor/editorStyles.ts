@@ -3,7 +3,6 @@ export const editorPanelHeader = "p-3 border-b border-scp-gray/30 scp-window-hea
 
 export const toolbarButtonBase = "text-scp-text font-mono text-xs flex items-center gap-2 px-3 py-1 hover:bg-white/5 rounded border border-scp-gray/30 hover:border-scp-alert/60";
 export const toolbarButtonGhost = "px-3 py-1 text-xs text-gray-400 hover:text-scp-alert transition-colors border border-scp-gray/30 hover:border-scp-alert/60";
-export const toolbarIconButton = "p-1 text-scp-text hover:text-scp-alert hover:bg-white/10 rounded border border-scp-gray/30 hover:border-scp-alert/60";
 export const toolbarGroupDivider = "h-4 w-px bg-[var(--scp-border)]";
 export const toolbarHistoryButton = (enabled: boolean) =>
     `px-2 py-1 text-xs font-mono rounded flex items-center gap-1 border border-scp-gray/30 ${enabled ? 'hover:bg-white/10 hover:text-scp-alert hover:border-scp-alert/60 text-scp-text' : 'opacity-30 cursor-not-allowed'}`;
