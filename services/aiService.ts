@@ -45,8 +45,8 @@ const getProvider = (): AIService => {
 };
 
 // Facade methods
-export const analyzeSCPUrl = async (input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal'): Promise<SCPData> => {
-    return getProvider().analyzeSCPUrl(input, language, role, difficulty);
+export const analyzeSCPUrl = async (input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData): Promise<SCPData> => {
+    return getProvider().analyzeSCPUrl(input, language, role, difficulty, legacyData);
 };
 
 export const initializeGameChatStream = (scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData, difficulty: GameDifficulty = 'normal'): AsyncGenerator<string> => {

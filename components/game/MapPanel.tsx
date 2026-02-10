@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { GameState } from '../../types';
 import { useTranslation } from '../../utils/i18n';
 import { buildLayout } from '../../utils/mapLayout';
@@ -22,6 +22,29 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
   const [panOrigin, setPanOrigin] = useState<{ x: number; y: number; originX: number; originY: number } | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    const node = minimapRef.current;
+    if (!node) return;
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const rect = node.getBoundingClientRect();
+      const delta = event.deltaY < 0 ? 0.1 : -0.1;
+      const vx = ((event.clientX - rect.left) / rect.width) * 200;
+      const vy = ((event.clientY - rect.top) / rect.height) * 200;
+      setViewTransform(prev => {
+        const nextScale = Math.min(3.0, Math.max(0.5, prev.scale + delta));
+        const ratio = nextScale / prev.scale;
+        const nextX = vx - (vx - prev.x) * ratio;
+        const nextY = vy - (vy - prev.y) * ratio;
+        return { scale: nextScale, x: nextX, y: nextY };
+      });
+    };
+    node.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      node.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
 
   const radarColors = {
     low: 'var(--scp-term)',
@@ -312,7 +335,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
   };
 
   return (
-    <SidePanel side="right" className="hidden lg:flex w-80">
+    <SidePanel side="right" className="fixed top-16 bottom-4 hidden lg:flex w-80">
       <div className="p-3 border-b border-scp-gray/30 scp-window-header flex justify-between items-center">
         <div>
           <div className="text-[12px] font-mono tracking-widest text-scp-term uppercase">{t('game.map_title')}</div>
@@ -391,21 +414,6 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                     }}
                     onMouseUp={() => { setIsPanning(false); setPanOrigin(null); }}
                     onMouseLeave={() => { setIsPanning(false); setPanOrigin(null); }}
-                    onWheel={event => {
-                        event.preventDefault();
-                        if (!minimapRef.current) return;
-                        const rect = minimapRef.current.getBoundingClientRect();
-                        const delta = event.deltaY < 0 ? 0.1 : -0.1;
-                        const vx = ((event.clientX - rect.left) / rect.width) * 200;
-                        const vy = ((event.clientY - rect.top) / rect.height) * 200;
-                        setViewTransform(prev => {
-                            const nextScale = Math.min(3.0, Math.max(0.5, prev.scale + delta));
-                            const ratio = nextScale / prev.scale;
-                            const nextX = vx - (vx - prev.x) * ratio;
-                            const nextY = vy - (vy - prev.y) * ratio;
-                            return { scale: nextScale, x: nextX, y: nextY };
-                        });
-                    }}
                 >
                     <svg viewBox="0 0 200 200" className="w-full h-full">
                         <defs>

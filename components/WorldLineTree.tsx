@@ -687,7 +687,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
       {/* Legacy Selection Modal - Using Portal to render at body level */}
       {showLegacyModal && newLegacyData && createPortal(
           <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 scp-ui">
-              <div className="scp-window border-2 border-scp-term/50 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-[0_0_30px_rgba(51,255,0,0.2)] flex flex-col">
+              <div className="scp-window border-2 border-scp-term/50 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow flex flex-col">
                   <div className="p-6 border-b border-scp-term/30 sticky top-0 bg-scp-dark z-10">
                       <h2 className="text-2xl font-report text-scp-term mb-2">
                           {t('legacy.modal_title') || 'LEGACY EXTRACTION'}

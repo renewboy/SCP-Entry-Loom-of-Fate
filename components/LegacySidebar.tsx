@@ -21,7 +21,7 @@ const LegacySidebar: React.FC<LegacySidebarProps> = ({ legacyData }) => {
         <SidePanel 
             side="left" 
             className={`
-                top-0 bottom-0 z-[100] transition-all duration-300 ease-in-out
+                fixed top-0 bottom-0 z-[100] transition-all duration-300 ease-in-out
                 ${isCollapsed ? 'w-12' : 'w-96'}
                 shadow-[5px_0_20px_rgba(0,0,0,0.5)]
             `}

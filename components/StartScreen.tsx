@@ -126,7 +126,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
       const difficulty = settings.difficulty || 'normal';
 
       // 1. Analyze SCP
-      const scpData = await analyzeSCPUrl(urlInput, language, finalRole, difficulty);
+      const scpData = await analyzeSCPUrl(urlInput, language, finalRole, difficulty, legacyData);
       setLoadingStep(t('start.loading_retrieved', { designation: scpData.designation }));
 
       // 4. Transition to Tactical Preview

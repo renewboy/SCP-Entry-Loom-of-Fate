@@ -1,4 +1,15 @@
-import { GameDifficulty, Language, MapBlueprint, StoryDraft } from '../../types';
+import { GameDifficulty, Language, MapBlueprint, StoryDraft, LegacyData } from '../../types';
+
+const formatLegacyData = (legacyData?: LegacyData) => {
+    if (!legacyData) return '';
+    const traitsStr = legacyData.traits.length > 0 ?
+        `Traits:\n${legacyData.traits.map(t => `- ${t.icon} ${t.name}: ${t.description}`).join('\n')}` : '';
+    const itemsStr = legacyData.items.length > 0 ?
+        `Items:\n${legacyData.items.map(i => `- ${i.icon} ${i.name}: ${i.description}`).join('\n')}` : '';
+    const echoesStr = legacyData.echoes.length > 0 ?
+        `World Echoes (Past Lives):\n${legacyData.echoes.map(e => `- [Role: ${e.roleName}] [${e.endingType}] ${e.title}: ${e.summary}`).join('\n')}` : '';
+    return [traitsStr, itemsStr, echoesStr].filter(Boolean).join('\n\n');
+};
 
 export const getSystemInstruction = (role: string, language: Language) => `
 你是一个基于SCP基金会宇宙的文本冒险游戏《SCP 档案：命运织机》的AI主持人。“命运织机”这一名称寓意每一次玩家决策都像织机上的一根经线或纬线，微小的选择在各种变量的作用下交织，逐步塑造世界线的走向。你的核心职责是严格贴合SCP基金会世界观逻辑，为玩家纺织沉浸式、多样性、高自由度的剧情体验。
@@ -43,45 +54,59 @@ export const getSystemInstruction = (role: string, language: Language) => `
 2. 视角：第二人称。
 3. 风格：慢热的恐怖感，冷静客观的科学记录风格与直观的危险感相结合。
 4. **所有回复必须严格遵循以下结构**：
-  1. 约250字中文沉浸式叙事，使用第二人称（“你”）。
+  1. 约200字中文沉浸式叙事，使用第二人称（“你”）。
   2. 提供3个符合逻辑的玩家后续行动选项，并加上第四个选项：“其他（请输入）”，所有选项以数字编号。
   3. System Tags（位于末尾）：
     - [VISUAL: <English Image Prompt>]：（可选）仅当视觉场景发生显著变化时插入。描述格式要求："cinematic, scp foundation style, horror, dark, <scene details>"。
     - [STABILITY: <Integer>]：（必填）当前计算得出的稳定性数值。
     - [ENDING: <Type>]：（条件性）仅当达成游戏结束条件时插入。
     - [LOC: <node_id>]：（条件性）当玩家位置发生变化时插入。node_id必须是地图节点ID。
-    - [MAP_UPDATE: <JSON>]：（可选）当地图状态变化（获得钥匙/解锁门/推进目标/NPC移动等）时插入。JSON必须为单个对象。
+    - [MAP_UPDATE: <JSON>]：（可选）当地图状态变化时插入。JSON必须为单个对象（格式后面会详细说明）。
   4. 中文常规回复示例："...你听到门后传来了沉重的呼吸声。[VISUAL: dark metal door, scratching marks, cinematic lighting][STABILITY: 85]"   
   5. 中文结尾示例："...你成功关闭了隔离门，警报声逐渐远去。[VISUAL: steel blast doors closing, sparks][STABILITY: 45][ENDING: CONTAINED]"
-5. 在首次生成内容之前，**必须使用 Search 工具**检索关于目标的详细资料，包括但不限于wiki, 解密文档等。
-6. 格式：使用Markdown。
+5. 格式：使用Markdown。
 `;
 
-export const getAnalyzeSCPPrompt = (input: string, language: Language, role: string, difficulty: GameDifficulty) => {
+export const getAnalyzeSCPPrompt = (input: string, language: Language, role: string, difficulty: GameDifficulty, legacyData?: LegacyData) => {
     const langInstruction = language === 'zh' ? 'Chinese' : 'English';
+    const legacyString = formatLegacyData(legacyData);
+    const legacyInjection = legacyString ? `
+'[New Game+ Legacy Inheritance]\nThis timeline is influenced by prior iterations. The player inherits traits, items, and world echoes.\nYou should organically incorporate these into analysis outputs, especially the map design:'
+${legacyString}
+'[Legacy Data End]'
+` : '';
+    const legacyIntegrationRules = legacyString ? `
+  - Legacy integration:
+    - Map nodes, gated routes, NPC roles, and objectives should organically incorporate inherited traits/items/echoes.
+    - Where appropriate, translate inherited items into access tokens, gate requirements, or objective rewards.
+    - Echoes should subtly inform location flavor, NPC motivations, or objective context.` : '';
     return `
+'You are a master-level SCP Foundation analysis agent for a narrative-driven text adventure game. Your job is to identify the SCP, research official sources, and generate a structured analysis plus a playable map blueprint.'
+
 User Input: ${input}
 Player Role: ${role}
 Game Difficulty: ${difficulty}
 Preferred Human Language for text: ${langInstruction}
+${legacyInjection}
 
 Goal:
-1) Determine the referenced SCP designation (e.g., "SCP-173"). If input is a URL, extract the designation from it.
+1) Determine the referenced SCP designation (e.g., "SCP-173") from user input.
 2) Research (MUST use available search tools): prioritize official pages on scp-wiki.wikidot.com / scp-wiki-cn.wikidot.com; use secondary SCP hubs/discussions only to resolve ambiguity.
 3) Extract:
-   - official title (localized to ${langInstruction})
-   - containmentClass.
+  - official title (localized to ${langInstruction})
+  - containmentClass.
 4) Generate two ENGLISH visual strings for image templates:
-- visualDescription: A set of visual keywords describing the TEXTURE, ATMOSPHERE, and MATERIAL essence of the SCP for an abstract background.
-  - Format: comma-separated keywords, nouns/adjectives only, no verbs, no sentences
-  - Context: It will be inserted into "Abstract horror background representing [visualDescription], subtle, texture, scp foundation style, dark moody"
-- entityDescription: A detailed visual description of the entity's physical APPEARANCE. 
-  - Format: Noun phrases describing the subject. No background context.
-  - Context: It will be inserted into "Close up full body shot of [entityDescription]. detailed, photorealistic, containment cell, scp foundation record photo"
-
+  - visualDescription
+    - Comma-separated nouns/adjectives only.
+    - Describe the SCP's texture, atmosphere, and material essence for an abstract background.
+    - (Will be inserted into: "Abstract horror background representing [visualDescription], scp foundation style, dark, subtle texture")
+  - entityDescription
+    - Noun phrases only. No verbs, no background context.
+    - Describe the entity's physical appearance in detail.
+    - (Will be inserted into: "Close-up full body shot of [entityDescription], photorealistic, containment cell, scp foundation record photo")
 5) **Map Blueprint**:
   - Generate a small navigable map for the upcoming interactive fiction game session. The map is the physical space where the story takes place and where the player can move and explore.
-  - The map should be a believable SCP Foundation site / facility / area relevant to this SCP and the player's role (${role}).
+  - The map should be a believable site / facility / area relevant to this SCP and the player's role (${role}).
   - Requirements:
     - 5 to 8 nodes (locations/areas), nodes are connected via edges, avoid disconnected nodes.
     - 2 to 4 NPCs with initial positions
@@ -94,6 +119,7 @@ Goal:
     - Interpret the provided difficulty as a continuous pressure level that scales map danger, gate density, NPC helpfulness, and resource scarcity in the same direction.
     - Higher difficulty should make routes riskier and objectives more demanding.
     - Lower difficulty should make routes safer and objectives clearer.
+${legacyIntegrationRules}
   - Node rules:
     - "id": stable, lowercase_with_underscores (e.g. "node_security_checkpoint")
     - "danger": reflects risk when entering/staying in that node, integer 0..100 (0-30 low, 31-70 moderate, 71-100 high)
@@ -115,7 +141,7 @@ Structure:
   "entityDescription": "description of entity...",
   "mapBlueprint": {
     "id": "string_id",
-    "title": "string title in ${langInstruction}",
+    "title": "string",
     "startNodeId": "The player's initial position",
     "nodes": [
       { "id": "node_1", "name": "string", "danger": 10, "discoverables": ["string"], "requires": ["key_lvl2", "clearance_level_2", "power_restored"], "blockedText": "string" }
@@ -137,6 +163,138 @@ Semantic Notes:
 
 };
 
+export const getAnalyzeSCPPromptV2 = (
+  input: string,
+  language: Language,
+  role: string,
+  difficulty: GameDifficulty,
+  legacyData?: LegacyData
+) => {
+  const lang = language === 'zh' ? 'Chinese' : 'English';
+
+  const legacyBlock = legacyData
+    ? `
+[New Game+ Legacy Inheritance]
+This timeline is influenced by prior iterations. You MUST integrate inherited traits, items, and echoes into analysis and map design.
+${formatLegacyData(legacyData)}
+[Legacy Data End]
+
+Legacy rules:
+- Reflect legacy traits/items/echoes in map nodes, routes, NPC roles, and objectives.
+- Convert inherited items into access tokens, gate requirements, or rewards where applicable.
+- Echoes affect location flavor, NPC motivation, or objective context.
+`
+    : '';
+
+  return `
+You are a master-level SCP Foundation analysis agent for a narrative-driven text adventure game.
+
+User Input: ${input}
+Player Role: ${role}
+Game Difficulty: ${difficulty}
+Preferred Language: ${lang}
+${legacyBlock}
+
+TASKS:
+
+1) Identify SCP designation (e.g. SCP-173). If input is a URL, extract it.
+2) Research using search tools (REQUIRED):
+   - Primary: scp-wiki.wikidot.com / scp-wiki-cn.wikidot.com
+   - Secondary sources ONLY to resolve ambiguity.
+3) Extract:
+   - Official title (localized to ${lang})
+   - Containment Class
+
+4) Generate TWO ENGLISH visual strings:
+   - visualDescription:
+     - Comma-separated nouns/adjectives only
+     - Texture, atmosphere, material essence
+   - entityDescription:
+     - Noun phrases only
+     - Physical appearance only (no verbs, no context)
+
+5) MAP BLUEPRINT (playable space for upcoming session):
+   - Believable site/facility/area relevant to this SCP and role (${role})
+   - 5–8 connected nodes (no isolated nodes)
+   - 2–4 NPCs with initial positions
+   - Objectives: exactly 1 MAIN, 1–2 SIDE
+   - ≥20% nodes gated (non-empty requires + blockedText)
+
+   Difficulty scaling:
+   - Difficulty is continuous pressure affecting danger, gate density, NPC helpfulness, resource scarcity.
+   - Higher = riskier routes, harsher gates, harder objectives.
+   - Lower = safer routes, clearer objectives.
+
+   Objective rules:
+   - MAIN objective must be deeply tied to SCP background, NPCs, and role stance.
+   - Objectives are NOT required to be positive or uplifting.
+
+   Node rules:
+   - id: lowercase_with_underscores
+   - danger: integer 0–100 (0–30 low, 31–70 mid, 71–100 high)
+   - requires: [] if ungated
+   - blockedText: "" if ungated
+
+OUTPUT:
+Return ONLY ONE valid JSON object. No markdown. No extra text.
+
+If name or containmentClass is unknown, use "???".
+
+JSON STRUCTURE:
+{
+  "designation": "SCP-XXX",
+  "name": "localized title (${lang})",
+  "containmentClass": "class (${lang})",
+  "visualDescription": "string",
+  "entityDescription": "string",
+  "mapBlueprint": {
+    "id": "string",
+    "title": "string",
+    "startNodeId": "node_id",
+    "nodes": [
+      {
+        "id": "node_id",
+        "name": "string",
+        "danger": 10,
+        "discoverables": ["string"],
+        "requires": ["token"],
+        "blockedText": "string"
+      }
+    ],
+    "edges": [
+      { "from": "node_a", "to": "node_b", "bidirectional": true }
+    ],
+    "npcs": [
+      {
+        "id": "npc_id",
+        "name": "string",
+        "archetype": "string",
+        "initialNodeId": "node_id",
+        "secretTags": ["string"],
+        "dialogueGoals": ["string"]
+      }
+    ],
+    "objectives": [
+      {
+        "id": "obj_main",
+        "title": "string",
+        "type": "MAIN",
+        "nodeId": "node_id",
+        "detail": "string",
+        "reward": {
+          "accessTokens": ["token"],
+          "stabilityDelta": 5
+        }
+      }
+    ]
+  }
+}
+
+Notes:
+- reward.stabilityDelta applies on COMPLETION only; range -20..+20.
+`;
+};
+
 const getNormalTurnRequirements = (langInstruction: string) => `
 【常规回合任务】
 1. 分析用户操作，并生成${langInstruction}叙事回应 (200字以内，必须遵守)。你生成的叙事回应必须逐步向某个结局收敛。
@@ -155,13 +313,14 @@ const getNormalTurnRequirements = (langInstruction: string) => `
 10. 所有System Tags必须在**最末尾**添加。
 11. 禁止使用任何工具调用。`;
 
-export const getStartGamePrompt = (role: string, scpDesignation: string, containmentClass: string, language: Language, difficulty: GameDifficulty, legacyData?: string, mapBlueprint?: MapBlueprint, storyDraft?: StoryDraft) => {
+export const getStartGamePrompt = (role: string, scpDesignation: string, containmentClass: string, language: Language, difficulty: GameDifficulty, legacyData?: LegacyData, mapBlueprint?: MapBlueprint, storyDraft?: StoryDraft) => {
     const langInstruction = language === 'zh' ? '中文' : '英文';
     const legacyIntro = '[已激活遗产继承系统 - 开启新周目]\n当前时间线受到先前迭代周期的因果影响。玩家角色从过去的世界线中继承了以下特质、物品与记忆回响。\n请将这些要素有机融入叙事与角色初始状态：';
     const legacyEnd = '[遗产数据结束]';
-    const legacyInjection = legacyData ? `
+    const legacyString = formatLegacyData(legacyData);
+    const legacyInjection = legacyString ? `
 ${legacyIntro}
-${legacyData}
+${legacyString}
 ${legacyEnd}
 ` : '';
     const legacySearchInstruction = legacyData ? '(不要搜索遗产相关数据，只搜索本次SCP的资料)' : '';
@@ -212,14 +371,14 @@ ${mapInjection}
 - **角色简介** 
 (如果存在继承特质，请将其融入此处)
 
-- "${role}"的初始遭遇场景, 主线任务等, 200-300字, ${langInstruction}。 (如果存在继承物品，请提及角色已持有它们)
+- "${role}"的初始遭遇场景, 主线任务等, 200-300字, ${langInstruction}。 ${legacyData ? '（如果存在继承物品，请提及角色已持有它们）' : ''}
+- 2-3个初始互动选项, 并加上额外选项：“其他（请输入）”。
 - [STABILITY: 100]
 - [VISUAL: prompt] (可选)
 
 主要搜索源: https://scp-wiki.wikidot.com/, https://scp-wiki-cn.wikidot.com/, google
 Hint: 你可以拼接搜索源网址 and SCP目标, 得到目标的档案网页, 例如: https://scp-wiki.wikidot.com/[designation]
-任务
-- 给玩家2-3个初始互动选项, 并加上“其他（请输入）”。`;
+`;
 };
 
 export const getLegacyGenerationPrompt = (ending: string, role: string, language: Language) => {

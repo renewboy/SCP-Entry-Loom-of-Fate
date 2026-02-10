@@ -716,7 +716,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                         <button 
                             onClick={handleSaveAndPlay}
                             disabled={isStarting}
-                            className="scp-btn-action px-4 py-1 text-xs font-bold text-scp-white hover:text-scp-alert border-scp-gray/30 hover:border-scp-alert/60 flex items-center gap-2 min-w-[140px] justify-center"
+                            className="scp-btn-action px-4 py-1 text-xs font-bold text-scp-white hover:text-scp-accent border-scp-gray/30 hover:border-scp-accent/60 flex items-center gap-2 min-w-[140px] justify-center"
                         >
                             {isStarting ? (
                                 <div className="w-4 h-4 border-2 border-white/20 border-t-scp-accent rounded-full animate-spin"></div>
@@ -746,7 +746,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                     </div>
                 </div>
 
-                <SidePanel side="left" className={`top-12 bottom-0 w-56 ${panelContainerBase}`}>
+                <SidePanel side="left" className={`absolute top-0 bottom-0 w-56 ${panelContainerBase}`}>
                     <div className={editorPanelHeader}>
                         <div className={editorPanelTitle}>
                             {t('map_editor.entity_list')}
@@ -795,7 +795,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                     </div>
                 </SidePanel>
 
-                <SidePanel side="right" className={`top-12 bottom-0 w-80 ${panelContainerBase}`}>
+                <SidePanel side="right" className={`absolute top-0 bottom-0 w-80 ${panelContainerBase}`}>
                     <div className={editorPanelHeader}>
                         <div className={editorPanelTitle}>
                             {activeTab === 'MAP' ? t('map_editor.properties') : t('story_editor.title')}

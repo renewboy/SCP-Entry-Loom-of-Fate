@@ -111,9 +111,9 @@ const AudioDramaPlayer: React.FC<AudioDramaPlayerProps> = ({ script, messages, o
   const distortionScale = isUnstable ? Math.min((instability - 30) * 0.5, 30) : 0;
 
   const getStabilityColor = () => {
-    if (currentStability > 70) return 'text-scp-term';
-    if (currentStability > 30) return 'text-yellow-500';
-    return 'text-scp-accent';
+    if (currentStability > 70) return 'text-scp-term_fix';
+    if (currentStability > 30) return 'text-scp-amber';
+    return 'text-scp-alert';
   };
 
   const getKantCounterLabel = () => {

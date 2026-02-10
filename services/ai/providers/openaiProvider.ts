@@ -30,9 +30,9 @@ export class OpenAIProvider implements AIService {
 
     // OpenAI provider doesn't do image generation natively in this setup (delegated to Gemini in facade)
     
-    async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal'): Promise<SCPData> {
+    async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData): Promise<SCPData> {
         try {
-            const prompt = getAnalyzeSCPPrompt(input, language, role, difficulty);
+            const prompt = getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData);
             console.log(`[OpenAIProvider] Analyzing SCP: ${input}`);
 
             const response = await this.client.responses.create({
@@ -66,21 +66,7 @@ export class OpenAIProvider implements AIService {
     async *initializeGameChatStream(scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData, difficulty: GameDifficulty = 'normal'): AsyncGenerator<string> {
         console.log(`[OpenAIProvider] Initializing chat stream for ${scp.designation} as ${role} in ${language}`);
         this.systemInstruction = getSystemInstruction(role, language);
-        
-        // Format LegacyData into a string if it exists
-        let legacyString = '';
-        if (legacyData) {
-            const traitsStr = legacyData.traits.length > 0 ? 
-                `Traits:\n${legacyData.traits.map(t => `- ${t.icon} ${t.name}: ${t.description}`).join('\n')}` : '';
-            const itemsStr = legacyData.items.length > 0 ? 
-                `Items:\n${legacyData.items.map(i => `- ${i.icon} ${i.name}: ${i.description}`).join('\n')}` : '';
-            const echoesStr = legacyData.echoes.length > 0 ? 
-                `World Echoes (Past Lives):\n${legacyData.echoes.map(e => `- [Role: ${e.roleName}] [${e.endingType}] ${e.title}: ${e.summary}`).join('\n')}` : '';
-            
-            legacyString = [traitsStr, itemsStr, echoesStr].filter(Boolean).join('\n\n');
-        }
-
-        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyString, scp.mapBlueprint, scp.storyDraft);
+        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyData, scp.mapBlueprint, scp.storyDraft);
 
         // Store initial message for history
         this.messages = [
