@@ -601,6 +601,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
       .text-scp-term\\/70 { color: var(--theme-accent) !important; opacity: 0.7; }
       .text-scp-term\\/80 { color: var(--theme-accent) !important; opacity: 0.8; }
       .text-scp-term\\/50 { color: var(--theme-accent) !important; opacity: 0.5; }
+      .text-scp-term\\/30 { color: var(--theme-accent) !important; opacity: 0.3; }
       .border-scp-term { border-color: var(--theme-accent) !important; }
       .border-scp-term\\/30 { border-color: var(--theme-accent-underline) !important; }
       .border-scp-term\\/50 { border-color: var(--theme-accent-underline) !important; }
@@ -608,6 +609,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
       .bg-scp-term { background-color: var(--theme-accent) !important; }
       .bg-scp-term\\/20 { background-color: var(--theme-accent-soft) !important; }
       .bg-scp-term\\/40 { background-color: var(--theme-accent-soft) !important; }
+      .bg-scp-term\\/60 { background-color: var(--theme-accent-soft) !important; }
+      .bg-scp-term\\/80 { background-color: var(--theme-accent-soft) !important; }
       .hover\\:bg-scp-term\\/20:hover { background-color: var(--theme-accent-soft) !important; }
       .hover\\:bg-scp-term\\/10:hover { background-color: var(--theme-accent-soft) !important; }
       .hover\\:bg-scp-term:hover { background-color: var(--theme-accent) !important; }

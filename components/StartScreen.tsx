@@ -37,6 +37,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
   const [customRole, setCustomRole] = useState('');
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [canRetryInit, setCanRetryInit] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
   const [saveLoadModalOpen, setSaveLoadModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
@@ -69,12 +70,18 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
 
     autoStartRef.current = true;
     setError(null);
+    setCanRetryInit(false);
     
     setLoadingStep(t('start.loading_retrieved', { designation: gameState.scpData.designation }));
 
     startGameProcess({ gameState, setGameState, language, t }).catch((e) => {
       console.error(e);
       setError(t('start.error_conn'));
+      if ((e as any)?.code === "GEMINI_INIT_EMPTY") {
+        setCanRetryInit(true);
+        setLoadingStep(t('start.loading_retry'));
+        return;
+      }
       setLoadingStep(null);
       setGameState(prev => ({ ...prev, status: GameStatus.IDLE }));
     });
@@ -117,6 +124,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
   const handleStart = async () => {
     if (!urlInput.trim()) return;
     setError(null);
+    setCanRetryInit(false);
     setLoadingStep(t('start.loading_access'));
 
     try {
@@ -147,6 +155,26 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
       console.error(e);
       setError(t('start.error_conn'));
       setLoadingStep(null);
+    }
+  };
+
+  const handleRetryInit = async () => {
+    if (!gameState.scpData) return;
+    setError(null);
+    setCanRetryInit(false);
+    setLoadingStep(t('start.loading_retrieved', { designation: gameState.scpData.designation }));
+    try {
+      await startGameProcess({ gameState, setGameState, language, t });
+    } catch (e) {
+      console.error(e);
+      setError(t('start.error_conn'));
+      if ((e as any)?.code === "GEMINI_INIT_EMPTY") {
+        setCanRetryInit(true);
+        setLoadingStep(t('start.loading_retry'));
+        return;
+      }
+      setLoadingStep(null);
+      setGameState(prev => ({ ...prev, status: GameStatus.IDLE }));
     }
   };
 
@@ -222,6 +250,14 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
                 <div className="w-full bg-gray-900/50 h-1 mt-4 overflow-hidden rounded">
                      <div className="h-full bg-scp-term animate-[scanline_2s_linear_infinite] w-1/2 shadow-[0_0_10px_#33ff00]"></div>
                 </div>
+                {canRetryInit && (
+                    <button
+                        onClick={handleRetryInit}
+                        className="mt-2 px-6 py-2 bg-scp-accent/90 hover:bg-scp-accent text-white font-mono text-sm tracking-widest border border-red-500 transition-all shadow-[0_0_12px_rgba(195,46,46,0.4)] hover:shadow-[0_0_20px_rgba(195,46,46,0.6)]"
+                    >
+                        {t('start.btn_retry')}
+                    </button>
+                )}
             </div>
         ) : (
             <div className="space-y-6 flex-1 flex flex-col min-h-0">

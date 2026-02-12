@@ -1,26 +1,12 @@
-// Configuration for AI Services
 export const aiConfig = {
-  // Gemini API Key (loaded from environment variable)
-  apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY || '',
-  
-  // Provider configuration
-  provider: (process.env.AI_PROVIDER || 'gemini') as 'gemini' | 'openai',
-  
-  // OpenAI / Volcengine specific config
-  openai: {
-    apiKey: process.env.OPENAI_API_KEY || '',
-    baseUrl: process.env.OPENAI_BASE_URL,
-    chatModel: process.env.OPENAI_CHAT_MODEL,
-  },
-
-  // Model names (Gemini)
+  provider: (import.meta.env.VITE_AI_PROVIDER || 'gemini') as 'gemini' | 'openai',
+  apiBaseUrl: import.meta.env.VITE_AI_SERVER_URL || 'http://127.0.0.1:5174',
+  cacheTtl: import.meta.env.VITE_AI_CACHE_TTL || '864000s',
   models: {
     chat: 'gemini-2.5-flash',
     image: 'gemini-2.5-flash-image',
     embedding: 'gemini-embedding-001',
   },
-
-  // Generation configuration
   generation: {
     temperature: 0.9
   }

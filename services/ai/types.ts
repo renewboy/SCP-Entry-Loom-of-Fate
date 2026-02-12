@@ -1,4 +1,3 @@
-import { Content } from "@google/genai";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty } from '../../types';
 
 export interface AIService {

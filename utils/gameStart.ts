@@ -153,7 +153,6 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
 
     } catch (e) {
         console.error("Error starting game process:", e);
-        alert(t('start.error_conn'));
-        throw e; // Re-throw to let caller handle cleanup (e.g. stop loading spinner)
+        throw e;
     }
 };

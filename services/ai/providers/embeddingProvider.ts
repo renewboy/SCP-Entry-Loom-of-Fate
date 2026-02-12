@@ -1,21 +1,18 @@
-import { GoogleGenAI } from "@google/genai";
 import { aiConfig } from "../../../config/aiConfig";
+import { postJson } from "./backendClient";
 
 class EmbeddingProvider {
-  private client: GoogleGenAI;
-
   constructor() {
-    this.client = new GoogleGenAI({ apiKey: aiConfig.apiKey });
   }
 
   async getEmbeddings(texts: string[]): Promise<number[][]> {
     if (!texts || texts.length === 0) return [];
     try {
-      const response = await this.client.models.embedContent({
+      const { embeddings } = await postJson<{ embeddings: number[][] }>("/api/ai/gemini/embeddings", {
         model: aiConfig.models.embedding,
-        contents: texts,
+        texts,
       });
-      return response.embeddings.map(e => e.values);
+      return embeddings;
     } catch (error) {
       console.error("Failed to generate embeddings:", error);
       return [];

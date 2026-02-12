@@ -1,48 +1,32 @@
-import OpenAI from "openai";
-import { GoogleGenAI, Chat, Content } from "@google/genai";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { AIService } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty } from "../../../types";
-import { aiConfig } from "../../../config/aiConfig";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt } from "../prompts";
 import { normalizeGameReviewData, safeParseJson } from "../utils";
-import { AudioDramaSchema, OperationEvaluationSchema } from "../schemas";
-import { Schema } from "zod";
-import { format } from "path";
+import { AudioDramaSchema } from "../schemas";
+import { postJson, streamSse } from "./backendClient";
 
-// Define Volcengine specific types or use generic objects
 type ChatMessage = {
   role: "system" | "user" | "assistant";
   content: string;
 };
 export class OpenAIProvider implements AIService {
-    private client: OpenAI;
     private messages: ChatMessage[] = [];
     private systemInstruction: string = "";
+    private gameReviewHistory: ChatMessage[] = [];
+    private qaHistory: ChatMessage[] = [];
 
     constructor() {
-        this.client = new OpenAI({
-            apiKey: aiConfig.openai.apiKey,
-            baseURL: aiConfig.openai.baseUrl,
-            dangerouslyAllowBrowser: true // Required for client-side usage
-        });
     }
 
-    // OpenAI provider doesn't do image generation natively in this setup (delegated to Gemini in facade)
-    
     async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData): Promise<SCPData> {
         try {
             const prompt = getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData);
-            console.log(`[OpenAIProvider] Analyzing SCP: ${input}`);
-
-            const response = await this.client.responses.create({
-                model: aiConfig.openai.chatModel,
+            const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
                 input: prompt,
-                tools: [{ type: "web_search" } as any], // Volcengine specific tool
+                tools: [{ type: "web_search" }],
             });
-
-            const text = response.output_text;
-            console.log(`[OpenAIProvider] Analysis result length: ${text?.length}`);
+            const text = output_text || "";
             if (!text) throw new Error("No response from analysis");
 
             const parsed = safeParseJson(text);
@@ -51,7 +35,6 @@ export class OpenAIProvider implements AIService {
             return parsed as SCPData;
 
         } catch (e) {
-            console.error("Failed to analyze SCP:", e);
             return {
                 role: role,
                 designation: "???",
@@ -68,31 +51,22 @@ export class OpenAIProvider implements AIService {
         this.systemInstruction = getSystemInstruction(role, language);
         const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyData, scp.mapBlueprint, scp.storyDraft);
 
-        // Store initial message for history
+        console.log("[OpenAIProvider] Sending start message... ", startPrompt);
         this.messages = [
             { role: "system", content: this.systemInstruction },
             { role: "user", content: startPrompt }
         ];
-
-        console.log("[OpenAIProvider] Sending start message... ", startPrompt);
-        
-        // Use Responses API with streaming
-        const responseStream = await this.client.responses.create({
-            model: aiConfig.openai.chatModel,
-            input: this.messages,
-            stream: true,
-            tools: [{ type: "web_search" } as any], // Volcengine specific tool
-        });
+        this.gameReviewHistory = [];
+        this.qaHistory = [];
 
         let fullResponse = "";
-        for await (const event of responseStream) {
-            if(event.type === "response.output_text.delta"){
-                fullResponse += event.delta;
-                yield event.delta;
-            }
+        for await (const delta of streamSse<string>("/api/ai/openai/response-stream", {
+            input: this.messages,
+            tools: [{ type: "web_search" }],
+        })) {
+            fullResponse += delta;
+            yield delta;
         }
-        
-        // Append assistant response to history
         this.messages.push({ role: "assistant", content: fullResponse });
     }
 
@@ -108,42 +82,26 @@ export class OpenAIProvider implements AIService {
         this.messages.push({ role: "user", content: contextPrompt });
 
         try {
-            console.log("[OpenAIProvider] Sending message stream to model...");
-            
-            const responseStream = await this.client.responses.create({
-                model: aiConfig.openai.chatModel,
-                input: this.messages,
-                stream: true,
-                tools: [],
-            });
-
             let fullResponse = "";
-            let chunkCount = 0;
-            for await (const event of responseStream) {
-                chunkCount++;
-                if(event.type === "response.output_text.delta")
-                {
-                    fullResponse += event.delta;
-                    yield event.delta;
-                }
+            for await (const delta of streamSse<string>("/api/ai/openai/response-stream", {
+                input: this.messages,
+                tools: [],
+            })) {
+                fullResponse += delta;
+                yield delta;
             }
-            console.log(`[OpenAIProvider] Stream finished. Received ${chunkCount} chunks.`);
-            
-            // Append assistant response to history
             this.messages.push({ role: "assistant", content: fullResponse });
 
         } catch (err) {
-            console.error("[OpenAIProvider] Error during sendAction stream:", err);
             throw err;
         }
     }
 
-    async getChatHistory(): Promise<Content[]> {
-        // Convert OpenAI ChatMessage[] to Google Content[]
-        let googleMessages: Content[] = this.messages.map(msg => {
+    async getChatHistory(): Promise<any[]> {
+        let googleMessages: any[] = this.messages.map(msg => {
             let role = 'user';
             if (msg.role === 'assistant') role = 'model';
-            else if (msg.role === 'system') role = 'system'; // Note: Google usually puts system instructions in config, not history. 
+            else if (msg.role === 'system') role = 'system';
             if (msg.role === 'system') {
                 return null; 
             }
@@ -152,17 +110,17 @@ export class OpenAIProvider implements AIService {
                 role: role,
                 parts: [{ text: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content) }]
             };
-        }).filter(Boolean) as Content[];
+        }).filter(Boolean) as any[];
         return googleMessages;
     }
 
-    async restoreChatSession(history: Content[], role: string, language: Language = 'zh'): Promise<void> {
-        console.log("[OpenAIProvider] Restoring chat session with history length:", history.length);
+    async restoreChatSession(history: any[], role: string, language: Language = 'zh'): Promise<void> {
         this.systemInstruction = getSystemInstruction(role, language);
         
         this.messages = [{ role: "system", content: this.systemInstruction }];
+        this.gameReviewHistory = [];
+        this.qaHistory = [];
 
-        // Convert Google Content[] to OpenAI ChatMessage[]
         const restoredMessages: ChatMessage[] = history.map(msg => {
             const role = msg.role === 'model' ? 'assistant' : 'user';
             const content = msg.parts?.map(p => p.text).join('') || '';
@@ -188,8 +146,7 @@ export class OpenAIProvider implements AIService {
         const prompt = getAudioDramaPrompt(storyLog, role, scpDesignation, language);
 
         try {
-            const response = await this.client.responses.create({
-                model: aiConfig.openai.chatModel,
+            const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
                 input: prompt,
                 text: {
                     format:  {
@@ -197,17 +154,15 @@ export class OpenAIProvider implements AIService {
                         name: "audio_drama",
                         schema: zodToJsonSchema(AudioDramaSchema)
                     }
-                }
+                },
             });
-
-            const text = response.output_text;
+            const text = output_text || "";
             if (!text) throw new Error("Empty response for audio script");
 
             const parsed = JSON.parse(text) as AudioDramaScript;
             return parsed;
 
         } catch (error) {
-            console.error("Failed to generate audio script:", error);
             return null;
         }
     }
@@ -220,41 +175,26 @@ export class OpenAIProvider implements AIService {
         messages: Message[] = [],
         stabilityHistory: number[] = []
     ): Promise<GameReviewData> {
-        console.log(`[OpenAIProvider] Generating Game Review...`);
-
         if (this.messages.length === 0) {
-            console.error("Chat session is missing. Cannot generate review.");
             return normalizeGameReviewData(null);
         }
 
         const prompt = getGameReviewPrompt(role, ending, language);
 
         try {
-            this.messages.push({ role: "user", content: prompt });
-            const response = await this.client.responses.create({
-                model: aiConfig.openai.chatModel,
-                input: this.messages,
-                // text: {
-                //     format: {
-                //         type: "json_schema",
-                //         name: "operation_evalation",
-                //         schema: zodToJsonSchema(OperationEvaluationSchema as any)
-                //     }
-                    
-                // }
+            const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
+                input: [...this.messages, { role: "user", content: prompt }],
             });
-
-            const text = response.output_text;
+            const text = output_text || "";
             if (!text) throw new Error("Empty response for review");
             const parsed = safeParseJson(text);
             if (!parsed) throw new Error('Failed to parse review JSON');
             
-            // Append assistant response to history
-            this.messages.push({ role: "assistant", content: text });
+            this.gameReviewHistory.push({ role: "user", content: prompt });
+            this.gameReviewHistory.push({ role: "assistant", content: text });
             
             return normalizeGameReviewData(parsed);
         } catch (error) {
-            console.error("Failed to generate review:", error);
             return normalizeGameReviewData(null);
         }
     }
@@ -266,51 +206,44 @@ export class OpenAIProvider implements AIService {
         }
 
         const prompt = getQAPrompt(question, language);
-        const qaMessages: ChatMessage[] = [...this.messages, { role: "user", content: prompt }];
+        const qaMessages: ChatMessage[] = [
+            ...this.messages,
+            ...this.gameReviewHistory,
+            ...this.qaHistory,
+            { role: "user", content: prompt }
+        ];
 
         try {
-            // Use Responses API for streaming Q&A
-            const responseStream = await this.client.responses.create({
-                model: aiConfig.openai.chatModel,
+            let fullResponse = "";
+            for await (const delta of streamSse<string>("/api/ai/openai/response-stream", {
                 input: qaMessages,
-                stream: true
-            });
-
-            for await (const event of responseStream) {
-                if(event.type == "response.output_text.delta") {
-                    yield event.delta;
-                }
+            })) {
+                fullResponse += delta;
+                yield delta;
             }
+            this.qaHistory.push({ role: "user", content: prompt });
+            this.qaHistory.push({ role: "assistant", content: fullResponse });
         } catch (error) {
-            console.error("Q&A failed:", error);
             yield language === 'zh' ? "因果同步超时。" : "Causal sync timeout.";
         }
     }
 
     async generateLegacyData(ending: string, role: string, language: Language): Promise<LegacyGenerationResult> {
-        console.log(`[OpenAIProvider] Generating Legacy Data...`);
         if (this.messages.length === 0) {
-             console.error("Chat session is missing. Cannot generate legacy data.");
              return { traits: [], items: [], echoes: [] };
         }
 
         const prompt = getLegacyGenerationPrompt(ending, role, language);
 
         try {
-            this.messages.push({ role: "user", content: prompt });
-            const response = await this.client.responses.create({
-                model: aiConfig.openai.chatModel,
-                input: this.messages,
+            const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
+                input: [...this.messages, { role: "user", content: prompt }],
             });
-
-            const text = response.output_text;
+            const text = output_text || "";
             if (!text) throw new Error("Empty response for legacy data");
 
             const parsed = safeParseJson(text);
             if (!parsed) throw new Error('Failed to parse legacy JSON');
-
-            // Append assistant response to history
-            this.messages.push({ role: "assistant", content: text });
 
             return {
                 traits: Array.isArray(parsed.traits) ? parsed.traits : [],
@@ -323,7 +256,6 @@ export class OpenAIProvider implements AIService {
                 memoryRecords: Array.isArray(parsed.memoryRecords) ? parsed.memoryRecords : []
             };
         } catch (error) {
-             console.error("Failed to generate legacy data:", error);
              return { traits: [], items: [], echoes: [] };
         }
     }

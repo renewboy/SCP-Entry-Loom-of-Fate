@@ -80,8 +80,9 @@ ${legacyString}
     - Map nodes, gated routes, NPC roles, and objectives should organically incorporate inherited traits/items/echoes.
     - Where appropriate, translate inherited items into access tokens, gate requirements, or objective rewards.
     - Echoes should subtly inform location flavor, NPC motivations, or objective context.` : '';
-    return `
-'You are a master-level SCP Foundation analysis agent for a narrative-driven text adventure game. Your job is to identify the SCP, research official sources, and generate a structured analysis plus a playable map blueprint.'
+    
+    const finalPrompt = `
+You are a master-level SCP Foundation analysis agent for a narrative-driven text adventure game. Your job is to identify the SCP, research official sources, and generate a structured analysis plus a playable map blueprint.
 
 User Input: ${input}
 Player Role: ${role}
@@ -161,6 +162,8 @@ Structure:
 Semantic Notes:
 - reward.stabilityDelta: integer delta applied when the objective is COMPLETED (positive: +, negative: -); keep within -20..+20.`;
 
+  console.log(`[getAnalyzeSCPPrompt] finalPrompt: ${finalPrompt}`);
+  return finalPrompt;
 };
 
 export const getAnalyzeSCPPromptV2 = (

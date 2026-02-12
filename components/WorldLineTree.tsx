@@ -803,7 +803,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                       </button>
                       <button
                           onClick={handleConfirmLegacy}
-                          className="px-8 py-2 bg-scp-term/20 border border-scp-term text-scp-term font-mono text-xs font-bold hover:bg-scp-term hover:text-black transition-all shadow-[0_0_15px_rgba(51,255,0,0.2)]"
+                          className="px-8 py-2 bg-scp-term/20 border border-scp-term/30 text-scp-term font-mono text-xs font-bold hover:border-scp-term hover:text-scp-term transition-all shadow-[0_0_15px_rgba(51,255,0,0.2)]"
                       >
                           {t('legacy.confirm_start') || 'INITIATE PROTOCOL'}
                       </button>

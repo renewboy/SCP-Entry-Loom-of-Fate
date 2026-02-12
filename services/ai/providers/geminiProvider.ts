@@ -1,59 +1,34 @@
-import { GoogleGenAI, Chat, Content } from "@google/genai";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { AIService } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty } from "../../../types";
 import { aiConfig } from "../../../config/aiConfig";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt } from "../prompts";
 import { normalizeGameReviewData, safeParseJson } from "../utils";
-import { AudioDramaSchema, OperationEvaluationSchema } from "../schemas";
+import { AudioDramaSchema } from "../schemas";
+import { postJson, streamSse } from "./backendClient";
 
-type ChatSession = {
-    chat : Chat;
-    systemInstruction: string;
-    temperature: number;
-}
+const INIT_EMPTY_MAX_RETRIES = 3;
+
 export class GeminiProvider implements AIService {
-    private client: GoogleGenAI;
-    private chatSession: ChatSession | null = null;
+    private history: any[] = [];
+    private systemInstruction: string = "";
+    private temperature: number = aiConfig.generation.temperature;
+    private cachedContentName: string | null = null;
+    private gameReviewHistory: any[] = [];
+    private qaHistory: any[] = [];
 
     constructor() {
-        this.client = new GoogleGenAI({ apiKey: aiConfig.apiKey });
     }
 
-    private getClient() {
-        return this.client;
-    }
-
-    // --- Image Generation (Gemini Only Feature, but exposed via Provider or Facade) ---
-    // Note: The interface doesn't strictly enforce this if we handle it in facade, 
-    // but good to have it here if we want to call it directly.
     public async generateImage(prompt: string, aspectRatio: "1:1" | "16:9" | "3:4" = "1:1"): Promise<string | null> {
-        console.log(`[GeminiProvider] Generating image... Prompt: "${prompt.substring(0, 100)}..."`, { aspectRatio });
         try {
-            const response = await this.client.models.generateContent({
+            const { imageDataUrl } = await postJson<{ imageDataUrl: string | null }>("/api/ai/gemini/generate-image", {
                 model: aiConfig.models.image,
-                contents: { parts: [{ text: prompt }] },
-                config: {
-                    imageConfig: {
-                        aspectRatio: aspectRatio,
-                    }
-                }
+                prompt,
+                aspectRatio,
             });
-
-            console.log("[GeminiProvider] Image generation response received", response);
-
-            const parts = response.candidates?.[0]?.content?.parts || [];
-            for (const part of parts) {
-                if (part.inlineData) {
-                    console.log("[GeminiProvider] Image data extraction successful.");
-                    return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-                }
-            }
-
-            console.warn("[GeminiProvider] Response contained no inline image data.", parts);
-            return null;
+            return imageDataUrl;
         } catch (error) {
-            console.error("[GeminiProvider] Image generation failed:", error);
             return null;
         }
     }
@@ -61,20 +36,14 @@ export class GeminiProvider implements AIService {
     async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData): Promise<SCPData> {
         try {
             const prompt = getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData);
-            this.client = new GoogleGenAI({ apiKey: aiConfig.apiKey });
             console.log(`[GeminiProvider] Analyzing SCP: ${input}`);
-            const response = await this.client.models.generateContent({
+            const { text } = await postJson<{ text: string | null }>("/api/ai/gemini/generate-content", {
                 model: aiConfig.models.chat,
                 contents: prompt,
                 config: {
-                    tools: [
-                        { googleSearch: {} }
-                    ],
-                }
+                    tools: [{ googleSearch: {} }],
+                },
             });
-
-            const text = response.text;
-            console.log(`[GeminiProvider] Analysis result length: ${text?.length}`);
             if (!text) throw new Error("No response from analysis");
 
             const parsed = safeParseJson(text);
@@ -83,7 +52,6 @@ export class GeminiProvider implements AIService {
             return parsed as SCPData;
 
         } catch (e) {
-            console.error("Failed to analyze SCP:", e);
             return {
                 role: role,
                 designation: "???",
@@ -95,106 +63,130 @@ export class GeminiProvider implements AIService {
         }
     }
 
+    private async ensureCachedContentName(): Promise<string | null> {
+        if (!this.systemInstruction) return null;
+        if (this.cachedContentName) return this.cachedContentName;
+        try {
+            const { name } = await postJson<{ name: string }>("/api/ai/gemini/cache", {
+                model: aiConfig.models.chat,
+                ttl: aiConfig.cacheTtl,
+                systemInstruction: this.systemInstruction,
+            });
+            this.cachedContentName = name || null;
+            return this.cachedContentName;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    private buildContents(prompt: string, extraHistory: any[] = []): any[] {
+        return [
+            ...this.history,
+            ...extraHistory,
+            { role: "user", parts: [{ text: prompt }] }
+        ];
+    }
+
+    private async logTokenCount(contents: any[]): Promise<void> {
+        try {
+            const { totalTokens, cachedContentTokenCount } = await postJson<{ totalTokens: number; cachedContentTokenCount: number }>("/api/ai/gemini/count-tokens", {
+                model: aiConfig.models.chat,
+                contents,
+            });
+            console.log(`[GeminiProvider] tokens total=${totalTokens} cached=${cachedContentTokenCount}`);
+        } catch (error) {
+        }
+    }
+
     async *initializeGameChatStream(scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData, difficulty: GameDifficulty = 'normal'): AsyncGenerator<string> {
         console.log(`[GeminiProvider] Initializing chat stream for ${scp.designation} as ${role} in ${language}`);
-        const systemInstruction = getSystemInstruction(role, language);
+        this.systemInstruction = getSystemInstruction(role, language);
+        this.temperature = aiConfig.generation.temperature;
+        this.cachedContentName = null;
+        this.gameReviewHistory = [];
+        this.qaHistory = [];
         const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyData, scp.mapBlueprint, scp.storyDraft);
+        console.log(`[GeminiProvider] Sending start message... ${startPrompt}`);
 
-        this.chatSession = {
-            chat: this.client.chats.create({
+        this.history = [];
+        const cachedContent = await this.ensureCachedContentName();
+        console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
+        for (let attempt = 0; attempt < INIT_EMPTY_MAX_RETRIES; attempt += 1) {
+            let fullResponse = "";
+            for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
                 model: aiConfig.models.chat,
+                contents: this.buildContents(startPrompt),
                 config: {
-                    systemInstruction,
-                    temperature: aiConfig.generation.temperature,
-                    
-                }
-            }),
-            systemInstruction: systemInstruction,
-            temperature: aiConfig.generation.temperature,
-        };
+                    systemInstruction: this.systemInstruction,
+                    temperature: this.temperature,
+                    tools: [
+                        { googleSearch: {} },
+                    ],
+                },
+            })) {
+                fullResponse += delta;
+                yield delta;
+            }
 
-        console.log("[GeminiProvider] Sending start message... ", startPrompt);
-        const result = await this.chatSession.chat.sendMessageStream({
-            message: startPrompt,
-            config: {
-                systemInstruction: this.chatSession.systemInstruction,
-                temperature: this.chatSession.temperature,
-                tools: [
-                    { googleSearch: {} }
-                ],
+            if (fullResponse.trim().length === 0) {
+                if (attempt < INIT_EMPTY_MAX_RETRIES - 1) {
+                    continue;
+                }
+                const error = new Error("Gemini init empty response");
+                (error as any).code = "GEMINI_INIT_EMPTY";
+                throw error;
             }
-        });
-        for await (const chunk of result) {
-            if (chunk.text) {
-                yield chunk.text;
-            }
+
+            this.history.push({ role: "user", parts: [{ text: startPrompt }] });
+            this.history.push({ role: "model", parts: [{ text: fullResponse }] });
+            await this.logTokenCount(this.history);
+            return;
         }
     }
 
     async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh', ragContext?: string, mapContext?: string): AsyncGenerator<string> {
         console.log(`[GeminiProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}, Language: ${language}`);
 
-        if (!this.chatSession) {
-            console.error("[GeminiProvider] CRITICAL: chatSession is null. Game state may have been reset.");
-            throw new Error("Game not initialized - session missing");
-        }
-
         const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, mapContext);
 
         try {
-            console.log("[GeminiProvider] Sending message stream to model...");
-            const streamResult = await this.chatSession.chat.sendMessageStream({
-                message: contextPrompt,
-                config: {
-                    systemInstruction: this.chatSession.systemInstruction,
-                    temperature: this.chatSession.temperature,
-                    tools: []
-                }
-            });
-            console.log("[GeminiProvider] Stream connection established.");
+            const cachedContent = await this.ensureCachedContentName();
+            console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
 
-            let chunkCount = 0;
-            for await (const chunk of streamResult) {
-                chunkCount++;
-                const text = chunk.text;
-                if (text) {
-                    yield text;
-                }
+            let fullResponse = "";
+            for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
+                model: aiConfig.models.chat,
+                contents: this.buildContents(contextPrompt),
+                config: {
+                    systemInstruction: cachedContent ? undefined : this.systemInstruction,
+                    temperature: this.temperature,
+                    tools: [],
+                    cachedContent: cachedContent || undefined,
+                },
+            })) {
+                fullResponse += delta;
+                yield delta;
             }
-            console.log(`[GeminiProvider] Stream finished. Received ${chunkCount} chunks.`);
+
+            this.history.push({ role: "user", parts: [{ text: contextPrompt }] });
+            this.history.push({ role: "model", parts: [{ text: fullResponse }] });
+            await this.logTokenCount(this.history);
         } catch (err) {
-            console.error("[GeminiProvider] Error during sendAction stream:", err);
             throw err;
         }
     }
 
-    async getChatHistory(): Promise<Content[]> {
-        if (!this.chatSession) return [];
-        try {
-            const history = await this.chatSession.chat.getHistory();
-            return history;
-        } catch (e) {
-            console.error("Failed to get chat history", e);
-            return [];
-        }
+    async getChatHistory(): Promise<any[]> {
+        return this.history;
     }
 
-    async restoreChatSession(history: Content[], role: string, language: Language = 'zh'): Promise<void> {
-        console.log("[GeminiProvider] Restoring chat session with history length:", history.length);
-        const systemInstruction = getSystemInstruction(role, language);
-
-        this.chatSession = {
-            chat: this.client.chats.create({
-                model: aiConfig.models.chat,
-                config: {
-                    systemInstruction,
-                    temperature: aiConfig.generation.temperature,
-                },
-                history: history
-            }),
-            systemInstruction: systemInstruction,
-            temperature: aiConfig.generation.temperature,
-        };
+    async restoreChatSession(history: any[], role: string, language: Language = 'zh'): Promise<void> {
+        this.systemInstruction = getSystemInstruction(role, language);
+        this.temperature = aiConfig.generation.temperature;
+        this.cachedContentName = null;
+        this.gameReviewHistory = [];
+        this.qaHistory = [];
+        this.history = Array.isArray(history) ? history : [];
     }
 
     async generateAudioDramaScript(
@@ -214,24 +206,21 @@ export class GeminiProvider implements AIService {
         const prompt = getAudioDramaPrompt(storyLog, role, scpDesignation, language);
 
         try {
-            const response = await this.client.models.generateContent({
+            const { text } = await postJson<{ text: string | null }>("/api/ai/gemini/generate-content", {
                 model: aiConfig.models.chat,
                 contents: prompt,
                 config: {
                     temperature: 0.7,
                     responseMimeType: "application/json",
-                    responseJsonSchema: zodToJsonSchema(AudioDramaSchema as any)
-                }
+                    responseJsonSchema: zodToJsonSchema(AudioDramaSchema as any),
+                },
             });
-
-            const text = response.text;
             if (!text) throw new Error("Empty response for audio script");
 
             const parsed = JSON.parse(text) as AudioDramaScript;
             return parsed;
 
         } catch (error) {
-            console.error("Failed to generate audio script:", error);
             return null;
         }
     }
@@ -244,74 +233,97 @@ export class GeminiProvider implements AIService {
         messages: Message[] = [],
         stabilityHistory: number[] = []
     ): Promise<GameReviewData> {
-        console.log(`[GeminiProvider] Generating Game Review...`);
-
-        if (!this.chatSession) {
-            console.error("Chat session is missing. Cannot generate review.");
-            return normalizeGameReviewData(null);
-        }
-
         const prompt = getGameReviewPrompt(role, ending, language);
 
         try {
-            // Send message to existing history
-            const response = await this.chatSession.chat.sendMessage({
-                message: prompt,
-            });
-            const text = response.text;
+            const cachedContent = await this.ensureCachedContentName();
+            console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
+            let text = "";
+            for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
+                model: aiConfig.models.chat,
+                contents: this.buildContents(prompt),
+                config: {
+                    systemInstruction: cachedContent ? undefined : this.systemInstruction,
+                    temperature: this.temperature,
+                    tools: [],
+                    cachedContent: cachedContent || undefined,
+                },
+            })) {
+                text += delta;
+            }
 
             if (!text) throw new Error("Empty response for review");
 
             const parsed = safeParseJson(text);
             if (!parsed) throw new Error('Failed to parse review JSON');
+
+            this.gameReviewHistory.push({ role: "user", parts: [{ text: prompt }] });
+            this.gameReviewHistory.push({ role: "model", parts: [{ text }] });
+            await this.logTokenCount([...this.history, ...this.gameReviewHistory]);
             return normalizeGameReviewData(parsed);
         } catch (error) {
-            console.error("Failed to generate review:", error);
             return normalizeGameReviewData(null);
         }
     }
 
     async *askNarratorQuestion(question: string, language: Language): AsyncGenerator<string> {
-        if (!this.chatSession) {
-            yield language === 'zh' ? "会话连接已丢失。" : "Session connection lost.";
-            return;
-        }
-
         const prompt = getQAPrompt(question, language);
 
         try {
-            const result = await this.chatSession.chat.sendMessageStream({ message: prompt });
-            for await (const chunk of result) {
-                if (chunk.text) {
-                    yield chunk.text;
-                }
+            const cachedContent = await this.ensureCachedContentName();
+            console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
+            let fullResponse = "";
+            for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
+                model: aiConfig.models.chat,
+                contents: this.buildContents(prompt, [...this.gameReviewHistory, ...this.qaHistory]),
+                config: {
+                    systemInstruction: cachedContent ? undefined : this.systemInstruction,
+                    temperature: this.temperature,
+                    tools: [],
+                    cachedContent: cachedContent || undefined,
+                },
+            })) {
+                fullResponse += delta;
+                yield delta;
             }
+
+            this.qaHistory.push({ role: "user", parts: [{ text: prompt }] });
+            this.qaHistory.push({ role: "model", parts: [{ text: fullResponse }] });
+            await this.logTokenCount([...this.history, ...this.gameReviewHistory, ...this.qaHistory]);
         } catch (error) {
-            console.error("Q&A failed:", error);
             yield language === 'zh' ? "因果同步超时。" : "Causal sync timeout.";
         }
     }
 
     async generateLegacyData(ending: string, role: string, language: Language): Promise<LegacyGenerationResult> {
         console.log(`[GeminiProvider] Generating Legacy Data...`);
-        if (!this.chatSession) {
-            console.error("Chat session is missing. Cannot generate legacy data.");
-            return { traits: [], items: [], echoes: [] };
-        }
 
         const prompt = getLegacyGenerationPrompt(ending, role, language);
 
         try {
-             // Send message to existing history
-             const response = await this.chatSession.chat.sendMessage({
-                message: prompt,
-            });
-            const text = response.text;
+            const cachedContent = await this.ensureCachedContentName();
+            console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
+            let text = "";
+            for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
+                model: aiConfig.models.chat,
+                contents: this.buildContents(prompt),
+                config: {
+                    systemInstruction: cachedContent ? undefined : this.systemInstruction,
+                    temperature: this.temperature,
+                    tools: [],
+                    cachedContent: cachedContent || undefined,
+                },
+            })) {
+                text += delta;
+            }
             if (!text) throw new Error("Empty response for legacy data");
 
             const parsed = safeParseJson(text);
             if (!parsed) throw new Error('Failed to parse legacy JSON');
 
+            this.history.push({ role: "user", parts: [{ text: prompt }] });
+            this.history.push({ role: "model", parts: [{ text }] });
+            await this.logTokenCount(this.history);
             return {
                 traits: Array.isArray(parsed.traits) ? parsed.traits : [],
                 items: Array.isArray(parsed.items) ? parsed.items : [],
