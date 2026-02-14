@@ -58,7 +58,7 @@ export class GeminiProvider implements AIService {
                 name: "异常实体",
                 containmentClass: "未知",
                 visualDescription: "dark abstract glitch horror texture, scp foundation aesthetic",
-                entityDescription: "unknown anomaly, redacted silhouette, scp foundation record"
+                entityDescription: "unknown anomaly, redacted silhouette, scp foundation record",
             };
         }
     }
@@ -226,12 +226,9 @@ export class GeminiProvider implements AIService {
     }
 
     async generateGameReview(
-        scpData: SCPData,
         role: string,
         ending: EndingType,
         language: Language,
-        messages: Message[] = [],
-        stabilityHistory: number[] = []
     ): Promise<GameReviewData> {
         const prompt = getGameReviewPrompt(role, ending, language);
 

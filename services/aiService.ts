@@ -135,8 +135,8 @@ export const generateAudioDramaScript = async (messages: Message[], role: string
     return getProvider().generateAudioDramaScript(messages, role, scpDesignation, language);
 };
 
-export const generateGameReview = async (scpData: SCPData, role: string, ending: EndingType, language: Language, messages: Message[], stabilityHistory: number[]): Promise<GameReviewData> => {
-    return getProvider().generateGameReview(scpData, role, ending, language, messages, stabilityHistory);
+export const generateGameReview = async (role: string, ending: EndingType, language: Language): Promise<GameReviewData> => {
+    return getProvider().generateGameReview(role, ending, language);
 };
 
 export const askNarratorQuestion = (question: string, language: Language): AsyncGenerator<string> => {

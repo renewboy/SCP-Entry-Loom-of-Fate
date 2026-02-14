@@ -96,6 +96,9 @@ Goal:
 3) Extract:
   - official title (localized to ${langInstruction})
   - containmentClass.
+4) Generate story draft fields (concise, in English):
+  - storyDraft.roleDetails: short profile of the player role.
+  - storyDraft.storyBackground: brief overarching premise and context.
 4) Generate two ENGLISH visual strings for image templates:
   - visualDescription
     - Comma-separated nouns/adjectives only.
@@ -138,6 +141,10 @@ Structure:
   "designation": "e.g., SCP-682",
   "name": "localized title in ${langInstruction}",
   "containmentClass": "The class in ${langInstruction}",
+  "storyDraft": {
+    "roleDetails": "string",
+    "storyBackground": "string"
+  },
   "visualDescription": "keywords for background...",
   "entityDescription": "description of entity...",
   "mapBlueprint": {
@@ -166,138 +173,6 @@ Semantic Notes:
   return finalPrompt;
 };
 
-export const getAnalyzeSCPPromptV2 = (
-  input: string,
-  language: Language,
-  role: string,
-  difficulty: GameDifficulty,
-  legacyData?: LegacyData
-) => {
-  const lang = language === 'zh' ? 'Chinese' : 'English';
-
-  const legacyBlock = legacyData
-    ? `
-[New Game+ Legacy Inheritance]
-This timeline is influenced by prior iterations. You MUST integrate inherited traits, items, and echoes into analysis and map design.
-${formatLegacyData(legacyData)}
-[Legacy Data End]
-
-Legacy rules:
-- Reflect legacy traits/items/echoes in map nodes, routes, NPC roles, and objectives.
-- Convert inherited items into access tokens, gate requirements, or rewards where applicable.
-- Echoes affect location flavor, NPC motivation, or objective context.
-`
-    : '';
-
-  return `
-You are a master-level SCP Foundation analysis agent for a narrative-driven text adventure game.
-
-User Input: ${input}
-Player Role: ${role}
-Game Difficulty: ${difficulty}
-Preferred Language: ${lang}
-${legacyBlock}
-
-TASKS:
-
-1) Identify SCP designation (e.g. SCP-173). If input is a URL, extract it.
-2) Research using search tools (REQUIRED):
-   - Primary: scp-wiki.wikidot.com / scp-wiki-cn.wikidot.com
-   - Secondary sources ONLY to resolve ambiguity.
-3) Extract:
-   - Official title (localized to ${lang})
-   - Containment Class
-
-4) Generate TWO ENGLISH visual strings:
-   - visualDescription:
-     - Comma-separated nouns/adjectives only
-     - Texture, atmosphere, material essence
-   - entityDescription:
-     - Noun phrases only
-     - Physical appearance only (no verbs, no context)
-
-5) MAP BLUEPRINT (playable space for upcoming session):
-   - Believable site/facility/area relevant to this SCP and role (${role})
-   - 5–8 connected nodes (no isolated nodes)
-   - 2–4 NPCs with initial positions
-   - Objectives: exactly 1 MAIN, 1–2 SIDE
-   - ≥20% nodes gated (non-empty requires + blockedText)
-
-   Difficulty scaling:
-   - Difficulty is continuous pressure affecting danger, gate density, NPC helpfulness, resource scarcity.
-   - Higher = riskier routes, harsher gates, harder objectives.
-   - Lower = safer routes, clearer objectives.
-
-   Objective rules:
-   - MAIN objective must be deeply tied to SCP background, NPCs, and role stance.
-   - Objectives are NOT required to be positive or uplifting.
-
-   Node rules:
-   - id: lowercase_with_underscores
-   - danger: integer 0–100 (0–30 low, 31–70 mid, 71–100 high)
-   - requires: [] if ungated
-   - blockedText: "" if ungated
-
-OUTPUT:
-Return ONLY ONE valid JSON object. No markdown. No extra text.
-
-If name or containmentClass is unknown, use "???".
-
-JSON STRUCTURE:
-{
-  "designation": "SCP-XXX",
-  "name": "localized title (${lang})",
-  "containmentClass": "class (${lang})",
-  "visualDescription": "string",
-  "entityDescription": "string",
-  "mapBlueprint": {
-    "id": "string",
-    "title": "string",
-    "startNodeId": "node_id",
-    "nodes": [
-      {
-        "id": "node_id",
-        "name": "string",
-        "danger": 10,
-        "discoverables": ["string"],
-        "requires": ["token"],
-        "blockedText": "string"
-      }
-    ],
-    "edges": [
-      { "from": "node_a", "to": "node_b", "bidirectional": true }
-    ],
-    "npcs": [
-      {
-        "id": "npc_id",
-        "name": "string",
-        "archetype": "string",
-        "initialNodeId": "node_id",
-        "secretTags": ["string"],
-        "dialogueGoals": ["string"]
-      }
-    ],
-    "objectives": [
-      {
-        "id": "obj_main",
-        "title": "string",
-        "type": "MAIN",
-        "nodeId": "node_id",
-        "detail": "string",
-        "reward": {
-          "accessTokens": ["token"],
-          "stabilityDelta": 5
-        }
-      }
-    ]
-  }
-}
-
-Notes:
-- reward.stabilityDelta applies on COMPLETION only; range -20..+20.
-`;
-};
-
 const getNormalTurnRequirements = (langInstruction: string) => `
 【常规回合任务】
 1. 分析用户操作，并生成${langInstruction}叙事回应 (200字以内，必须遵守)。你生成的叙事回应必须逐步向某个结局收敛。
@@ -309,8 +184,10 @@ const getNormalTurnRequirements = (langInstruction: string) => `
 7. 若发生地图状态变化，你可以在末尾添加 [MAP_UPDATE: <JSON>]。仅在有变化时填写对应字段，JSON字段说明如下：
    - addAccessTokens: ["token_id"],
    - moveNPCs: [{ "id": "npc_id", "nodeId": "node_id", "alive": true }],
-   - objectives: [{ "id": "obj_id", "status": "ACTIVE|COMPLETED|FAILED", "progress": 0-100 }]
-  示例：[MAP_UPDATE: {"addAccessTokens": ["key_lvl2"], "moveNPCs": [{"id": "npc_1", "nodeId": "node_xxx"}],"objectives": [{"id": "obj_xxx", "progress": 60}]}]
+   - updateObjectives: [{ "id": "obj_id", "status": "ACTIVE|COMPLETED|FAILED", "progress": 0-100 }]
+   - addObjectives: [{ "id": "obj_id", "title": "string", "type": "MAIN|SIDE", "nodeId": "node_id", "status": "ACTIVE", "progress": 0-100, "detail": "string", "reward": { "accessTokens": ["token_id"], "stabilityDelta": -20..20 } }]
+   - deleteObjectives: ["obj_id"]
+  示例：[MAP_UPDATE: {"addAccessTokens": ["key_lvl2"], "moveNPCs": [{"id": "npc_1", "nodeId": "node_xxx"}],"updateObjectives": [{"id": "obj_xxx", "progress": 60, "detail": "string"}]]
 8. 在末尾添加 [STABILITY: <new_value>]。
 9. 若场景视觉发生重大变化，添加 [VISUAL: <prompt>]，如果变化不大则不要添加。
 10. 所有System Tags必须在**最末尾**添加。
@@ -453,7 +330,7 @@ ${mapContext}
 
     const finalContextPrompt = `
 [系统状态]
-Current Stability: ${currentStability}%
+Current Stability: ${currentStability}
 Turn: ${turnCount}
 User Action: "${action}"
 Output Language: ${langInstruction}

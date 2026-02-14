@@ -42,7 +42,7 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
         const hasEntity = draftEntity || gameState.mainImage;
         if (!hasEntity && settings.enableEntityImages) {
             const entityDesc = finalScpData.entityDescription;
-            const mainPrompt = `Close up full body shot of ${finalScpData.name}: ${entityDesc}. detailed, photorealistic, containment cell, scp foundation record photo`;
+            const mainPrompt = `Close up full body shot of ${entityDesc}. detailed, photorealistic, containment cell, scp foundation record photo`;
             generateImage(mainPrompt, "1:1").then(mainUrl => {
                  if(mainUrl) setGameState(prev => ({...prev, mainImage: mainUrl}));
             });

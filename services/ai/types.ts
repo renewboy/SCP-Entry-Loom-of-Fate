@@ -7,7 +7,7 @@ export interface AIService {
     getChatHistory(): Promise<any[]>;
     restoreChatSession(history: any[], role: string, language: Language): Promise<void>;
     generateAudioDramaScript(messages: Message[], role: string, scpDesignation: string, language: Language): Promise<AudioDramaScript | null>;
-    generateGameReview(scpData: SCPData, role: string, ending: EndingType, language: Language, messages: Message[], stabilityHistory: number[]): Promise<GameReviewData>;
+    generateGameReview(role: string, ending: EndingType, language: Language): Promise<GameReviewData>;
     askNarratorQuestion(question: string, language: Language): AsyncGenerator<string>;
     generateLegacyData(ending: string, role: string, language: Language): Promise<LegacyGenerationResult>;
 }

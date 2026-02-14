@@ -103,7 +103,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
     if (!scpData) return;
     setIsGenerating(true);
     try {
-        const review = await generateGameReview(scpData, role, endingType, language, messages, stabilityHistory);
+        const review = await generateGameReview(role, endingType, language);
         onReviewUpdate(review);
         setTimeout(() => {
             reviewRef.current?.scrollIntoView({ behavior: 'smooth' });

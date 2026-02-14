@@ -107,15 +107,11 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
     const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
     const getBgPrompt = (data: SCPData) => {
-        return data.visualDescription ? 
-            `Atmospheric, cinematic lighting, abstract horror background representing ${data.visualDescription}, subtle, texture, scp foundation style, dark moody` : 
-            `Atmospheric, cinematic lighting, abstract horror background representing SCP Foundation, subtle, texture, scp foundation style, dark moody`;
+        return `Atmospheric, cinematic lighting, abstract horror background representing ${data.visualDescription ? data.visualDescription : 'SCP Foundation'}, subtle, texture, scp foundation style, dark moody`;
     };
 
     const getEntityPrompt = (data: SCPData) => {
-        return data.entityDescription ? 
-            `Close up full body shot of ${data.name}. ${data.entityDescription}. detailed, photorealistic, containment cell, scp foundation record photo` : 
-            `Close up full body shot of entity. SCP entity, detailed, photorealistic, containment cell, scp foundation record photo`;
+        return `Close up full body shot of ${data.entityDescription ? data.entityDescription : data.designation}. detailed, photorealistic, containment cell, scp foundation record photo`;
     };
 
     useEffect(() => {

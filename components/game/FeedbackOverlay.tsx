@@ -10,7 +10,7 @@ interface FeedbackOverlayProps {
 
 interface Notification {
   id: string;
-  type: 'UNLOCK' | 'OBJECTIVE' | 'LOCATION' | 'SYSTEM';
+  type: 'UNLOCK' | 'OBJECTIVE' | 'OBJECTIVE_ADD' | 'OBJECTIVE_DELETE' | 'OBJECTIVE_FAIL' | 'LOCATION' | 'SYSTEM';
   message: string;
   subMessage?: string;
   timestamp: number;
@@ -59,13 +59,36 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
       setTimeout(() => setLocationScanActive(false), 2000);
     }
 
-    // 2. Check Objective Completion
     if (curr.objectives) {
       curr.objectives.forEach(obj => {
         const prevObj = prev.objectives?.find(p => p.id === obj.id);
         if (prevObj && prevObj.status !== 'COMPLETED' && obj.status === 'COMPLETED') {
           addNotification('OBJECTIVE', t('game.objective_completed'), obj.title);
           playSfx('objectiveComplete');
+        }
+        if (prevObj && prevObj.status !== 'FAILED' && obj.status === 'FAILED') {
+          addNotification('OBJECTIVE_FAIL', t('game.objective_failed'), obj.title);
+          playSfx('glitch');
+        }
+      });
+    }
+
+    if (curr.objectives) {
+      const prevIds = new Set((prev.objectives || []).map(o => o.id));
+      curr.objectives.forEach(obj => {
+        if (!prevIds.has(obj.id)) {
+          addNotification('OBJECTIVE_ADD', t('game.objective_added'), obj.title);
+          playSfx('objectiveComplete');
+        }
+      });
+    }
+
+    if (prev.objectives && curr.status === GameStatus.PLAYING) {
+      const currIds = new Set((curr.objectives || []).map(o => o.id));
+      prev.objectives.forEach(obj => {
+        if (!currIds.has(obj.id)) {
+          addNotification('OBJECTIVE_DELETE', t('game.objective_deleted'), obj.title);
+          playSfx('glitch');
         }
       });
     }
@@ -138,6 +161,9 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
               relative overflow-hidden w-full bg-black/80 border-l-4 p-4 shadow-lg backdrop-blur-md transition-all duration-500 animate-in slide-in-from-top-4 fade-in scp-term_fix
               ${notif.type === 'UNLOCK' ? 'border-l-scp-term_fix text-scp-term_fix' : ''}
               ${notif.type === 'OBJECTIVE' ? 'border-l-amber-500 text-amber-400' : ''}
+              ${notif.type === 'OBJECTIVE_ADD' ? 'border-l-emerald-500 text-emerald-400' : ''}
+              ${notif.type === 'OBJECTIVE_DELETE' ? 'border-l-slate-500 text-slate-300' : ''}
+              ${notif.type === 'OBJECTIVE_FAIL' ? 'border-l-red-600 text-red-400' : ''}
               ${notif.type === 'LOCATION' ? 'border-l-sky-500 text-sky-400' : ''}
               ${notif.type === 'SYSTEM' ? 'border-l-scp-alert text-scp-alert/80' : ''}
             `}
@@ -160,6 +186,9 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
                 <div className="opacity-50">
                     {notif.type === 'UNLOCK' && <Unlock className="w-5 h-5" />}
                     {notif.type === 'OBJECTIVE' && <CheckCircle2 className="w-5 h-5" />}
+                    {notif.type === 'OBJECTIVE_ADD' && <CheckCircle2 className="w-5 h-5" />}
+                    {notif.type === 'OBJECTIVE_DELETE' && <CheckCircle2 className="w-5 h-5" />}
+                    {notif.type === 'OBJECTIVE_FAIL' && <CheckCircle2 className="w-5 h-5" />}
                     {notif.type === 'LOCATION' && <MapPin className="w-5 h-5" />}
                     {notif.type === 'SYSTEM' && <CheckCircle2 className="w-5 h-5" />}
                 </div>

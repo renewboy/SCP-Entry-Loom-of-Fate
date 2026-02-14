@@ -168,12 +168,9 @@ export class OpenAIProvider implements AIService {
     }
 
     async generateGameReview(
-        scpData: SCPData,
         role: string,
         ending: EndingType,
         language: Language,
-        messages: Message[] = [],
-        stabilityHistory: number[] = []
     ): Promise<GameReviewData> {
         if (this.messages.length === 0) {
             return normalizeGameReviewData(null);
