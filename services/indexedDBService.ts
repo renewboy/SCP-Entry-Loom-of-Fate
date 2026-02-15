@@ -7,10 +7,11 @@ export const ERROR_CODES = {
 
 const MAX_SAVES = 10;
 const DB_NAME = 'scp_saves';
-const DB_VERSION = 5; // Increment version
+const DB_VERSION = 6;
 const STORE_NAME = 'saves';
 const CLOUD_STORE_NAME = 'cloud_saves';
 const SETTINGS_STORE_NAME = 'settings';
+const RAG_STORE_NAME = 'rag_memories';
 const GLOBAL_SETTINGS_KEY = 'global_settings';
 const EDITING_SCP_DATA_KEY = 'editing_scp_data';
 
@@ -24,6 +25,18 @@ const DEFAULT_SETTINGS: GlobalSettings = {
 
 interface IDBSaveGame extends SaveGameMetadata {
   game_state: { compressed: boolean; data: string };
+}
+
+export interface RagMemoryRecord {
+  id: string;
+  timeline_id: string;
+  scp_number: string;
+  content: string;
+  embedding: number[];
+  role: string;
+  turn_number: number;
+  tags?: any;
+  created_at: string;
 }
 
 const openDB = (): Promise<IDBDatabase> => {
@@ -41,6 +54,11 @@ const openDB = (): Promise<IDBDatabase> => {
       }
       if (!db.objectStoreNames.contains(SETTINGS_STORE_NAME)) {
         db.createObjectStore(SETTINGS_STORE_NAME, { keyPath: 'key' });
+      }
+      if (!db.objectStoreNames.contains(RAG_STORE_NAME)) {
+        const store = db.createObjectStore(RAG_STORE_NAME, { keyPath: 'id' });
+        store.createIndex('by_timeline', 'timeline_id', { unique: false });
+        store.createIndex('by_timeline_scp', ['timeline_id', 'scp_number'], { unique: false });
       }
     };
 
@@ -392,4 +410,157 @@ export const loadSetting = async (key: string): Promise<any> => {
     console.error(`Failed to load setting ${key}`, e);
     return null;
   }
+};
+
+const cosineSimilarity = (a: number[], b: number[]) => {
+    const len = Math.min(a.length, b.length);
+    let dot = 0;
+    let na = 0;
+    let nb = 0;
+    for (let i = 0; i < len; i += 1) {
+        const av = a[i];
+        const bv = b[i];
+        dot += av * bv;
+        na += av * av;
+        nb += bv * bv;
+    }
+    if (na === 0 || nb === 0) return 0;
+    return dot / (Math.sqrt(na) * Math.sqrt(nb));
+};
+
+const readAllByIndex = async <T>(db: IDBDatabase, storeName: string, indexName: string, key: IDBValidKey | IDBKeyRange) => {
+    return new Promise<T[]>((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
+        const index = store.index(indexName);
+        const req = index.getAll(key);
+        req.onsuccess = () => resolve((req.result || []) as T[]);
+        req.onerror = () => reject(req.error);
+    });
+};
+
+const deleteByIndex = async (db: IDBDatabase, storeName: string, indexName: string, key: IDBValidKey | IDBKeyRange) => {
+    return new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        const index = store.index(indexName);
+        const cursorReq = index.openCursor(key);
+        cursorReq.onsuccess = () => {
+            const cursor = cursorReq.result;
+            if (!cursor) {
+                resolve();
+                return;
+            }
+            cursor.delete();
+            cursor.continue();
+        };
+        cursorReq.onerror = () => reject(cursorReq.error);
+    });
+};
+
+export const archiveLocalMemories = async (memories: Omit<RagMemoryRecord, 'id' | 'created_at'>[]): Promise<{ error: any }> => {
+    try {
+        if (!Array.isArray(memories) || memories.length === 0) return { error: null };
+        const db = await openDB();
+        const { timeline_id, scp_number } = memories[0];
+        if (!timeline_id || !scp_number) return { error: null };
+
+        await deleteByIndex(db, RAG_STORE_NAME, 'by_timeline_scp', [timeline_id, scp_number]);
+
+        const payload: RagMemoryRecord[] = memories.map(m => ({
+            id: crypto.randomUUID(),
+            created_at: new Date().toISOString(),
+            ...m
+        }));
+
+        await new Promise<void>((resolve, reject) => {
+            const tx = db.transaction(RAG_STORE_NAME, 'readwrite');
+            const store = tx.objectStore(RAG_STORE_NAME);
+            payload.forEach(item => store.put(item));
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+
+        return { error: null };
+    } catch (error) {
+        return { error };
+    }
+};
+
+export const deleteLocalMemoriesByTimelineId = async (timelineId: string): Promise<{ error: any }> => {
+    try {
+        if (!timelineId) return { error: null };
+        const db = await openDB();
+        await deleteByIndex(db, RAG_STORE_NAME, 'by_timeline', timelineId);
+        return { error: null };
+    } catch (error) {
+        return { error };
+    }
+};
+
+export const loadLocalMemoriesByTimelineId = async (timelineId: string): Promise<{ data: RagMemoryRecord[] | null; error: any }> => {
+    try {
+        if (!timelineId) return { data: [], error: null };
+        const db = await openDB();
+        const items = await readAllByIndex<RagMemoryRecord>(db, RAG_STORE_NAME, 'by_timeline', timelineId);
+        return { data: items, error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
+};
+
+export const duplicateLocalMemories = async (oldTimelineId: string, newTimelineId: string): Promise<{ error: any }> => {
+    try {
+        if (!oldTimelineId || !newTimelineId) return { error: null };
+        const db = await openDB();
+        const oldItems = await readAllByIndex<RagMemoryRecord>(db, RAG_STORE_NAME, 'by_timeline', oldTimelineId);
+        if (!oldItems.length) return { error: null };
+        const newItems: RagMemoryRecord[] = oldItems.map(item => ({
+            ...item,
+            id: crypto.randomUUID(),
+            timeline_id: newTimelineId,
+            created_at: new Date().toISOString()
+        }));
+        await new Promise<void>((resolve, reject) => {
+            const tx = db.transaction(RAG_STORE_NAME, 'readwrite');
+            const store = tx.objectStore(RAG_STORE_NAME);
+            newItems.forEach(item => store.put(item));
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+        return { error: null };
+    } catch (error) {
+        return { error };
+    }
+};
+
+export const searchLocalMemories = async (
+    queryEmbedding: number[],
+    timelineId: string,
+    threshold = 0.75,
+    limit = 3
+): Promise<{ data: RagMemoryRecord[] | null; error: any }> => {
+    try {
+        if (!timelineId || !Array.isArray(queryEmbedding) || queryEmbedding.length === 0) {
+            return { data: [], error: null };
+        }
+        const db = await openDB();
+        const items = await readAllByIndex<RagMemoryRecord>(db, RAG_STORE_NAME, 'by_timeline', timelineId);
+        if (!items.length) return { data: [], error: null };
+
+        const scored = items.map(item => ({
+            item,
+            score: Array.isArray(item.embedding) ? cosineSimilarity(queryEmbedding, item.embedding) : 0
+        }));
+
+        const filtered = scored
+            .filter(x => x.score >= threshold)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, Math.max(0, limit))
+            .map(x => x.item);
+
+        return { data: filtered, error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
 };

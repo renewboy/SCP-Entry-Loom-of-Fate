@@ -181,6 +181,65 @@ export const searchMemories = async (
     return { data, error: null };
 };
 
+const normalizeVectorEmbedding = (value: any): number[] | null => {
+    if (Array.isArray(value) && value.every(v => typeof v === 'number')) return value as number[];
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    try {
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed) && parsed.every(v => typeof v === 'number')) return parsed as number[];
+        }
+    } catch {
+    }
+    return null;
+};
+
+export const loadMemoriesByTimelineId = async (
+    timelineId: string
+): Promise<{ data: Array<{
+    id: string;
+    timeline_id: string;
+    scp_number: string;
+    content: string;
+    embedding: number[] | null;
+    role: string;
+    turn_number: number;
+    tags?: any;
+    created_at: string;
+}> | null; error: any }> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const isSandbox = isSandboxUser();
+
+    if (!user && !isSandbox) {
+        return { data: [], error: null };
+    }
+
+    if (!timelineId) return { data: [], error: null };
+
+    const { data, error } = await supabase
+        .from('memories')
+        .select('id,timeline_id,scp_number,content,embedding,role,turn_number,tags,created_at')
+        .eq('timeline_id', timelineId);
+
+    if (error) return { data: null, error };
+
+    const normalized = (data || []).map((m: any) => ({
+        id: m.id,
+        timeline_id: m.timeline_id,
+        scp_number: m.scp_number,
+        content: m.content,
+        embedding: normalizeVectorEmbedding(m.embedding),
+        role: m.role,
+        turn_number: m.turn_number,
+        tags: m.tags,
+        created_at: m.created_at
+    }));
+
+    return { data: normalized, error: null };
+};
+
 export const signOut = async () => {
   if (isSandboxUser()) {
       localStorage.removeItem(SANDBOX_STORAGE_KEY);

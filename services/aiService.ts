@@ -5,8 +5,9 @@ import { OpenAIProvider } from "./ai/providers/openaiProvider";
 import { aiConfig } from "../config/aiConfig";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty } from "../types";
 import { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate } from "./ai/utils";
-import { archiveMemories, searchMemories } from './supabaseService';
 import { getEmbeddings } from "./ai/providers/embeddingProvider";
+import { searchLocalMemories } from "./indexedDBService";
+import { searchStagedRagMemories } from "./ragStaging";
 
 // Re-export utils for consumers
 export { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate };
@@ -71,13 +72,18 @@ export const retrieveRelevantMemories = async (
         const embeddings = await getEmbeddings([action]);
         if (!embeddings || embeddings.length === 0) return "";
         
-        const { data } = await searchMemories(embeddings[0], timelineId);
-        
-        if (!data || data.length === 0) return "";
+        const { data } = await searchLocalMemories(embeddings[0], timelineId);
         
         // Filter out recently used memories
         const recentIds = new Set(validRecentMemories.map(m => m.id));
-        const newMemories = data.filter((m: any) => !recentIds.has(m.id));
+        const stagedHits = searchStagedRagMemories(embeddings[0], timelineId, recentIds);
+        const localHits = (data || []).filter((m: any) => !recentIds.has(m.id));
+        const merged = [
+            ...stagedHits.map(h => ({ id: h.id, content: h.content, role: h.role, scp_number: h.scp_number })),
+            ...localHits
+        ];
+        if (merged.length === 0) return "";
+        const newMemories = merged;
         console.log(`[Turn ${turnCount}] new memories:`, newMemories);
 
         if (newMemories.length === 0) return "";
@@ -150,38 +156,7 @@ export const generateLegacyData = async (
     timelineId?: string,
     scpDesignation?: string
 ): Promise<LegacyGenerationResult> => {
-    const result = await getProvider().generateLegacyData(ending, role, language);
-    
-    // Asynchronous Memory Archival
-    if (timelineId && result.memoryRecords && result.memoryRecords.length > 0) {
-        // Filter out null summaries
-        const validMemories = result.memoryRecords.filter(m => m.summary && m.summary.trim().length > 0);
-        
-        if (validMemories.length > 0) {
-            console.log(`[AIService] Archiving ${validMemories.length} summarized memories for timeline ${timelineId}...`);
-            try {
-                const summaries = validMemories.map(m => m.summary as string);
-                const embeddings = await getEmbeddings(summaries);
-                
-                const memoryPayload = validMemories.map((m, i) => ({
-                    timeline_id: timelineId,
-                    scp_number: scpDesignation || 'UNKNOWN',
-                    content: m.summary as string,
-                    embedding: embeddings[i],
-                    role: role,
-                    turn_number: m.turn,
-                    tags: { keywords: m.keywords, source: 'ai_summary' }
-                }));
-                
-                await archiveMemories(memoryPayload);
-                console.log(`[AIService] Successfully archived memories.`);
-            } catch (e) {
-                console.error("[AIService] Failed to archive summarized memories:", e);
-            }
-        }
-    }
-    
-    return result;
+    return getProvider().generateLegacyData(ending, role, language);
 };
 
 // Image Generation (Always uses Gemini Provider via Facade.)

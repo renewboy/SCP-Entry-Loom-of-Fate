@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from '../utils/i18n';
 import * as IDB from '../services/indexedDBService';
 import * as Cloud from '../services/supabaseService';
+import { flushStagedRagMemoriesToTimeline } from '../services/ragStaging';
 import { SaveGameMetadata } from '../types';
 import { GameState, GameStatus } from '../types';
 import ConfirmationModal from './ConfirmationModal';
@@ -233,6 +234,62 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
   };
 
     const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
+    
+    const mirrorLocalMemoriesToCloud = async (timelineId: string) => {
+        if (!user || !timelineId) return;
+        const { data } = await IDB.loadLocalMemoriesByTimelineId(timelineId);
+        const items = data || [];
+        if (items.length === 0) return;
+        const byScp = new Map<string, typeof items>();
+        items.forEach(item => {
+            const list = byScp.get(item.scp_number) || [];
+            list.push(item);
+            byScp.set(item.scp_number, list);
+        });
+        for (const group of byScp.values()) {
+            const { error } = await Cloud.archiveMemories(group);
+            if (error) console.error("Failed to mirror local memories to cloud", error);
+        }
+    };
+
+    const syncCloudMemoriesToLocal = async (timelineId: string) => {
+        if (!timelineId) return;
+        const { data, error } = await Cloud.loadMemoriesByTimelineId(timelineId);
+        if (error) {
+            console.error("Failed to load cloud memories", error);
+            return;
+        }
+        const items = (data || []).filter(m => Array.isArray(m.embedding) && m.embedding.length > 0);
+        if (items.length === 0) return;
+        const byScp = new Map<string, typeof items>();
+        items.forEach(item => {
+            const list = byScp.get(item.scp_number) || [];
+            list.push(item);
+            byScp.set(item.scp_number, list);
+        });
+        for (const group of byScp.values()) {
+            const { error: localError } = await IDB.archiveLocalMemories(group.map(m => ({
+                timeline_id: timelineId,
+                scp_number: m.scp_number || 'UNKNOWN',
+                content: m.content,
+                embedding: m.embedding as number[],
+                role: m.role || 'UNKNOWN',
+                turn_number: typeof m.turn_number === 'number' ? m.turn_number : 0,
+                tags: m.tags
+            })));
+            if (localError) console.error("Failed to archive cloud memories to local store", localError);
+        }
+    };
+
+    const downloadCloudSaveToLocal = async (id: string, createdAt?: string) => {
+        const { data: fullState, error } = await Cloud.loadGameFull(id);
+        if (fullState && !error) {
+            await IDB.saveGame(fullState, id, createdAt);
+            await IDB.updateCloudSyncStatus(id, true);
+            await syncCloudMemoriesToLocal(id);
+        }
+        return { data: fullState, error };
+    };
 
     // Sync Logic: Cloud -> Local (Download)
     const syncCloudToLocal = async (cloudSave: SaveGameMetadata) => {
@@ -241,13 +298,8 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
         
         try {
             console.log(`Auto-syncing save ${cloudSave.id} from cloud...`);
-            const { data: fullState, error } = await Cloud.loadGameFull(cloudSave.id);
+            const { data: fullState, error } = await downloadCloudSaveToLocal(cloudSave.id, cloudSave.created_at);
             if (fullState && !error) {
-                // Save to IDB using Cloud Timestamp
-                await IDB.saveGame(fullState, cloudSave.id, cloudSave.created_at);
-                // Update Cache status
-                await IDB.updateCloudSyncStatus(cloudSave.id, true);
-                
                 // Update UI: Mark as synced
                 setSaves(prev => prev.map(s => s.id === cloudSave.id ? { ...s, is_cloud_synced: true } : s));
             } else {
@@ -294,6 +346,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
                     
                     // Update UI state locally to reflect sync
                     setSaves(prev => prev.map(s => s.id === save.id ? { ...s, is_cloud_synced: true } : s));
+                    await mirrorLocalMemoriesToCloud(save.id);
                 }
             }
             
@@ -307,11 +360,11 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
     };
 
   const handleMemoryUpdates = async (overwriteId: string | undefined, savedId: string | undefined, currentSaveId: string | undefined) => {
-    if (overwriteId && currentSaveId && overwriteId !== currentSaveId) {
+    if (overwriteId && overwriteId !== currentSaveId) {
       const { error: purgeError } = await Cloud.deleteMemoriesByTimelineId(overwriteId);
-      if (purgeError) {
-        console.error("Failed to delete memories for overwritten save", purgeError);
-      }
+      if (purgeError) console.error("Failed to delete memories for overwritten save", purgeError);
+      const { error: purgeLocalError } = await IDB.deleteLocalMemoriesByTimelineId(overwriteId);
+      if (purgeLocalError) console.error("Failed to delete local memories for overwritten save", purgeLocalError);
     }
 
     // --- Memory Duplication Logic ---
@@ -324,6 +377,9 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
       Cloud.duplicateMemories(currentSaveId, savedId).then(({ error }) => {
         if (error) console.error("Failed to duplicate memories for new save", error);
         else console.log("Memories duplicated successfully.");
+      });
+      IDB.duplicateLocalMemories(currentSaveId, savedId).then(({ error }) => {
+        if (error) console.error("Failed to duplicate local memories for new save", error);
       });
     }
   };
@@ -354,6 +410,10 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
       }
 
       await handleMemoryUpdates(overwriteId, savedData?.id, currentGameState.saveId);
+      if (savedData && savedData.id) {
+        const { payload, error: flushError } = await flushStagedRagMemoriesToTimeline(currentGameState.saveId, savedData.id);
+        if (flushError) console.error("Failed to flush staged memories to local store", flushError);
+      }
 
       // 2. If logged in, Auto-Sync to Cloud
       if (user && savedData && savedData.id) {
@@ -440,13 +500,9 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
     // If we are logged in, try fetching from cloud
     if (user) {
         console.log("Local load failed, trying cloud fallback...");
-        const { data: cloudData, error: cloudError } = await Cloud.loadGameFull(save.id);
+        const { data: cloudData, error: cloudError } = await downloadCloudSaveToLocal(save.id, save.created_at);
         
         if (cloudData && !cloudError) {
-             // Cache to local
-            await IDB.saveGame(cloudData, save.id);
-            await IDB.updateCloudSyncStatus(save.id, true);
-            
             setError(t('save_load.download_success')); 
             // Ensure saveId is injected into GameState
             onLoadGame({ ...cloudData, saveId: save.id });
@@ -495,6 +551,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
           
           setError(t('save_load.synced_success'));
           setSaves(prev => prev.map(s => s.id === id ? { ...s, is_cloud_synced: true } : s));
+          await mirrorLocalMemoriesToCloud(id);
           setTimeout(() => setError(null), 2000);
       }
       setLoading(false);

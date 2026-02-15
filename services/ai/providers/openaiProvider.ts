@@ -79,17 +79,18 @@ export class OpenAIProvider implements AIService {
         }
 
         const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, mapContext);
-        this.messages.push({ role: "user", content: contextPrompt });
 
         try {
             let fullResponse = "";
             for await (const delta of streamSse<string>("/api/ai/openai/response-stream", {
-                input: this.messages,
+                input: [...this.messages, { role: "user", content: contextPrompt }],
                 tools: [],
             })) {
                 fullResponse += delta;
                 yield delta;
             }
+            console.log("[OpenAIProvider] sendAction complete. Response: ", fullResponse);
+            this.messages.push({ role: "user", content: contextPrompt });
             this.messages.push({ role: "assistant", content: fullResponse });
 
         } catch (err) {

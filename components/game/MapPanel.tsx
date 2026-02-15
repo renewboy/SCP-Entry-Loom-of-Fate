@@ -21,6 +21,8 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
   const [isPanning, setIsPanning] = useState(false);
   const [panOrigin, setPanOrigin] = useState<{ x: number; y: number; originX: number; originY: number } | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [hoveredObjectiveId, setHoveredObjectiveId] = useState<string | null>(null);
+  const [activeObjectiveId, setActiveObjectiveId] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -99,6 +101,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
 
     const npcsHere = (gameState.npcs || []).filter(n => n.alive && n.nodeId === runtime.currentNodeId);
     const objectives = (gameState.objectives || []);
+    const objectiveById = new Map(objectives.map(o => [o.id, o]));
 
     const npcCountByNode = new Map<string, number>();
     const npcNamesByNode = new Map<string, string[]>();
@@ -184,7 +187,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
       to: minimapPositionById.get(edge.to) || null
     })).filter(e => e.from && e.to) as { from: typeof minimapNodes[number]; to: typeof minimapNodes[number] }[];
 
-    return { currentNode, neighbors, npcsHere, objectives, minimapNodes, minimapEdges };
+    return { currentNode, neighbors, npcsHere, objectives, objectiveById, minimapNodes, minimapEdges };
   }, [blueprint, runtime, gameState.inventory, gameState.npcs, gameState.objectives, gameState.map, gameState.scpData]);
 
   // Auto-follow effect: Center view when current node changes
@@ -239,6 +242,10 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
 
   const zoomIn = () => setViewTransform(prev => ({ ...prev, scale: Math.min(3.0, prev.scale + 0.2) }));
   const zoomOut = () => setViewTransform(prev => ({ ...prev, scale: Math.max(0.5, prev.scale - 0.2) }));
+  const isTouchMode = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return (navigator.maxTouchPoints || 0) > 0 || window.matchMedia('(hover: none)').matches;
+  }, []);
 
   // Helper to render node shape based on danger level
   const renderNodeShape = (x: number, y: number, danger: number, isCurrent: boolean, discovered: boolean) => {
@@ -333,6 +340,8 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
         </g>
     );
   };
+
+  const activeObjective = (activeObjectiveId ? data.objectiveById.get(activeObjectiveId) : null) || null;
 
   return (
     <SidePanel side="right" className="fixed top-16 bottom-4 hidden lg:flex w-80">
@@ -618,6 +627,25 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
 
         {/* List Views (Adjacency, etc.) */}
         <div className="space-y-3 pt-2">
+            {activeObjective && isTouchMode && (
+              <div className="border border-scp-term/30 bg-black/60 px-2 py-2 text-[11px] text-scp-text/80 space-y-1">
+                <div className="flex items-center justify-between gap-2 border-b border-scp-term/20 pb-1">
+                  <div className="font-bold truncate">{activeObjective.type === 'MAIN' ? 'MAIN' : 'SIDE'} | {activeObjective.title}</div>
+                  <button
+                    onClick={() => setActiveObjectiveId(null)}
+                    className="text-scp-text/60 hover:text-scp-text border border-scp-gray/30 px-1.5 py-0.5"
+                  >
+                    ×
+                  </button>
+                </div>
+                {activeObjective.detail && (
+                  <div className="flex gap-2">
+                    <span className="text-gray-400 shrink-0">{t('map_editor.obj_detail')}</span>
+                    <span className="whitespace-pre-wrap break-words">{activeObjective.detail}</span>
+                  </div>
+                )}
+              </div>
+            )}
              {/* Neighbors */}
              <div>
                 <h3 className="font-mono text-[12px] font-bold text-scp-term/80 uppercase mb-1">{t('game.map_adjacency')}</h3>
@@ -670,24 +698,49 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
               <div>
                 <h3 className="font-mono text-[12px] font-bold text-scp-term/80 uppercase mb-1">{t('game.map_objectives')}</h3>
                 <div className="space-y-1">
-                  {data.objectives.map(o => (
-                    <button
-                      key={o.id}
-                      onClick={() => onQuickAction(`${t('game.map_review_objective')} [${o.title}]`)}
-                      className="w-full text-left px-2 py-1.5 border border-scp-gray/30 text-scp-text hover:border-scp-term/60 hover:bg-scp-term/10 font-mono text-[12px] transition-colors group"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate font-bold group-hover:text-scp-term transition-colors">{o.type === 'MAIN' ? 'MAIN' : 'SIDE'} | {o.title}</span>
-                        <span className={`text-[11px] font-mono ${statusColor(o.status)}`}>{statusLabel(o.status)}</span>
+                  {data.objectives.map(o => {
+                    const isActive = hoveredObjectiveId === o.id || activeObjectiveId === o.id;
+                    const hasDetails = !!o.detail;
+                    return (
+                      <div
+                        key={o.id}
+                        onMouseEnter={() => setHoveredObjectiveId(o.id)}
+                        onMouseLeave={() => setHoveredObjectiveId(null)}
+                      >
+                        <button
+                          onClick={() => {
+                            if (isTouchMode && activeObjectiveId !== o.id) {
+                              setActiveObjectiveId(o.id);
+                              return;
+                            }
+                            onQuickAction(`${t('game.map_review_objective')} [${o.title}]`);
+                          }}
+                          className="w-full text-left px-2 py-1.5 border border-scp-gray/30 text-scp-text hover:border-scp-term/60 hover:bg-scp-term/10 font-mono text-[12px] transition-colors group"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate font-bold group-hover:text-scp-term transition-colors">{o.type === 'MAIN' ? 'MAIN' : 'SIDE'} | {o.title}</span>
+                            <span className={`text-[11px] font-mono ${statusColor(o.status)}`}>{statusLabel(o.status)}</span>
+                          </div>
+                          <div className="mt-1 text-[11px] text-gray-500 flex justify-between items-center">
+                            <div className="w-full bg-gray-800 h-1 rounded-full mr-2 overflow-hidden">
+                                <div className="bg-scp-term h-full" style={{ width: `${Math.max(0, Math.min(100, Math.round(o.progress)))}%` }}></div>
+                            </div>
+                            <span>{Math.max(0, Math.min(100, Math.round(o.progress)))}%</span>
+                          </div>
+                        </button>
+                        {isActive && hasDetails && (
+                          <div className="mt-1 border border-scp-gray/30 bg-black/40 px-2 py-1 text-[11px] text-scp-text/80 space-y-1">
+                            {o.detail && (
+                              <div className="flex gap-2">
+                                <span className="text-gray-400 shrink-0">{t('map_editor.obj_detail')}</span>
+                                <span className="whitespace-pre-wrap break-words">{o.detail}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <div className="mt-1 text-[11px] text-gray-500 flex justify-between items-center">
-                        <div className="w-full bg-gray-800 h-1 rounded-full mr-2 overflow-hidden">
-                            <div className="bg-scp-term h-full" style={{ width: `${Math.max(0, Math.min(100, Math.round(o.progress)))}%` }}></div>
-                        </div>
-                        <span>{Math.max(0, Math.min(100, Math.round(o.progress)))}%</span>
-                      </div>
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

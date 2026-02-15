@@ -6,6 +6,7 @@ import { Message, SCPData, EndingType, GameReviewData, QAPair, LegacyData, Trait
 import { Dna, Mic, Package, Radio, RotateCcw, Sparkles } from 'lucide-react';
 import { useTranslation } from '../utils/i18n';
 import { generateGameReview, askNarratorQuestion, generateAudioDramaScript, generateLegacyData } from '../services/aiService';
+import { stageRagMemories } from '../services/ragStaging';
 import GameReviewReport from './GameReviewReport';
 import QAHistory from './QAHistory';
 import DebugAudioPlayer from './game/DebugAudioPlayer';
@@ -121,6 +122,13 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
       try {
           // Generate Legacy Data & Archive Memories (RAG)
           const generated = await generateLegacyData(endingType || 'UNKNOWN', role, language, saveId, scpData?.designation);
+          if (generated.memoryRecords && generated.memoryRecords.length > 0) {
+            await stageRagMemories(saveId, {
+              scp_number: scpData?.designation || 'UNKNOWN',
+              role,
+              records: generated.memoryRecords
+            });
+          }
           
           // Combine with existing legacy data
           const combinedTraits = [
