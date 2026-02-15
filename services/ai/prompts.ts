@@ -96,7 +96,7 @@ Goal:
 3) Extract:
   - official title (localized to ${langInstruction})
   - containmentClass.
-4) Generate story draft fields (concise, in English):
+4) Generate story draft fields (concise, in ${langInstruction}):
   - storyDraft.roleDetails: short profile of the player role.
   - storyDraft.storyBackground: brief overarching premise and context.
 4) Generate two ENGLISH visual strings for image templates:
