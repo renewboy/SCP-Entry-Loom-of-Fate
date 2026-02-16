@@ -48,7 +48,7 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
             });
         }
 
-        const stream = initializeGameChatStream(finalScpData, gameState.role, language, gameState.legacy, difficulty);
+        const stream = await initializeGameChatStream(finalScpData, gameState.role, language, gameState.legacy, difficulty);
         const msgId = 'intro';
         let fullText = "";
         let isFirstChunk = true;

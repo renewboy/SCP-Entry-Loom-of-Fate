@@ -5,6 +5,9 @@ import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getConte
 import { normalizeGameReviewData, safeParseJson } from "../utils";
 import { AudioDramaSchema } from "../schemas";
 import { postJson, streamSse } from "./backendClient";
+import { aiConfig } from "../../../config/aiConfig";
+import { imageSizeFromAspectRatio } from "../utils";
+import { getEffectiveAIConfig } from "../../aiConfigService";
 
 type ChatMessage = {
   role: "system" | "user" | "assistant";
@@ -15,14 +18,48 @@ export class OpenAIProvider implements AIService {
     private systemInstruction: string = "";
     private gameReviewHistory: ChatMessage[] = [];
     private qaHistory: ChatMessage[] = [];
+    private cachedConfig: { apiKey: string; baseUrl: string; chatModel: string; imageModel: string } | null = null;
+
+    private async getConfig() {
+        if (this.cachedConfig) return this.cachedConfig;
+        const effective = await getEffectiveAIConfig();
+        console.log(`[OpenAIProvider] Effective Config: ${JSON.stringify(effective)}`);
+        this.cachedConfig = {
+            apiKey: effective.openai.apiKey,
+            baseUrl: effective.openai.baseUrl,
+            chatModel: effective.openai.chatModel,
+            imageModel: effective.openai.imageModel,
+        };
+        return this.cachedConfig;
+    }
 
     constructor() {
     }
 
+    public async generateImage(prompt: string, aspectRatio: "1:1" | "16:9" | "3:4" = "1:1"): Promise<string | null> {
+        try {
+            const config = await this.getConfig();
+            const { imageDataUrl } = await postJson<{ imageDataUrl: string | null }>("/api/ai/openai/generate-image", {
+                apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
+                model: config.imageModel,
+                size: imageSizeFromAspectRatio(aspectRatio),
+                prompt,
+            });
+            return imageDataUrl;
+        } catch (error) {
+            return null;
+        }
+    }
+
     async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData): Promise<SCPData> {
         try {
+            const config = await this.getConfig();
             const prompt = getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData);
             const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
+                apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
+                chatModel: config.chatModel,
                 input: prompt,
                 tools: [{ type: "web_search" }],
             });
@@ -49,6 +86,7 @@ export class OpenAIProvider implements AIService {
     async *initializeGameChatStream(scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData, difficulty: GameDifficulty = 'normal'): AsyncGenerator<string> {
         console.log(`[OpenAIProvider] Initializing chat stream for ${scp.designation} as ${role} in ${language}`);
         this.systemInstruction = getSystemInstruction(role, language);
+        const config = await this.getConfig();
         const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyData, scp.mapBlueprint, scp.storyDraft);
 
         console.log("[OpenAIProvider] Sending start message... ", startPrompt);
@@ -61,6 +99,9 @@ export class OpenAIProvider implements AIService {
 
         let fullResponse = "";
         for await (const delta of streamSse<string>("/api/ai/openai/response-stream", {
+            apiKey: config.apiKey,
+            baseUrl: config.baseUrl,
+            chatModel: config.chatModel,
             input: this.messages,
             tools: [{ type: "web_search" }],
         })) {
@@ -72,6 +113,7 @@ export class OpenAIProvider implements AIService {
 
     async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh', ragContext?: string, mapContext?: string): AsyncGenerator<string> {
         console.log(`[OpenAIProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}`);
+        const config = await this.getConfig();
 
         if (this.messages.length === 0) {
             console.error("[OpenAIProvider] CRITICAL: messages empty. Game state may have been reset.");
@@ -83,6 +125,9 @@ export class OpenAIProvider implements AIService {
         try {
             let fullResponse = "";
             for await (const delta of streamSse<string>("/api/ai/openai/response-stream", {
+                apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
+                chatModel: config.chatModel,
                 input: [...this.messages, { role: "user", content: contextPrompt }],
                 tools: [],
             })) {
@@ -138,6 +183,7 @@ export class OpenAIProvider implements AIService {
         language: Language = 'zh'
     ): Promise<AudioDramaScript | null> {
         console.log("[OpenAIProvider] Generating Audio Drama Script (JSON)...");
+        const config = await this.getConfig();
         
         const storyLog = messages
             .filter(m => m.sender === 'user' || m.sender === 'narrator')
@@ -148,6 +194,9 @@ export class OpenAIProvider implements AIService {
 
         try {
             const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
+                apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
+                chatModel: config.chatModel,
                 input: prompt,
                 text: {
                     format:  {
@@ -176,11 +225,15 @@ export class OpenAIProvider implements AIService {
         if (this.messages.length === 0) {
             return normalizeGameReviewData(null);
         }
+        const config = await this.getConfig();
 
         const prompt = getGameReviewPrompt(role, ending, language);
 
         try {
             const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
+                apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
+                chatModel: config.chatModel,
                 input: [...this.messages, { role: "user", content: prompt }],
             });
             const text = output_text || "";
@@ -202,6 +255,7 @@ export class OpenAIProvider implements AIService {
             yield language === 'zh' ? "会话连接已丢失。" : "Session connection lost.";
             return;
         }
+        const config = await this.getConfig();
 
         const prompt = getQAPrompt(question, language);
         const qaMessages: ChatMessage[] = [
@@ -214,6 +268,9 @@ export class OpenAIProvider implements AIService {
         try {
             let fullResponse = "";
             for await (const delta of streamSse<string>("/api/ai/openai/response-stream", {
+                apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
+                chatModel: config.chatModel,
                 input: qaMessages,
             })) {
                 fullResponse += delta;
@@ -230,11 +287,15 @@ export class OpenAIProvider implements AIService {
         if (this.messages.length === 0) {
              return { traits: [], items: [], echoes: [] };
         }
+        const config = await this.getConfig();
 
         const prompt = getLegacyGenerationPrompt(ending, role, language);
 
         try {
             const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
+                apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
+                chatModel: config.chatModel,
                 input: [...this.messages, { role: "user", content: prompt }],
             });
             const text = output_text || "";

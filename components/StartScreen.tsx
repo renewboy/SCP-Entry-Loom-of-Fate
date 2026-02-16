@@ -12,6 +12,7 @@ import GameLogo from './GameLogo';
 import LegacySidebar from './LegacySidebar';
 import GlobalSettingsModal from './GlobalSettingsModal';
 import { startGameProcess } from '../utils/gameStart';
+import { checkAIConfigAvailable } from '../services/aiConfigService';
 
 declare global {
     interface Window {
@@ -41,6 +42,8 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
   const [hasApiKey, setHasApiKey] = useState(false);
   const [saveLoadModalOpen, setSaveLoadModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'game' | 'ai'>('game');
+  const [settingsAttention, setSettingsAttention] = useState(false);
   const [showBoot, setShowBoot] = useState(false);
 
   useEffect(() => {
@@ -48,13 +51,11 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
   }, []);
 
   useEffect(() => {
-    // Check for API key on mount
     const checkKey = async () => {
         if (window.aistudio && window.aistudio.hasSelectedApiKey) {
             const hasKey = await window.aistudio.hasSelectedApiKey();
             setHasApiKey(hasKey);
         } else {
-            // Fallback for dev environments without the special window object
             setHasApiKey(true);
         }
     };
@@ -123,6 +124,15 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
 
   const handleStart = async () => {
     if (!urlInput.trim()) return;
+    
+    const configCheck = await checkAIConfigAvailable();
+    if (!configCheck.available) {
+      setSettingsInitialTab('ai');
+      setSettingsAttention(true);
+      setSettingsModalOpen(true);
+      return;
+    }
+    
     setError(null);
     setCanRetryInit(false);
     setLoadingStep(t('start.loading_access'));
@@ -133,11 +143,9 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
       const settings = await loadGlobalSettings();
       const difficulty = settings.difficulty || 'normal';
 
-      // 1. Analyze SCP
       const scpData = await analyzeSCPUrl(urlInput, language, finalRole, difficulty, legacyData);
       setLoadingStep(t('start.loading_retrieved', { designation: scpData.designation }));
 
-      // 4. Transition to Tactical Preview
       setLoadingStep(null);
       setGameState(prev => ({
           ...prev,
@@ -206,7 +214,11 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
 
         {/* Settings Button positioned at the top-right */}
         <button 
-            onClick={() => setSettingsModalOpen(true)}
+            onClick={() => {
+              setSettingsInitialTab('game');
+              setSettingsAttention(false);
+              setSettingsModalOpen(true);
+            }}
             className="absolute top-4 right-4 z-20 text-gray-400 hover:text-white transition-colors p-2"
             title={t('common.settings') || 'Settings'}
         >
@@ -369,7 +381,12 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
 
       <GlobalSettingsModal 
         isOpen={settingsModalOpen} 
-        onClose={() => setSettingsModalOpen(false)} 
+        onClose={() => {
+          setSettingsModalOpen(false);
+          setSettingsAttention(false);
+        }}
+        initialTab={settingsInitialTab}
+        attention={settingsAttention}
       />
     </div>
     </>

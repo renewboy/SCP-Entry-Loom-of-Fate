@@ -120,6 +120,12 @@ export const extractMapUpdate = (text: string): { cleanText: string, update: any
   return { cleanText: cleanText.trim(), update };
 };
 
+export const imageSizeFromAspectRatio = (aspectRatio: "1:1" | "16:9" | "3:4") => {
+  if (aspectRatio === "16:9") return "2560x1440";
+  if (aspectRatio === "3:4") return "1728x2304";
+  return "1024x1024";
+};
+
 export const normalizeGameReviewData = (value: any): GameReviewData => {
   const fallback: GameReviewData = {
     operationName: 'OPERATION [ERROR]',

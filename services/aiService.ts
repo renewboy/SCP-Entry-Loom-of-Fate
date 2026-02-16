@@ -2,22 +2,19 @@ import { Content } from "@google/genai";
 import { AIService } from "./ai/types";
 import { GeminiProvider } from "./ai/providers/geminiProvider";
 import { OpenAIProvider } from "./ai/providers/openaiProvider";
-import { aiConfig } from "../config/aiConfig";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty } from "../types";
 import { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate } from "./ai/utils";
 import { getEmbeddings } from "./ai/providers/embeddingProvider";
 import { searchLocalMemories } from "./indexedDBService";
 import { searchStagedRagMemories } from "./ragStaging";
+import { getEffectiveAIConfig } from "./aiConfigService";
 
-// Re-export utils for consumers
 export { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate };
 
-// Memory Cache for Deduplication
 interface RecentMemory {
     id: string;
     turnUsed: number;
 }
-// Map<timelineId, RecentMemory[]>
 const recentMemoriesMap = new Map<string, RecentMemory[]>();
 
 export const clearMemoryCache = (timelineId?: string) => {
@@ -30,14 +27,21 @@ export const clearMemoryCache = (timelineId?: string) => {
     }
 };
 
-// Singleton instance
 let aiProvider: AIService | null = null;
+let cachedProviderType: string | null = null;
 
-const getProvider = (): AIService => {
-    if (aiProvider) return aiProvider;
+const getProvider = async (): Promise<AIService> => {
+    const effectiveConfig = await getEffectiveAIConfig();
+    const providerType = effectiveConfig.provider;
+    
+    if (aiProvider && cachedProviderType === providerType) {
+        return aiProvider;
+    }
 
-    console.log(`[AIService] Initializing provider: ${aiConfig.provider}`);
-    if (aiConfig.provider === 'openai') {
+    console.log(`[AIService] Initializing provider: ${providerType}`);
+    cachedProviderType = providerType;
+    
+    if (providerType === 'openai') {
         aiProvider = new OpenAIProvider();
     } else {
         aiProvider = new GeminiProvider();
@@ -45,13 +49,17 @@ const getProvider = (): AIService => {
     return aiProvider;
 };
 
-// Facade methods
-export const analyzeSCPUrl = async (input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData): Promise<SCPData> => {
-    return getProvider().analyzeSCPUrl(input, language, role, difficulty, legacyData);
+export const resetProvider = () => {
+    aiProvider = null;
+    cachedProviderType = null;
 };
 
-export const initializeGameChatStream = (scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData, difficulty: GameDifficulty = 'normal'): AsyncGenerator<string> => {
-    return getProvider().initializeGameChatStream(scp, role, language, legacyData, difficulty);
+export const analyzeSCPUrl = async (input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData): Promise<SCPData> => {
+    return (await getProvider()).analyzeSCPUrl(input, language, role, difficulty, legacyData);
+};
+
+export const initializeGameChatStream = async (scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData, difficulty: GameDifficulty = 'normal'): Promise<AsyncGenerator<string>> => {
+    return (await getProvider()).initializeGameChatStream(scp, role, language, legacyData, difficulty);
 };
 
 export const retrieveRelevantMemories = async (
@@ -117,11 +125,11 @@ export const sendAction = async function* (action: string, currentStability: num
     // Inject special token if RAG is active so frontend knows to trigger effect
     // Using a cleaner token strategy: Yield it as a separate chunk FIRST
     if (ragContext) {
-        // Use a standard marker that frontend can easily regex out
         yield "[MEMORY_ACTIVE]"; 
     }
 
-    const generator = getProvider().sendAction(action, currentStability, turnCount, language, ragContext, mapContext);
+    const provider = await getProvider();
+    const generator = provider.sendAction(action, currentStability, turnCount, language, ragContext, mapContext);
     for await (const chunk of generator) {
         yield chunk;
     }
@@ -129,25 +137,25 @@ export const sendAction = async function* (action: string, currentStability: num
 
 
 export const getChatHistory = async (): Promise<Content[]> => {
-// ...
-    return getProvider().getChatHistory();
+    return (await getProvider()).getChatHistory();
 };
 
 export const restoreChatSession = async (history: Content[], role: string, language: Language = 'zh'): Promise<void> => {
-    return getProvider().restoreChatSession(history, role, language);
+    return (await getProvider()).restoreChatSession(history, role, language);
 };
 
 export const generateAudioDramaScript = async (messages: Message[], role: string, scpDesignation: string, language: Language = 'zh'): Promise<AudioDramaScript | null> => {
-    return getProvider().generateAudioDramaScript(messages, role, scpDesignation, language);
+    return (await getProvider()).generateAudioDramaScript(messages, role, scpDesignation, language);
 };
 
 export const generateGameReview = async (role: string, ending: EndingType, language: Language): Promise<GameReviewData> => {
-    return getProvider().generateGameReview(role, ending, language);
+    return (await getProvider()).generateGameReview(role, ending, language);
 };
 
-export const askNarratorQuestion = (question: string, language: Language): AsyncGenerator<string> => {
-    return getProvider().askNarratorQuestion(question, language);
-};
+export async function* askNarratorQuestion(question: string, language: Language): AsyncGenerator<string> {
+    const provider = await getProvider();
+    yield* provider.askNarratorQuestion(question, language);
+}
 
 export const generateLegacyData = async (
     ending: string, 
@@ -156,14 +164,11 @@ export const generateLegacyData = async (
     timelineId?: string,
     scpDesignation?: string
 ): Promise<LegacyGenerationResult> => {
-    return getProvider().generateLegacyData(ending, role, language);
+    return (await getProvider()).generateLegacyData(ending, role, language);
 };
 
-// Image Generation (Always uses Gemini Provider via Facade.)
-const imageProvider = new GeminiProvider();
-
 export const generateImage = async (prompt: string, aspectRatio: "1:1" | "16:9" | "3:4" = "1:1"): Promise<string | null> => {
-    return imageProvider.generateImage(prompt, aspectRatio);
+    return (await getProvider()).generateImage(prompt, aspectRatio);
 };
 
 export { getEmbeddings };

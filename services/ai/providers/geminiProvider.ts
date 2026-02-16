@@ -6,6 +6,7 @@ import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getConte
 import { normalizeGameReviewData, safeParseJson } from "../utils";
 import { AudioDramaSchema } from "../schemas";
 import { postJson, streamSse } from "./backendClient";
+import { getEffectiveAIConfig } from "../../aiConfigService";
 
 const INIT_EMPTY_MAX_RETRIES = 3;
 
@@ -16,14 +17,29 @@ export class GeminiProvider implements AIService {
     private cachedContentName: string | null = null;
     private gameReviewHistory: any[] = [];
     private qaHistory: any[] = [];
+    private cachedConfig: { apiKey: string; chatModel: string; imageModel: string; embeddingModel: string } | null = null;
+
+    private async getConfig() {
+        if (this.cachedConfig) return this.cachedConfig;
+        const effective = await getEffectiveAIConfig();
+        this.cachedConfig = {
+            apiKey: effective.gemini.apiKey,
+            chatModel: effective.gemini.chatModel,
+            imageModel: effective.gemini.imageModel,
+            embeddingModel: effective.gemini.embeddingModel,
+        };
+        return this.cachedConfig;
+    }
 
     constructor() {
     }
 
     public async generateImage(prompt: string, aspectRatio: "1:1" | "16:9" | "3:4" = "1:1"): Promise<string | null> {
         try {
+            const config = await this.getConfig();
             const { imageDataUrl } = await postJson<{ imageDataUrl: string | null }>("/api/ai/gemini/generate-image", {
-                model: aiConfig.models.image,
+                apiKey: config.apiKey,
+                model: config.imageModel,
                 prompt,
                 aspectRatio,
             });
@@ -35,10 +51,12 @@ export class GeminiProvider implements AIService {
 
     async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData): Promise<SCPData> {
         try {
+            const config = await this.getConfig();
             const prompt = getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData);
             console.log(`[GeminiProvider] Analyzing SCP: ${input}`);
             const { text } = await postJson<{ text: string | null }>("/api/ai/gemini/generate-content", {
-                model: aiConfig.models.chat,
+                apiKey: config.apiKey,
+                model: config.chatModel,
                 contents: prompt,
                 config: {
                     tools: [{ googleSearch: {} }],
@@ -67,9 +85,11 @@ export class GeminiProvider implements AIService {
         if (!this.systemInstruction) return null;
         if (this.cachedContentName) return this.cachedContentName;
         try {
+            const config = await this.getConfig();
             const { name } = await postJson<{ name: string }>("/api/ai/gemini/cache", {
-                model: aiConfig.models.chat,
-                ttl: aiConfig.cacheTtl,
+                apiKey: config.apiKey,
+                model: config.chatModel,
+                ttl: aiConfig.providers.gemini.cacheTtl,
                 systemInstruction: this.systemInstruction,
             });
             this.cachedContentName = name || null;
@@ -89,8 +109,10 @@ export class GeminiProvider implements AIService {
 
     private async logTokenCount(contents: any[]): Promise<void> {
         try {
+            const config = await this.getConfig();
             const { totalTokens, cachedContentTokenCount } = await postJson<{ totalTokens: number; cachedContentTokenCount: number }>("/api/ai/gemini/count-tokens", {
-                model: aiConfig.models.chat,
+                apiKey: config.apiKey,
+                model: config.chatModel,
                 contents,
             });
             console.log(`[GeminiProvider] tokens total=${totalTokens} cached=${cachedContentTokenCount}`);
@@ -105,6 +127,7 @@ export class GeminiProvider implements AIService {
         this.cachedContentName = null;
         this.gameReviewHistory = [];
         this.qaHistory = [];
+        const config = await this.getConfig();
         const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyData, scp.mapBlueprint, scp.storyDraft);
         console.log(`[GeminiProvider] Sending start message... ${startPrompt}`);
 
@@ -114,7 +137,8 @@ export class GeminiProvider implements AIService {
         for (let attempt = 0; attempt < INIT_EMPTY_MAX_RETRIES; attempt += 1) {
             let fullResponse = "";
             for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
-                model: aiConfig.models.chat,
+                apiKey: config.apiKey,
+                model: config.chatModel,
                 contents: this.buildContents(startPrompt),
                 config: {
                     systemInstruction: this.systemInstruction,
@@ -146,7 +170,7 @@ export class GeminiProvider implements AIService {
 
     async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh', ragContext?: string, mapContext?: string): AsyncGenerator<string> {
         console.log(`[GeminiProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}, Language: ${language}`);
-
+        const config = await this.getConfig();
         const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, mapContext);
 
         try {
@@ -155,7 +179,8 @@ export class GeminiProvider implements AIService {
 
             let fullResponse = "";
             for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
-                model: aiConfig.models.chat,
+                apiKey: config.apiKey,
+                model: config.chatModel,
                 contents: this.buildContents(contextPrompt),
                 config: {
                     systemInstruction: cachedContent ? undefined : this.systemInstruction,
@@ -196,8 +221,8 @@ export class GeminiProvider implements AIService {
         language: Language = 'zh'
     ): Promise<AudioDramaScript | null> {
         console.log("[GeminiProvider] Generating Audio Drama Script (JSON)...");
+        const config = await this.getConfig();
         
-        // Filter messages to keep only story relevant parts, but include ID for referencing
         const storyLog = messages
             .filter(m => m.sender === 'user' || m.sender === 'narrator')
             .map(m => `[ID:${m.id}] ${m.sender.toUpperCase()}: ${m.content}`)
@@ -207,7 +232,8 @@ export class GeminiProvider implements AIService {
 
         try {
             const { text } = await postJson<{ text: string | null }>("/api/ai/gemini/generate-content", {
-                model: aiConfig.models.chat,
+                apiKey: config.apiKey,
+                model: config.chatModel,
                 contents: prompt,
                 config: {
                     temperature: 0.7,
@@ -231,13 +257,15 @@ export class GeminiProvider implements AIService {
         language: Language,
     ): Promise<GameReviewData> {
         const prompt = getGameReviewPrompt(role, ending, language);
+        const config = await this.getConfig();
 
         try {
             const cachedContent = await this.ensureCachedContentName();
             console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
             let text = "";
             for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
-                model: aiConfig.models.chat,
+                apiKey: config.apiKey,
+                model: config.chatModel,
                 contents: this.buildContents(prompt),
                 config: {
                     systemInstruction: cachedContent ? undefined : this.systemInstruction,
@@ -265,13 +293,15 @@ export class GeminiProvider implements AIService {
 
     async *askNarratorQuestion(question: string, language: Language): AsyncGenerator<string> {
         const prompt = getQAPrompt(question, language);
+        const config = await this.getConfig();
 
         try {
             const cachedContent = await this.ensureCachedContentName();
             console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
             let fullResponse = "";
             for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
-                model: aiConfig.models.chat,
+                apiKey: config.apiKey,
+                model: config.chatModel,
                 contents: this.buildContents(prompt, [...this.gameReviewHistory, ...this.qaHistory]),
                 config: {
                     systemInstruction: cachedContent ? undefined : this.systemInstruction,
@@ -294,6 +324,7 @@ export class GeminiProvider implements AIService {
 
     async generateLegacyData(ending: string, role: string, language: Language): Promise<LegacyGenerationResult> {
         console.log(`[GeminiProvider] Generating Legacy Data...`);
+        const config = await this.getConfig();
 
         const prompt = getLegacyGenerationPrompt(ending, role, language);
 
@@ -302,7 +333,8 @@ export class GeminiProvider implements AIService {
             console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
             let text = "";
             for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
-                model: aiConfig.models.chat,
+                apiKey: config.apiKey,
+                model: config.chatModel,
                 contents: this.buildContents(prompt),
                 config: {
                     systemInstruction: cachedContent ? undefined : this.systemInstruction,

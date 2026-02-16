@@ -1,6 +1,29 @@
 import { aiConfig } from "../../../config/aiConfig";
+import { dispatchAIConfigMissing } from "../../events";
 
 const buildUrl = (path: string) => `${aiConfig.apiBaseUrl}${path}`;
+
+export class AIConfigMissingError extends Error {
+  constructor(message: string = "AI_CONFIG_MISSING") {
+    super(message);
+    this.name = "AIConfigMissingError";
+  }
+}
+
+const parseErrorResponse = async (response: Response): Promise<Error> => {
+  const text = await response.text().catch(() => "");
+  try {
+    const json = JSON.parse(text);
+    if (json.code === "AI_CONFIG_MISSING" || json.error === "AI_CONFIG_MISSING") {
+      const error = new AIConfigMissingError();
+      dispatchAIConfigMissing();
+      return error;
+    }
+    return new Error(json.error || json.message || text || `Request failed: ${response.status}`);
+  } catch {
+    return new Error(text || `Request failed: ${response.status}`);
+  }
+};
 
 export const postJson = async <T>(path: string, body: unknown): Promise<T> => {
   const response = await fetch(buildUrl(path), {
@@ -9,8 +32,7 @@ export const postJson = async <T>(path: string, body: unknown): Promise<T> => {
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(text || `Request failed: ${response.status}`);
+    throw await parseErrorResponse(response);
   }
   return response.json() as Promise<T>;
 };
@@ -25,8 +47,7 @@ export async function* streamSse<T>(path: string, body: unknown): AsyncGenerator
     body: JSON.stringify(body),
   });
   if (!response.ok || !response.body) {
-    const text = await response.text().catch(() => "");
-    throw new Error(text || `Request failed: ${response.status}`);
+    throw await parseErrorResponse(response);
   }
   const reader = response.body.getReader();
   const decoder = new TextDecoder();

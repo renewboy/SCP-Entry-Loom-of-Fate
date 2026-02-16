@@ -2,6 +2,7 @@ import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScrip
 
 export interface AIService {
     analyzeSCPUrl(input: string, language: Language, role: string, difficulty: GameDifficulty, legacyData?: LegacyData): Promise<SCPData>;
+    generateImage(prompt: string, aspectRatio?: "1:1" | "16:9" | "3:4"): Promise<string | null>;
     initializeGameChatStream(scp: SCPData, role: string, language: Language, legacyData: LegacyData | undefined, difficulty: GameDifficulty): AsyncGenerator<string>;
     sendAction(action: string, currentStability: number, turnCount: number, language: Language, ragContext?: string, mapContext?: string): AsyncGenerator<string>;
     getChatHistory(): Promise<any[]>;

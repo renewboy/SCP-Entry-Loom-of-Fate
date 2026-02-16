@@ -5,6 +5,8 @@ import StartScreen from './components/StartScreen';
 import GameScreen from './components/GameScreen';
 import { LanguageProvider, useTranslation } from './utils/i18n';
 import { playBgm, stopBgm } from './services/bgmService';
+import { subscribeAIConfigMissing } from './services/events';
+import GlobalSettingsModal from './components/GlobalSettingsModal';
 
 import StoryEditor from './components/editor/StoryEditor';
 import TacticalPreview from './components/TacticalPreview';
@@ -36,6 +38,16 @@ const AppContent: React.FC = () => {
     turnCount: 0,
     endingType: null
   });
+   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+   const [settingsAttention, setSettingsAttention] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = subscribeAIConfigMissing(() => {
+      setSettingsModalOpen(true);
+       setSettingsAttention(true);
+    });
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     if (gameState.status === GameStatus.PLAYING) {
@@ -114,6 +126,16 @@ const AppContent: React.FC = () => {
 
       {/* Global CRT Scanline Overlay */}
        <div className="pointer-events-none absolute inset-0 z-50 mix-blend-overlay opacity-10 bg-[url('https://www.transparenttextures.com/patterns/black-linen.png')]"></div>
+
+      <GlobalSettingsModal 
+        isOpen={settingsModalOpen} 
+        onClose={() => {
+          setSettingsModalOpen(false);
+          setSettingsAttention(false);
+        }}
+        initialTab="ai"
+        attention={settingsAttention}
+      />
     </div>
   );
 };

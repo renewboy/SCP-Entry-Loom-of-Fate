@@ -366,12 +366,34 @@ export interface AudioDramaScript {
 
 export type GameDifficulty = 'easy' | 'normal' | 'hard' | 'insane';
 
+export type AIProvider = 'gemini' | 'openai';
+
+export interface GeminiSettings {
+  apiKey?: string;
+  chatModel?: string;
+  imageModel?: string;
+}
+
+export interface OpenAISettings {
+  apiKey?: string;
+  baseUrl?: string;
+  chatModel?: string;
+  imageModel?: string;
+}
+
+export interface AISettings {
+  provider: AIProvider;
+  gemini: GeminiSettings;
+  openai: OpenAISettings;
+}
+
 export interface GlobalSettings {
-  enableSceneImages: boolean; // Per-turn visual prompts
-  enableBackgroundImages: boolean; // Initial SCP analysis background
-  enableEntityImages: boolean; // Initial entity portrait
+  enableSceneImages: boolean;
+  enableBackgroundImages: boolean;
+  enableEntityImages: boolean;
   difficulty: GameDifficulty;
   skipTacticalPrep?: boolean;
+  aiSettings?: AISettings;
 }
 
 export interface Memory {

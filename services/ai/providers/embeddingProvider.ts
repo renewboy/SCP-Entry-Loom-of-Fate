@@ -1,5 +1,5 @@
-import { aiConfig } from "../../../config/aiConfig";
 import { postJson } from "./backendClient";
+import { getEffectiveAIConfig } from "../../aiConfigService";
 
 class EmbeddingProvider {
   constructor() {
@@ -8,8 +8,10 @@ class EmbeddingProvider {
   async getEmbeddings(texts: string[]): Promise<number[][]> {
     if (!texts || texts.length === 0) return [];
     try {
+      const config = await getEffectiveAIConfig();
       const { embeddings } = await postJson<{ embeddings: number[][] }>("/api/ai/gemini/embeddings", {
-        model: aiConfig.models.embedding,
+        apiKey: config.gemini.apiKey,
+        model: config.gemini.embeddingModel,
         texts,
       });
       return embeddings;

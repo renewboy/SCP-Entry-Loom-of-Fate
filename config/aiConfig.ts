@@ -1,11 +1,18 @@
 export const aiConfig = {
   provider: (import.meta.env.VITE_AI_PROVIDER) as 'gemini' | 'openai',
   apiBaseUrl: import.meta.env.VITE_AI_SERVER_URL || 'http://127.0.0.1:5174',
-  cacheTtl: import.meta.env.VITE_AI_CACHE_TTL || '864000s',
-  models: {
-    chat: 'gemini-2.5-flash',
-    image: 'gemini-2.5-flash-image',
-    embedding: 'gemini-embedding-001',
+  providers: {
+    gemini: {
+      chatModel: 'gemini-2.5-flash',
+      imageModel: 'gemini-2.5-flash-image',
+      embeddingModel: 'gemini-embedding-001',
+      cacheTtl: '864000s',
+    },
+    openai: {
+      baseUrl: '',
+      chatModel: 'glm-4-7-251222',
+      imageModel: 'doubao-seedream-4-5-251128',
+    },
   },
   generation: {
     temperature: 0.9
