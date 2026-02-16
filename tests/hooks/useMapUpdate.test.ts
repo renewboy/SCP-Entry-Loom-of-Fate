@@ -61,11 +61,11 @@ describe('useMapUpdate', () => {
     }];
     base.objectives = objectives;
 
-    const first = result.current(base, { objectives: [{ id: 'obj1', status: 'COMPLETED' }] });
+    const first = result.current(base, { updateObjectives: [{ id: 'obj1', status: 'COMPLETED' }] });
     expect(first.stability).toBe(100);
     expect(first.inventory?.some(i => i.id === 'reward1')).toBe(true);
 
-    const second = result.current(first, { objectives: [{ id: 'obj1', status: 'COMPLETED' }] });
+    const second = result.current(first, { updateObjectives: [{ id: 'obj1', status: 'COMPLETED' }] });
     const rewardCount = second.inventory?.filter(i => i.id === 'reward1').length ?? 0;
     expect(rewardCount).toBe(1);
     expect(second.stability).toBe(100);
@@ -90,7 +90,7 @@ describe('useMapUpdate', () => {
       progress: 10
     }];
 
-    const next = result.current(base, { objectives: [{ id: 'obj2', progress: 40 }] });
+    const next = result.current(base, { updateObjectives: [{ id: 'obj2', progress: 40 }] });
     expect(next.objectives?.[0].status).toBe('ACTIVE');
     expect(next.objectives?.[0].progress).toBe(40);
   });
@@ -111,7 +111,7 @@ describe('useMapUpdate', () => {
     base.npcs = [{ id: 'npc1', name: 'A', archetype: 'x', nodeId: 'n1', alive: true }];
 
     const next = result.current(base, {
-      objectives: [{ id: 'obj3', status: 'COMPLETED' }],
+      updateObjectives: [{ id: 'obj3', status: 'COMPLETED' }],
       moveNPCs: [{ id: 'npc1', nodeId: 123 as unknown as string, alive: 'no' as unknown as boolean }],
       addAccessTokens: 'bad' as unknown as string[]
     });
