@@ -344,7 +344,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
   const activeObjective = (activeObjectiveId ? data.objectiveById.get(activeObjectiveId) : null) || null;
 
   return (
-    <SidePanel side="right" className="fixed top-16 bottom-4 hidden lg:flex w-80">
+    <SidePanel id="map-panel" side="right" className="fixed top-16 bottom-4 hidden lg:flex w-80">
       <div className="p-3 border-b border-scp-gray/30 scp-window-header flex justify-between items-center">
         <div>
           <div className="text-[12px] font-mono tracking-widest text-scp-term uppercase">{t('game.map_title')}</div>

@@ -26,6 +26,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onSave, onLoad, onTerminate
     <div className="relative z-50 scp-ui" ref={menuRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
+        id="game-settings-button"
         className="w-8 h-8 flex items-center justify-center border border-scp-gray text-scp-text hover:bg-scp-gray/20 hover:text-white transition-colors"
         title={t('game.settings')}
       >
