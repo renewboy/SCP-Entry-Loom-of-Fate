@@ -29,6 +29,9 @@ export const zh = {
     loading_retry: "初始化响应为空，等待重试...",
     role_custom_opt: "> 自定义...",
     btn_story_editor: "故事编辑器",
+    author_label: "作者",
+    author_social: "社交媒体",
+    author_support: "支持作者",
   },
   game: {
     settings: "设置",

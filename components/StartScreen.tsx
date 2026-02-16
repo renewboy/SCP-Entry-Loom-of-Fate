@@ -192,6 +192,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
     return `> ${ROLE_TRANSLATIONS[role] || role}`;
   };
 
+
   return (
     <>
     {showBoot && (

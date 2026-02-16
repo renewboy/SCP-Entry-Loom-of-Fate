@@ -7,6 +7,7 @@ import { LanguageProvider, useTranslation } from './utils/i18n';
 import { playBgm, stopBgm } from './services/bgmService';
 import { subscribeAIConfigMissing } from './services/events';
 import GlobalSettingsModal from './components/GlobalSettingsModal';
+import AuthorLinks from './components/AuthorLinks';
 
 import StoryEditor from './components/editor/StoryEditor';
 import TacticalPreview from './components/TacticalPreview';
@@ -107,6 +108,8 @@ const AppContent: React.FC = () => {
           <GameScreen gameState={gameState} setGameState={setGameState} />
         )}
       </div>
+
+      <AuthorLinks status={gameState.status} />
 
       {/* Footer Watermark */}
       <div className="absolute bottom-2 left-4 text-[10px] text-gray-600 font-mono pointer-events-none z-20 mix-blend-difference">

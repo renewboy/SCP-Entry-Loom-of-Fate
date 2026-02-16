@@ -29,6 +29,9 @@ export const en = {
     loading_retry: "Empty response. Awaiting retry...",
     role_custom_opt: "> Custom...",
     btn_story_editor: "STORY EDITOR",
+    author_label: "Author",
+    author_social: "Social",
+    author_support: "Support",
   },
   game: {
     settings: "Settings",
