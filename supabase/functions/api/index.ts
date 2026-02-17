@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { GoogleGenAI } from "npm:@google/genai";
 import OpenAI from "npm:openai";
+import { createClient } from "npm:@supabase/supabase-js";
 
 const getCorsHeaders = (origin: string | null) => {
   const raw = Deno.env.get("ALLOWED_ORIGINS") || "";
@@ -12,7 +13,7 @@ const getCorsHeaders = (origin: string | null) => {
   return {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-timestamp, x-signature, X-Client-Authorization",
     "Access-Control-Max-Age": "86400",
   };
 };
@@ -23,11 +24,27 @@ const jsonResponse = (data: unknown, status = 200, headers: HeadersInit = {}) =>
     headers: { "Content-Type": "application/json", ...headers },
   });
 
-const readJson = async (req: Request) => {
+const getAllowedOrigins = () => {
+  const raw = Deno.env.get("ALLOWED_ORIGINS") || "";
+  return raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+};
+
+const isOriginAllowed = (origin: string | null, allowed: string[]) => {
+  if (!allowed.length) return true;
+  if (!origin) return false;
+  return allowed.includes(origin);
+};
+
+const readBody = async (req: Request) => {
+  const text = await req.text();
+  if (!text) return { text: "", json: {} as any };
   try {
-    return await req.json();
+    return { text, json: JSON.parse(text) };
   } catch {
-    return {};
+    return { text, json: {} as any };
   }
 };
 
@@ -47,17 +64,132 @@ const normalizeContents = (contents: any) => {
   return contents;
 };
 
-const stableStringify = (value: any): string => {
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
-  const keys = Object.keys(value).sort();
-  return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+const supabaseUrl = Deno.env.get("SUPABASE_URL");
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+let supabaseAdmin: ReturnType<typeof createClient> | null = null;
+
+const getSupabaseAdmin = () => {
+  if (!supabaseAdmin && supabaseUrl && supabaseServiceKey) {
+    supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false },
+    });
+  }
+  return supabaseAdmin;
+};
+
+const rateLimitWindowSeconds = Number(Deno.env.get("RATE_LIMIT_WINDOW_SECONDS") || "60");
+const rateLimitMaxRequests = Number(Deno.env.get("RATE_LIMIT_MAX_REQUESTS") || "30");
+const dailyQuotaAnon = Number(Deno.env.get("AI_DAILY_QUOTA_ANON") || "300");
+const dailyQuotaUser = Number(Deno.env.get("AI_DAILY_QUOTA_USER") || "100");
+const limitsEnabled = (Deno.env.get("AI_LIMITS_ENABLED") || "true") !== "false";
+const ttlSeconds = Number(Deno.env.get("SIGNING_TTL_SECONDS") || "30");
+
+const rateLimitState = new Map<string, { count: number; resetAt: number }>();
+
+const checkRateLimit = (key: string) => {
+  const now = Date.now();
+  const resetAt = now + rateLimitWindowSeconds * 1000;
+  const entry = rateLimitState.get(key);
+  if (!entry || now > entry.resetAt) {
+    rateLimitState.set(key, { count: 1, resetAt });
+    return true;
+  }
+  const next = entry.count + 1;
+  rateLimitState.set(key, { count: next, resetAt: entry.resetAt });
+  return next <= rateLimitMaxRequests;
+};
+
+
+const ANON_SUBJECT = "00000000-0000-0000-0000-000000000000";
+const getSubject = (userId: string | null) => (userId ? `user:${userId}` : `anon:${ANON_SUBJECT}`);
+
+const getToday = () => new Date().toISOString().slice(0, 10);
+
+const incrementUsage = async (subject: string) => {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin.rpc("increment_ai_usage", {
+    p_day: getToday(),
+    p_subject: subject,
+  });
+  if (error) return null;
+  return Number(data || 0);
+};
+
+const getUsageCount = async (subject: string) => {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from("ai_usage_daily")
+    .select("count")
+    .eq("day", getToday())
+    .eq("subject", subject)
+    .maybeSingle();
+  if (error) return null;
+  return Number(data?.count || 0);
+};
+
+const checkQuotaExceeded = async (subject: string, isUser: boolean) => {
+  if (!getSupabaseAdmin()) {
+    return { ok: false, error: "USAGE_STORE_UNAVAILABLE", status: 500 };
+  }
+  const count = await getUsageCount(subject);
+  const limit = isUser ? dailyQuotaUser : dailyQuotaAnon;
+  if (count !== null && count >= limit) {
+    return { ok: false, error: "DAILY_QUOTA_EXCEEDED", status: 429 };
+  }
+  return { ok: true, status: 200 };
+};
+
+const resolveUserId = async (req: Request) => {
+  const clientAuth = req.headers.get("x-client-authorization") || "";
+  const authHeader = clientAuth || req.headers.get("authorization") || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  if (!token || token === supabaseAnonKey) return null;
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin.auth.getUser(token);
+  if (error) return null;
+  return data?.user?.id || null;
 };
 
 const toHex = (buffer: ArrayBuffer) => {
   return Array.from(new Uint8Array(buffer))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+};
+
+const hmacSign = async (secret: string, payload: string) => {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
+  return toHex(signature);
+};
+
+const validateSignature = async (req: Request, bodyText: string) => {
+  const secret = Deno.env.get("VITE_SIGNING_SECRET") || "";
+  if (!secret) return true;
+  const timestamp = req.headers.get("x-timestamp") || "";
+  const signature = req.headers.get("x-signature") || "";
+  if (!timestamp || !signature) return false;
+  const ts = Number(timestamp);
+  if (!Number.isFinite(ts)) return false;
+  if (Math.abs(Date.now() - ts) > ttlSeconds * 1000) return false;
+  const expected = await hmacSign(secret, `${timestamp}.${bodyText}`);
+  return expected === signature;
+};
+
+const stableStringify = (value: any): string => {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  const keys = Object.keys(value).sort();
+  return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
 };
 
 const buildCacheHash = async (body: any) => {
@@ -104,7 +236,7 @@ const sseResponse = (origin: string | null) => {
   return { response: new Response(stream.readable, { headers }), write, close };
 };
 
-let geminiClient: GoogleGenAI | null = null;
+let geminiClient: any = null;
 const geminiCacheByKey = new Map<string, { name: string; expireTime?: string }>();
 
 const getGeminiClient = (apiKey: string) => {
@@ -127,7 +259,47 @@ serve(async (req) => {
   const url = new URL(req.url);
   const pathname = normalizePath(url.pathname);
   const path = pathname.startsWith("/api") ? pathname : pathname;
-  const body = req.method === "POST" ? await readJson(req) : {};
+  const { text: bodyText, json: body } = req.method === "POST" ? await readBody(req) : { text: "", json: {} };
+  const allowedOrigins = getAllowedOrigins();
+  if (!isOriginAllowed(origin, allowedOrigins)) {
+    return jsonResponse({ error: "ORIGIN_NOT_ALLOWED" }, 403, corsHeaders);
+  }
+  if (req.method === "POST") {
+    const signatureValid = await validateSignature(req, bodyText);
+    if (!signatureValid) {
+      return jsonResponse({ error: "INVALID_SIGNATURE" }, 401, corsHeaders);
+    }
+  }
+
+  const userId = await resolveUserId(req);
+  const subject = getSubject(userId);
+  console.log(`userId: ${userId}, subject: ${subject}`);
+  const isAiRoute = path.startsWith("/api/ai/");
+  const isStatusRoute = path === "/api/status";
+  const headerApiKey = req.headers.get("apikey") || "";
+  const hasUserApiKey = !!((body as any)?.apiKey || headerApiKey);
+  const shouldCheckQuota = limitsEnabled && !hasUserApiKey;
+
+  if (isStatusRoute && shouldCheckQuota) {
+    const quota = await checkQuotaExceeded(subject, !!userId);
+    if (!quota.ok) {
+      return jsonResponse({ error: quota.error }, quota.status, corsHeaders);
+    }
+  }
+
+  if (limitsEnabled && isAiRoute && !hasUserApiKey) {
+    if (!checkRateLimit(subject)) {
+      return jsonResponse({ error: "RATE_LIMITED" }, 429, corsHeaders);
+    }
+    if (!getSupabaseAdmin()) {
+      return jsonResponse({ error: "USAGE_STORE_UNAVAILABLE" }, 500, corsHeaders);
+    }
+    const count = await incrementUsage(subject);
+    const limit = userId ? dailyQuotaUser : dailyQuotaAnon;
+    if (count !== null && count > limit) {
+      return jsonResponse({ error: "DAILY_QUOTA_EXCEEDED" }, 429, corsHeaders);
+    }
+  }
 
   const geminiKey = (body as any).apiKey || Deno.env.get("GEMINI_API_KEY") || Deno.env.get("API_KEY") || "";
   const openaiKey = (body as any).apiKey || Deno.env.get("OPENAI_API_KEY") || "";

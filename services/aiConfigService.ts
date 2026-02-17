@@ -1,6 +1,7 @@
 import { AISettings, AIProvider, GeminiSettings, OpenAISettings } from '../types';
 import { loadGlobalSettings } from './indexedDBService';
-import { aiConfig } from '../config/aiConfig';
+import { aiConfig } from "../config/aiConfig";
+import { getRequestHeaders } from "./ai/providers/backendClient";
 
 export interface EffectiveAIConfig {
   provider: AIProvider;
@@ -113,11 +114,10 @@ export async function checkAIConfigAvailable(): Promise<{ available: boolean; re
   }
 
   try {
-    const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || '';
-    const headers: Record<string, string> = {};
-    if (supabaseAnonKey) {
-      headers.Authorization = `Bearer ${supabaseAnonKey}`;
-      headers.apikey = supabaseAnonKey;
+    const headers = await getRequestHeaders();
+    const userApiKey = userSettings?.gemini?.apiKey || userSettings?.openai?.apiKey || "";
+    if (userApiKey) {
+      headers.apikey = userApiKey;
     }
     const response = await fetch(`${aiConfig.apiBaseUrl}/api/status`, {
       headers,

@@ -7,6 +7,7 @@
     "dev": "npm run dev:client",
     "dev:client": "vite",
     "dev:server": "node server/index.js",
+    "dev:legacy": "concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",

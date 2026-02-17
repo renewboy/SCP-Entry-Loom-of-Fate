@@ -1,14 +1,44 @@
 import { aiConfig } from "../../../config/aiConfig";
 import { dispatchAIConfigMissing } from "../../events";
+import { supabase } from "../../supabaseService";
 
 const buildUrl = (path: string) => `${aiConfig.apiBaseUrl}${path}`;
 const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || "";
+const signingSecret = import.meta.env?.VITE_SIGNING_SECRET || "";
 
-const buildHeaders = () => {
+const toHex = (buffer: ArrayBuffer) => {
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+};
+
+const signPayload = async (payload: unknown) => {
+  if (!signingSecret) return {};
+  const timestamp = Date.now().toString();
+  const data = `${timestamp}.${JSON.stringify(payload)}`;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(signingSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data));
+  return {
+    "x-timestamp": timestamp,
+    "x-signature": toHex(signature),
+  };
+};
+
+export const getRequestHeaders = async () => {
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data?.session?.access_token || "";
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (supabaseAnonKey) {
     headers.Authorization = `Bearer ${supabaseAnonKey}`;
-    headers.apikey = supabaseAnonKey;
+  }
+  if (accessToken) {
+    headers["X-Client-Authorization"] = `Bearer ${accessToken}`;
   }
   return headers;
 };
@@ -37,9 +67,13 @@ const parseErrorResponse = async (response: Response): Promise<Error> => {
 
 export const postJson = async <T>(path: string, body: unknown): Promise<T> => {
   console.log("POST: url: ", buildUrl(path), body);
+  const headers = {
+    ...(await getRequestHeaders()),
+    ...(await signPayload(body)),
+  };
   const response = await fetch(buildUrl(path), {
     method: "POST",
-    headers: buildHeaders(),
+    headers,
     body: JSON.stringify(body),
   });
   if (!response.ok) {
@@ -49,11 +83,15 @@ export const postJson = async <T>(path: string, body: unknown): Promise<T> => {
 };
 
 export async function* streamSse<T>(path: string, body: unknown): AsyncGenerator<T> {
+  const headers = {
+    ...(await getRequestHeaders()),
+    ...(await signPayload(body)),
+  };
   const response = await fetch(buildUrl(path), {
     method: "POST",
     headers: {
       Accept: "text/event-stream",
-      ...buildHeaders(),
+      ...headers,
     },
     body: JSON.stringify(body),
   });

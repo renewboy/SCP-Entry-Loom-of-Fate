@@ -133,3 +133,29 @@ begin
   limit match_count;
 end;
 $$;
+
+create table if not exists ai_usage_daily (
+  day date not null,
+  subject text not null,
+  count integer not null default 0,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  primary key (day, subject)
+);
+
+alter table ai_usage_daily enable row level security;
+
+create or replace function increment_ai_usage(p_day date, p_subject text)
+returns integer
+language plpgsql
+as $$
+declare
+  new_count integer;
+begin
+  insert into ai_usage_daily(day, subject, count)
+  values (p_day, p_subject, 1)
+  on conflict (day, subject)
+  do update set count = ai_usage_daily.count + 1, updated_at = timezone('utc'::text, now())
+  returning count into new_count;
+  return new_count;
+end;
+$$;
