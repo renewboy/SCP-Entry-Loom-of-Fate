@@ -1,5 +1,5 @@
 export const authorProfile = {
-  name: 'Geass',
+  name: 'Your Name',
   socials: [
     { id: 'github', url: 'https://github.com/yourusername' },
     { id: 'bilibili', url: 'https://space.bilibili.com/000000' },

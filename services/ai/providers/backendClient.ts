@@ -2,6 +2,16 @@ import { aiConfig } from "../../../config/aiConfig";
 import { dispatchAIConfigMissing } from "../../events";
 
 const buildUrl = (path: string) => `${aiConfig.apiBaseUrl}${path}`;
+const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || "";
+
+const buildHeaders = () => {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (supabaseAnonKey) {
+    headers.Authorization = `Bearer ${supabaseAnonKey}`;
+    headers.apikey = supabaseAnonKey;
+  }
+  return headers;
+};
 
 export class AIConfigMissingError extends Error {
   constructor(message: string = "AI_CONFIG_MISSING") {
@@ -26,9 +36,10 @@ const parseErrorResponse = async (response: Response): Promise<Error> => {
 };
 
 export const postJson = async <T>(path: string, body: unknown): Promise<T> => {
+  console.log("POST: url: ", buildUrl(path), body);
   const response = await fetch(buildUrl(path), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: buildHeaders(),
     body: JSON.stringify(body),
   });
   if (!response.ok) {
@@ -41,8 +52,8 @@ export async function* streamSse<T>(path: string, body: unknown): AsyncGenerator
   const response = await fetch(buildUrl(path), {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
       Accept: "text/event-stream",
+      ...buildHeaders(),
     },
     body: JSON.stringify(body),
   });

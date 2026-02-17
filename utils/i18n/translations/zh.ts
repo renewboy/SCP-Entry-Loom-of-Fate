@@ -24,6 +24,7 @@ export const zh = {
     placeholder_custom: "定义你的实体/角色...",
     btn_start: "纺织命运 (INITIATE WEAVE)",
     btn_retry: "重试初始化",
+    loading_checking_ai: "正在检查 AI 配置...",
     loading_access: "正在访问SCP数据库...",
     loading_retrieved: "已检索档案: {designation}. 正在解密...",
     loading_retry: "初始化响应为空，等待重试...",

@@ -13,8 +13,8 @@ const AuthorLinks: React.FC<AuthorLinksProps> = ({ status }) => {
   const donateLinks = authorProfile.donate.filter((link) => link.url);
   const iconMap: Record<string, { src: string; alt: string }> = {
     github: { src: 'https://cdn.simpleicons.org/github/ffffff', alt: 'GitHub' },
-    bilibili: { src: 'https://cdn.simpleicons.org/bilibili/00A1D6', alt: 'Bilibili' },
-    donate: { src: 'https://cdn.simpleicons.org/afdian', alt: 'Support' }
+    bilibili: { src: 'https://cdn.simpleicons.org/bilibili/00a1d6', alt: 'Bilibili' },
+    donate: { src: 'https://cdn.simpleicons.org/kofi/ff5e5b', alt: 'Support' }
   };
 
   const isStart = status === GameStatus.IDLE || status === GameStatus.ANALYZING;

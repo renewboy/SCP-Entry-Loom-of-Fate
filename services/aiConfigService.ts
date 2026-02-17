@@ -113,7 +113,15 @@ export async function checkAIConfigAvailable(): Promise<{ available: boolean; re
   }
 
   try {
-    const response = await fetch('/api/status');
+    const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || '';
+    const headers: Record<string, string> = {};
+    if (supabaseAnonKey) {
+      headers.Authorization = `Bearer ${supabaseAnonKey}`;
+      headers.apikey = supabaseAnonKey;
+    }
+    const response = await fetch(`${aiConfig.apiBaseUrl}/api/status`, {
+      headers,
+    });
     if (!response.ok) {
       return { available: false, reason: 'SERVER_ERROR' };
     }

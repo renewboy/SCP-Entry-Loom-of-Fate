@@ -123,18 +123,20 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
   };
 
   const handleStart = async () => {
-    if (!urlInput.trim()) return;
-    
+    if (!urlInput.trim() || loadingStep) return;
+    setError(null);
+    setCanRetryInit(false);
+    setLoadingStep(t('start.loading_checking_ai'));
+
     const configCheck = await checkAIConfigAvailable();
     if (!configCheck.available) {
       setSettingsInitialTab('ai');
       setSettingsAttention(true);
       setSettingsModalOpen(true);
+      setLoadingStep(null);
       return;
     }
     
-    setError(null);
-    setCanRetryInit(false);
     setLoadingStep(t('start.loading_access'));
 
     try {

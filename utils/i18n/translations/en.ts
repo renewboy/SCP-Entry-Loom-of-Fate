@@ -24,6 +24,7 @@ export const en = {
     placeholder_custom: "Define your Entity/Role...",
     btn_start: "INITIATE WEAVE",
     btn_retry: "RETRY INITIALIZATION",
+    loading_checking_ai: "Checking AI configuration...",
     loading_access: "Accessing SCP Database...",
     loading_retrieved: "ENTRY Retrieved: {designation}. Decrypting...",
     loading_retry: "Empty response. Awaiting retry...",
