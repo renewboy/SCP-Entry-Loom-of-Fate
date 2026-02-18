@@ -35,7 +35,12 @@ const getAllowedOrigins = () => {
 const isOriginAllowed = (origin: string | null, allowed: string[]) => {
   if (!allowed.length) return true;
   if (!origin) return false;
-  return allowed.includes(origin);
+  return allowed.some((value) => {
+    if (value.startsWith(".")) {
+      return origin.endsWith(value);
+    }
+    return origin === value;
+  });
 };
 
 const readBody = async (req: Request) => {

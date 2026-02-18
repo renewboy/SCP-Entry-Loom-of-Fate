@@ -3,7 +3,7 @@ import { dispatchAIConfigMissing } from "../../events";
 import { supabase } from "../../supabaseService";
 
 const buildUrl = (path: string) => `${aiConfig.apiBaseUrl}${path}`;
-const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || "";
+const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5ZXlwZ25oYXZ6eWlieWhxdWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0ODEzMjksImV4cCI6MjA4MjA1NzMyOX0.LZf3Zok3HWZjLcduGXGbCZunL5XSaYkri12bp-SLNBg";
 const signingSecret = import.meta.env?.VITE_SIGNING_SECRET || "";
 
 const toHex = (buffer: ArrayBuffer) => {
