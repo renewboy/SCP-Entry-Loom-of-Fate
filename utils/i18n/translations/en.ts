@@ -228,7 +228,7 @@ export const en = {
   },
   tutorial: {
     welcome_title: "Welcome to Loom of Fate",
-    welcome_desc: "You have accessed the SCP Foundation World Line Simulation Terminal. This is a high-freedom text adventure system where every choice weaves new causality.",
+    welcome_desc: "You have accessed the SCP Foundation: Loom of Fate Terminal. This is a high-freedom text adventure system where every choice weaves new causality.",
     stability_title: "Hume Field Stability",
     stability_desc: "This is your lifeline. It decays naturally over time, and dangerous actions accelerate the drop. Below 30% will trigger severe reality bending. Stay rational.",
     narrative_title: "Narrative Flow",
@@ -353,7 +353,7 @@ export const en = {
   },
   settings: {
     title: "SYSTEM SETTINGS",
-    scene_images: "In-Game Scene Image Generation",
+    scene_images: "In-Game Scene Image Generation (High Token Cost)",
     bg_images: "Initial SCP Background Generation",
     entity_images: "Initial Entity Portrait Generation",
     difficulty: "Game Difficulty",
@@ -363,6 +363,10 @@ export const en = {
     difficulty_insane: "Insane",
     tab_game: "Game Settings",
     tab_ai: "AI Configuration",
+    section_images: "Image Settings",
+    section_audio: "Audio Settings",
+    bgm_volume: "Background Music Volume",
+    sfx_volume: "Sound Effects Volume",
     ai_attention: "AI settings are not configured yet. Please complete and save them here, then return to continue the game.",
     ai_recommendation: "For the best experience, we recommend Gemini. Some advanced features are currently available only with Gemini.",
     ai_provider: "AI Provider",

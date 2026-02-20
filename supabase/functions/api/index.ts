@@ -278,7 +278,6 @@ serve(async (req) => {
 
   const userId = await resolveUserId(req);
   const subject = getSubject(userId);
-  console.log(`userId: ${userId}, subject: ${subject}`);
   const isAiRoute = path.startsWith("/api/ai/");
   const isStatusRoute = path === "/api/status";
   const headerApiKey = req.headers.get("apikey") || "";

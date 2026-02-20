@@ -15,11 +15,14 @@ const volumes: Record<SfxKey, number> = {
 };
 
 const audioCache = new Map<SfxKey, HTMLAudioElement>();
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+let sfxVolume = 1;
 
 // Loop Audio State
 interface LoopState {
   ctx: AudioContext;
   nodes: AudioNode[];
+  gain: GainNode;
 }
 let loopState: LoopState | null = null;
 
@@ -34,11 +37,18 @@ const getAudio = (key: SfxKey) => {
 
 export const playSfx = (key: SfxKey) => {
   const audio = getAudio(key);
-  audio.volume = volumes[key];
+  audio.volume = clamp01(volumes[key] * sfxVolume);
   audio.currentTime = 0;
   const result = audio.play();
   if (result && typeof result.catch === 'function') {
     result.catch(() => null);
+  }
+};
+
+export const setSfxVolume = (volume: number) => {
+  sfxVolume = clamp01(volume);
+  if (loopState) {
+    loopState.gain.gain.value = 0.05 * sfxVolume;
   }
 };
 
@@ -72,14 +82,15 @@ export const startCriticalLoop = () => {
     osc.connect(gain);
     gain.connect(ctx.destination);
 
-    gain.gain.value = 0.05;
+    gain.gain.value = 0.05 * sfxVolume;
 
     osc.start();
     lfo.start();
 
     loopState = {
       ctx,
-      nodes: [osc, gain, lfo, lfoGain]
+      nodes: [osc, gain, lfo, lfoGain],
+      gain
     };
   } catch (e) {
     console.error("Audio loop playback failed", e);

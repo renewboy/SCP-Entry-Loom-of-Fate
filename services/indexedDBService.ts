@@ -16,10 +16,12 @@ const GLOBAL_SETTINGS_KEY = 'global_settings';
 const EDITING_SCP_DATA_KEY = 'editing_scp_data';
 
 const DEFAULT_SETTINGS: GlobalSettings = {
-    enableSceneImages: true,
+    enableSceneImages: false,
     enableBackgroundImages: true,
     enableEntityImages: true,
     difficulty: 'normal',
+    bgmVolume: 0.8,
+    sfxVolume: 1,
     skipTacticalPrep: false
 };
 

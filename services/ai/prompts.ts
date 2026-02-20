@@ -169,7 +169,6 @@ Structure:
 Semantic Notes:
 - reward.stabilityDelta: integer delta applied when the objective is COMPLETED (positive: +, negative: -); keep within -20..+20.`;
 
-  console.log(`[getAnalyzeSCPPrompt] finalPrompt: ${finalPrompt}`);
   return finalPrompt;
 };
 
@@ -342,7 +341,6 @@ ${mapSection}
 ${normalTurnReminder}
 
 请严格按照【常规回合任务】的要求生成回复，并严格根据游戏难度判定结果。请注意你生成的叙事和选项不要包含node_id,npc_id等不可读信息，要面向玩家。`
-    console.log("[getContextPrompt] finalContextPrompt", finalContextPrompt);
     return finalContextPrompt;
 };
 

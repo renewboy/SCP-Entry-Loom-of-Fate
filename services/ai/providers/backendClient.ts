@@ -66,7 +66,6 @@ const parseErrorResponse = async (response: Response): Promise<Error> => {
 };
 
 export const postJson = async <T>(path: string, body: unknown): Promise<T> => {
-  console.log("POST: url: ", buildUrl(path), body);
   const headers = {
     ...(await getRequestHeaders()),
     ...(await signPayload(body)),

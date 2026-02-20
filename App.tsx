@@ -4,10 +4,12 @@ import { GameState, GameStatus } from './types';
 import StartScreen from './components/StartScreen';
 import GameScreen from './components/GameScreen';
 import { LanguageProvider, useTranslation } from './utils/i18n';
-import { playBgm, stopBgm } from './services/bgmService';
+import { playBgm, stopBgm, setBgmVolume } from './services/bgmService';
 import { subscribeAIConfigMissing } from './services/events';
 import GlobalSettingsModal from './components/GlobalSettingsModal';
 import AuthorLinks from './components/AuthorLinks';
+import { loadGlobalSettings } from './services/indexedDBService';
+import { setSfxVolume } from './services/sfxService';
 
 import StoryEditor from './components/editor/StoryEditor';
 import TacticalPreview from './components/TacticalPreview';
@@ -48,6 +50,13 @@ const AppContent: React.FC = () => {
        setSettingsAttention(true);
     });
     return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    loadGlobalSettings().then((loaded) => {
+      setBgmVolume(loaded.bgmVolume);
+      setSfxVolume(loaded.sfxVolume);
+    });
   }, []);
 
   useEffect(() => {
@@ -114,6 +123,10 @@ const AppContent: React.FC = () => {
       {/* Footer Watermark */}
       <div className="absolute bottom-2 left-4 text-[10px] text-gray-600 font-mono pointer-events-none z-20 mix-blend-difference">
         {t('app.footer')}
+      </div>
+
+      <div className="absolute bottom-2 left-0 right-0 text-[10px] text-gray-600 font-mono pointer-events-none z-20 mix-blend-difference flex justify-center">
+        © {new Date().getFullYear()} SCP Entry: Loom of Fate
       </div>
 
       <div className="absolute bottom-2 right-4 text-[10px] text-gray-600 font-mono z-20 mix-blend-difference">

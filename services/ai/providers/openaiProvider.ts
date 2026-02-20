@@ -89,7 +89,7 @@ export class OpenAIProvider implements AIService {
         const config = await this.getConfig();
         const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyData, scp.mapBlueprint, scp.storyDraft);
 
-        console.log("[OpenAIProvider] Sending start message... ", startPrompt);
+        console.log("[OpenAIProvider] Sending start message... ");
         this.messages = [
             { role: "system", content: this.systemInstruction },
             { role: "user", content: startPrompt }
@@ -139,6 +139,7 @@ export class OpenAIProvider implements AIService {
             this.messages.push({ role: "assistant", content: fullResponse });
 
         } catch (err) {
+            console.error("[OpenAIProvider] Error in sendAction: ", err);
             throw err;
         }
     }

@@ -99,6 +99,37 @@
       ::-webkit-scrollbar-thumb:hover {
         background: var(--scp-border-strong);
       }
+      .scp-range {
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+      }
+      .scp-range::-webkit-slider-runnable-track {
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.2);
+      }
+      .scp-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: #c32e20;
+        margin-top: -5px;
+      }
+      .scp-range::-moz-range-track {
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.2);
+      }
+      .scp-range::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: #c32e20;
+        border: none;
+      }
       .scp-ui {
         color: var(--scp-text);
         letter-spacing: 0.01em;

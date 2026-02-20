@@ -6,6 +6,9 @@ import { GlobalSettings, AISettings, AIProvider } from '../types';
 import { getDefaultAISettings, validateAISettings, clearAISettingsCache } from '../services/aiConfigService';
 import { testAIConnectivity } from '../services/aiConnectivityService';
 import CrtSurface from './common/CrtSurface';
+import { setBgmVolume } from '../services/bgmService';
+import { setSfxVolume } from '../services/sfxService';
+import SettingsRange from './common/SettingsRange';
 
 interface GlobalSettingsModalProps {
     isOpen: boolean;
@@ -33,6 +36,8 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
         if (isOpen) {
             loadGlobalSettings().then(loaded => {
                 setSettings(loaded);
+                setBgmVolume(loaded.bgmVolume);
+                setSfxVolume(loaded.sfxVolume);
                 const defaults = getDefaultAISettings();
                 const merged = {
                     ...defaults,
@@ -69,6 +74,20 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
         const newSettings = { ...settings, difficulty };
         setSettings(newSettings);
         saveGlobalSettings(newSettings);
+    };
+
+    const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+
+    const handleVolumeChange = (key: 'bgmVolume' | 'sfxVolume', value: number) => {
+        if (!settings) return;
+        const newSettings = { ...settings, [key]: clamp01(value) };
+        setSettings(newSettings);
+        saveGlobalSettings(newSettings);
+        if (key === 'bgmVolume') {
+            setBgmVolume(newSettings.bgmVolume);
+            return;
+        }
+        setSfxVolume(newSettings.sfxVolume);
     };
 
     const handleProviderChange = (provider: AIProvider) => {
@@ -225,23 +244,43 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
                                     ))}
                                 </div>
                             </div>
-                            {(['enableSceneImages', 'enableBackgroundImages', 'enableEntityImages'] as const).map((key) => (
-                                <div key={key} className="flex items-center justify-between p-4 border border-scp-gray/30 bg-scp-gray/10 hover:border-scp-accent/30 transition-colors">
-                                    <span className="text-sm text-scp-text font-mono uppercase tracking-wider">
-                                        {getLabel(key)}
-                                    </span>
-                                    <button
-                                        onClick={() => handleToggle(key)}
-                                        className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 ease-in-out relative ${
-                                            settings[key] ? 'bg-scp-accent' : 'bg-gray-700'
-                                        }`}
-                                    >
-                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
-                                            settings[key] ? 'translate-x-6' : 'translate-x-0'
-                                        }`}></div>
-                                    </button>
+                            <div className="p-4 border border-scp-gray/30 bg-scp-gray/10 space-y-3">
+                                <div className="text-xs text-gray-400 font-mono uppercase tracking-wider">
+                                    {t('settings.section_images')}
                                 </div>
-                            ))}
+                                {(['enableSceneImages', 'enableBackgroundImages', 'enableEntityImages'] as const).map((key) => (
+                                    <div key={key} className="flex items-center justify-between px-3 py-2 border border-transparent hover:border-scp-accent/30 transition-colors">
+                                        <span className="text-[13px] text-scp-text font-mono tracking-wider">
+                                            {getLabel(key)}
+                                        </span>
+                                        <button
+                                            onClick={() => handleToggle(key)}
+                                            className={`w-11 h-5 rounded-full p-0.5 transition-colors duration-300 ease-in-out relative ${
+                                                settings[key] ? 'bg-scp-accent' : 'bg-gray-700'
+                                            }`}
+                                        >
+                                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
+                                                settings[key] ? 'translate-x-6' : 'translate-x-0'
+                                            }`}></div>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="p-4 border border-scp-gray/30 bg-scp-gray/10 space-y-4">
+                                <div className="text-xs text-gray-400 font-mono uppercase tracking-wider">
+                                    {t('settings.section_audio')}
+                                </div>
+                                <SettingsRange
+                                    label={t('settings.bgm_volume')}
+                                    value={settings.bgmVolume}
+                                    onChange={(value) => handleVolumeChange('bgmVolume', value)}
+                                />
+                                <SettingsRange
+                                    label={t('settings.sfx_volume')}
+                                    value={settings.sfxVolume}
+                                    onChange={(value) => handleVolumeChange('sfxVolume', value)}
+                                />
+                            </div>
                         </div>
                     )}
 

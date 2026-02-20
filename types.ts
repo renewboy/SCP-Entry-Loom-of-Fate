@@ -29,14 +29,14 @@ export enum Role {
   SITE_DIRECTOR = '站点主管',
   O5 = 'O5议会成员',
   ETHICS_COMMITTEE = '伦理委员会成员',
-  ADMINISTRATOR = '管理员（The Administrator）',
+  ADMINISTRATOR = '管理员',
 
   // —— 基金会主要部门 ——
   SECURITY = '安保部人员',
   INTELLIGENCE = '情报部人员',
   MEDICAL = '医疗部/医务官',
   ENGINEER = '工程师/技术员',
-  MEMETIC_SPECIALIST = '模因/信息haz研究员',
+  MEMETIC_SPECIALIST = '模因/信息危害研究员',
   TEMPORAL_AGENT = '时间异常特工（时序部）',
   INTERNAL_AFFAIRS = '内部事务部(IA)调查员',
 
@@ -392,6 +392,8 @@ export interface GlobalSettings {
   enableBackgroundImages: boolean;
   enableEntityImages: boolean;
   difficulty: GameDifficulty;
+  bgmVolume: number;
+  sfxVolume: number;
   skipTacticalPrep?: boolean;
   aiSettings?: AISettings;
 }

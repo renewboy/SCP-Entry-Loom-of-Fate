@@ -129,7 +129,7 @@ export class GeminiProvider implements AIService {
         this.qaHistory = [];
         const config = await this.getConfig();
         const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyData, scp.mapBlueprint, scp.storyDraft);
-        console.log(`[GeminiProvider] Sending start message... ${startPrompt}`);
+        console.log(`[GeminiProvider] Sending start message...`);
 
         this.history = [];
         const cachedContent = await this.ensureCachedContentName();
@@ -197,6 +197,7 @@ export class GeminiProvider implements AIService {
             this.history.push({ role: "model", parts: [{ text: fullResponse }] });
             await this.logTokenCount(this.history);
         } catch (err) {
+            console.error("[GeminiProvider] Error in sendAction: ", err);
             throw err;
         }
     }
@@ -261,7 +262,6 @@ export class GeminiProvider implements AIService {
 
         try {
             const cachedContent = await this.ensureCachedContentName();
-            console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
             let text = "";
             for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
@@ -297,7 +297,6 @@ export class GeminiProvider implements AIService {
 
         try {
             const cachedContent = await this.ensureCachedContentName();
-            console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
             let fullResponse = "";
             for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
@@ -330,7 +329,6 @@ export class GeminiProvider implements AIService {
 
         try {
             const cachedContent = await this.ensureCachedContentName();
-            console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
             let text = "";
             for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,

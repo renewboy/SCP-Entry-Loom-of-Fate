@@ -199,8 +199,8 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
       }
   };
 
-  // Audio Drama State
-  const [showAudioDrama, setShowAudioDrama] = useState(true);
+  const isAudioDramaEnabled = false;
+  const [showAudioDrama, setShowAudioDrama] = useState(false);
   const [dramaScript, setDramaScript] = useState<AudioDramaScript | null>(null);
   const [isGeneratingDrama, setIsGeneratingDrama] = useState(false);
 
@@ -477,19 +477,21 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
            <p className="font-mono text-[10px] text-gray-500">{t('report.project')}: {scpData?.designation} // {t('report.final_report')}</p>
         </div>
         <div className="flex gap-2 md:gap-3">
-            <button 
-                onClick={handleGenerateDrama}
-                disabled={isGeneratingDrama}
-                className="hidden sm:flex items-center gap-2 px-3 py-1.5 border border-scp-gray text-scp-term font-mono text-xs hover:border-scp-term hover:bg-scp-term/10 transition-colors shadow-lg"
-                title="GENERATE AUDIO DRAMA"
-            >
-                {isGeneratingDrama ? (
-                    <span className="w-3 h-3 border-2 border-scp-term border-t-transparent rounded-full animate-spin"></span>
-                ) : (
-                    <Mic className="w-4 h-4" />
-                )}
-                <span className="hidden lg:inline">{t('report.generate_video_script')}</span>
-            </button>
+            {isAudioDramaEnabled && (
+                <button 
+                    onClick={handleGenerateDrama}
+                    disabled={isGeneratingDrama}
+                    className="hidden sm:flex items-center gap-2 px-3 py-1.5 border border-scp-gray text-scp-term font-mono text-xs hover:border-scp-term hover:bg-scp-term/10 transition-colors shadow-lg"
+                    title="GENERATE AUDIO DRAMA"
+                >
+                    {isGeneratingDrama ? (
+                        <span className="w-3 h-3 border-2 border-scp-term border-t-transparent rounded-full animate-spin"></span>
+                    ) : (
+                        <Mic className="w-4 h-4" />
+                    )}
+                    <span className="hidden lg:inline">{t('report.generate_video_script')}</span>
+                </button>
+            )}
              <button 
                 onClick={onMinimize}
                 className="hidden sm:block px-3 py-1.5 border border-scp-gray text-scp-text font-mono text-xs hover:border-scp-term hover:text-scp-term transition-colors shadow-lg"
@@ -678,7 +680,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
          </div>
 
       {/* Audio Drama Player Overlay - Rendered via Portal to escape containers */}
-      {showAudioDrama && !isGeneratingDrama && (
+      {isAudioDramaEnabled && showAudioDrama && !isGeneratingDrama && (
           (() => {
               const debugPlayer = (
                   <DebugAudioPlayer 
