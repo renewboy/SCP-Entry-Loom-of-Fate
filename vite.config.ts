@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(() => {
     return {
+      base: process.env.DESKTOP_BUILD === '1' ? './' : '/',
       server: {
         port: 3000,
         host: '0.0.0.0',
