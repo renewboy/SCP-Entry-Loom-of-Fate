@@ -205,6 +205,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
   const [isGeneratingDrama, setIsGeneratingDrama] = useState(false);
 
   const handleGenerateDrama = async () => {
+    if (!isAudioDramaEnabled) return;
     if (isGeneratingDrama) return;
     setIsGeneratingDrama(true);
     
@@ -216,7 +217,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
             language
         );
         setDramaScript(result);
-        setShowAudioDrama(true); // Only show after generation
+        setShowAudioDrama(true);
     } catch (e) {
         console.error(e);
     } finally {
@@ -479,7 +480,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
         <div className="flex gap-2 md:gap-3">
             {isAudioDramaEnabled && (
                 <button 
-                    onClick={handleGenerateDrama}
+                    onClick={handleGenerateDrama} 
                     disabled={isGeneratingDrama}
                     className="hidden sm:flex items-center gap-2 px-3 py-1.5 border border-scp-gray text-scp-term font-mono text-xs hover:border-scp-term hover:bg-scp-term/10 transition-colors shadow-lg"
                     title="GENERATE AUDIO DRAMA"
