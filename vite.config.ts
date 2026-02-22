@@ -13,6 +13,20 @@ export default defineConfig(() => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        minify: 'terser',
+        sourcemap: false,
+        terserOptions: {
+          mangle: true,
+          compress: {
+            drop_console: true,
+            drop_debugger: true
+          },
+          format: {
+            comments: false
+          }
+        }
       }
     };
 });
