@@ -148,7 +148,8 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
   const [isPlayingDrama, setIsPlayingDrama] = useState(false);
-  const [isDebugOpen, setIsDebugOpen] = useState(true); // Default open for debug
+  const isAudioDramaEnabled = false;
+  const [isDebugOpen, setIsDebugOpen] = useState(false);
 
   const stats = computeSessionStats(messages, stabilityHistory);
 
@@ -669,7 +670,7 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
          </div>
       </div>
 
-      {isDebugOpen && (
+      {isAudioDramaEnabled && isDebugOpen && (
           <DebugAudioPlayer 
             onClose={() => setIsDebugOpen(false)}
             messages={messages}
