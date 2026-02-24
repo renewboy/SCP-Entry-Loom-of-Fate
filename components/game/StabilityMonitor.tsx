@@ -56,7 +56,8 @@ const StabilityMonitor: React.FC<StabilityMonitorProps> = ({ stability, isPlayin
      return t('game.critical');
   };
 
-  const humeValue = (stability / 100) * 2.0;
+  const maxHume = 1.5;
+  const humeValue = (stability / 100) * maxHume;
   const accentColor = useMemo(() => {
     if (stability > 70) return '#2bdc6b';
     if (stability > 30) return '#f59e0b';
