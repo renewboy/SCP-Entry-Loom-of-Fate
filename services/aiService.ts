@@ -1,8 +1,8 @@
 import { Content } from "@google/genai";
-import { AIService } from "./ai/types";
+import { AIService, RouterOutput, NPCActionProposal } from "./ai/types";
 import { GeminiProvider } from "./ai/providers/geminiProvider";
 import { OpenAIProvider } from "./ai/providers/openaiProvider";
-import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty } from "../types";
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, MapBlueprint, MapBlueprintNPC } from "../types";
 import { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate } from "./ai/utils";
 import { getEmbeddings } from "./ai/providers/embeddingProvider";
 import { searchLocalMemories } from "./indexedDBService";
@@ -110,7 +110,7 @@ export const retrieveRelevantMemories = async (
     }
 };
 
-export const sendAction = async function* (action: string, currentStability: number, turnCount: number, language: Language = 'zh', timelineId?: string, mapContext?: string): AsyncGenerator<string> {
+export const sendAction = async function* (action: string, currentStability: number, turnCount: number, language: Language = 'zh', timelineId?: string, mapContext?: string, npcContext?: string): AsyncGenerator<string> {
     let ragContext = "";
     if (timelineId) {
         ragContext = await retrieveRelevantMemories(action, timelineId, turnCount);
@@ -129,7 +129,7 @@ export const sendAction = async function* (action: string, currentStability: num
     }
 
     const provider = await getProvider();
-    const generator = provider.sendAction(action, currentStability, turnCount, language, ragContext, mapContext);
+    const generator = provider.sendAction(action, currentStability, turnCount, language, ragContext, mapContext, npcContext);
     for await (const chunk of generator) {
         yield chunk;
     }
@@ -169,6 +169,22 @@ export const generateLegacyData = async (
 
 export const generateImage = async (prompt: string, aspectRatio: "1:1" | "16:9" | "3:4" = "1:1"): Promise<string | null> => {
     return (await getProvider()).generateImage(prompt, aspectRatio);
+};
+
+export const sendRouterDecision = async (
+    mapBlueprint: MapBlueprint,
+    playerAction: string,
+    narrativeOutput: string,
+    currentLoc: string,
+    allNpcs: { id: string, nodeId: string }[],
+    npcContext: any,
+    language: Language
+): Promise<RouterOutput> => {
+    return (await getProvider()).getRouterDecision(mapBlueprint, playerAction, narrativeOutput, currentLoc, allNpcs, npcContext, language);
+};
+
+export const getNPCAction = async (npc: MapBlueprintNPC, role: string, scpDesignation: string, language: Language, difficulty: GameDifficulty, gameBackground: string, narratorOpening: string, contextDelta: any, history?: any[]): Promise<{ proposal: NPCActionProposal, history: any[] }> => {
+    return (await getProvider()).getNPCAction(npc, role, scpDesignation, language, difficulty, gameBackground, narratorOpening, contextDelta, history);
 };
 
 export { getEmbeddings };

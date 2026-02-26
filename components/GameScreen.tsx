@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GameState, GameStatus, EndingType, GameReviewData, QAPair, LegacyData } from '../types';
 import { getChatHistory, restoreChatSession, clearMemoryCache } from '../services/aiService';
+import { npcSessionManager } from '../services/npcSessionManager';
 import ConfirmationModal from './ConfirmationModal';
 import SaveLoadModal from './SaveLoadModal';
 import WorldLineTree from './WorldLineTree';
@@ -111,12 +112,12 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   const handleOpenSaveModal = async () => {
     try {
       const history = await getChatHistory();
-      setGameState(prev => ({ ...prev, chatHistory: history, language }));
+      setGameState(prev => ({ ...prev, chatHistory: history, npcHistories: npcSessionManager.getAllHistories(), language }));
       setSaveLoadMode('save');
       setSaveLoadModalOpen(true);
     } catch (e) {
       console.error("Failed to sync chat history before save", e);
-      setGameState(prev => ({ ...prev, language }));
+      setGameState(prev => ({ ...prev, npcHistories: npcSessionManager.getAllHistories(), language }));
       setSaveLoadMode('save');
       setSaveLoadModalOpen(true);
     }
@@ -124,6 +125,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
   const handleLoadGame = async (newGameState: GameState) => {
     clearMemoryCache();
+    npcSessionManager.clearCache();
 
     if (newGameState.language) {
       setLanguage(newGameState.language);

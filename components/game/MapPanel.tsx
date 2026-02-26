@@ -24,6 +24,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
   const [hoveredObjectiveId, setHoveredObjectiveId] = useState<string | null>(null);
   const [activeObjectiveId, setActiveObjectiveId] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+  const [activeTab, setActiveTab] = useState<'map' | 'npc' | 'settlement'>('map');
 
   useEffect(() => {
     const node = minimapRef.current;
@@ -187,7 +188,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
       to: minimapPositionById.get(edge.to) || null
     })).filter(e => e.from && e.to) as { from: typeof minimapNodes[number]; to: typeof minimapNodes[number] }[];
 
-    return { currentNode, neighbors, npcsHere, objectives, objectiveById, minimapNodes, minimapEdges };
+    return { currentNode, neighbors, npcsHere, objectives, objectiveById, minimapNodes, minimapEdges, nodeById };
   }, [blueprint, runtime, gameState.inventory, gameState.npcs, gameState.objectives, gameState.map, gameState.scpData]);
 
   // Auto-follow effect: Center view when current node changes
@@ -212,6 +213,64 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
   const goVerb = t('game.map_go');
   const talkVerb = t('game.map_talk');
   const hoveredNode = data.minimapNodes.find(node => node.id === hoveredNodeId) || null;
+  const getNodeName = (nodeId: string) => data.nodeById.get(nodeId)?.name || t('npc_panel.location_unknown');
+  const getNpcName = (npcId: string) => npcById.get(npcId)?.name || npcId;
+  const formatNpcAction = (action: { type: string; target?: string; content?: string; toNodeId?: string; description?: string }) => {
+    if (action.type === 'MOVE') {
+      return t('npc_panel.action_move', { location: getNodeName(action.toNodeId || '') });
+    }
+    if (action.type === 'TALK') {
+      const targetName = action.target === 'player' ? t('npc_panel.target_player') : getNpcName(action.target || '');
+      return t('npc_panel.action_talk', { target: targetName, content: action.content || '' });
+    }
+    if (action.type === 'GENERAL') {
+      return t('npc_panel.action_general', { description: action.description || '' });
+    }
+    return action.type;
+  };
+  const formatNpcActions = (actions?: Array<{ type: string; target?: string; content?: string; toNodeId?: string; description?: string }>) => {
+    return (actions || []).map(action => formatNpcAction(action)).filter(Boolean);
+  };
+  const formatObjectiveStatus = (status?: string) => {
+    if (status === 'COMPLETED') return t('game.map_status_completed');
+    if (status === 'FAILED') return t('game.map_status_failed');
+    return t('game.map_status_active');
+  };
+  const buildMapChanges = (mapUpdate?: any) => {
+    const changes: string[] = [];
+    if (!mapUpdate || typeof mapUpdate !== 'object') return changes;
+    const tokens = Array.isArray(mapUpdate.addAccessTokens) ? mapUpdate.addAccessTokens : [];
+    tokens.forEach((token: string) => {
+      changes.push(t('settlement.map_change_token_add', { token }));
+    });
+    const npcMoves = Array.isArray(mapUpdate.moveNPCs) ? mapUpdate.moveNPCs : [];
+    npcMoves.forEach((move: { id: string; nodeId?: string; alive?: boolean }) => {
+      const name = getNpcName(move.id);
+      if (move.alive === false) {
+        changes.push(t('settlement.map_change_npc_dead', { name }));
+        return;
+      }
+      if (move.nodeId) {
+        changes.push(t('settlement.map_change_npc_move', { name, location: getNodeName(move.nodeId) }));
+      }
+    });
+    const objUpdates = Array.isArray(mapUpdate.updateObjectives) ? mapUpdate.updateObjectives : [];
+    objUpdates.forEach((update: { id: string; status?: string }) => {
+      const title = data.objectiveById.get(update.id)?.title || update.id;
+      changes.push(t('settlement.map_change_objective_update', { title, status: formatObjectiveStatus(update.status) }));
+    });
+    const addObjectives = Array.isArray(mapUpdate.addObjectives) ? mapUpdate.addObjectives : [];
+    addObjectives.forEach((obj: { id: string; title?: string }) => {
+      const title = obj.title || obj.id;
+      changes.push(t('settlement.map_change_objective_add', { title }));
+    });
+    const deleteObjectives = Array.isArray(mapUpdate.deleteObjectives) ? mapUpdate.deleteObjectives : [];
+    deleteObjectives.forEach((obj: { id: string }) => {
+      const title = data.objectiveById.get(obj.id)?.title || obj.id;
+      changes.push(t('settlement.map_change_objective_delete', { title }));
+    });
+    return changes;
+  };
   const statusLabel = (status: string) => {
     if (status === 'COMPLETED') return t('game.map_status_completed');
     if (status === 'FAILED') return t('game.map_status_failed');
@@ -342,6 +401,17 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
   };
 
   const activeObjective = (activeObjectiveId ? data.objectiveById.get(activeObjectiveId) : null) || null;
+  const npcList = (gameState.npcs || []).slice().sort((a, b) => {
+    if (a.alive !== b.alive) return a.alive ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+  const npcLastActions = gameState.npcLastActions || {};
+  const npcLastSummaries = gameState.npcLastSummaries || {};
+  const encounteredNpcIds = new Set(gameState.encounteredNpcIds || []);
+  const npcById = new Map((gameState.npcs || []).map(n => [n.id, n]));
+  const settlementLogs = gameState.settlementLogs || [];
+  const currentSettlement = settlementLogs[settlementLogs.length - 1] || null;
+  const historySettlements = settlementLogs.slice(0, -1).reverse();
 
   return (
     <SidePanel id="map-panel" side="right" className="fixed top-16 bottom-4 hidden lg:flex w-80">
@@ -349,7 +419,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
         <div>
           <div className="text-[12px] font-mono tracking-widest text-scp-term uppercase">{t('game.map_title')}</div>
           <div className="text-xs text-scp-text font-mono mt-1 opacity-60">
-            {data.currentNode?.name || runtime!.currentNodeId}
+            {data.currentNode?.name || t('npc_panel.location_unknown')}
           </div>
         </div>
         <div className="flex flex-col items-end">
@@ -357,11 +427,34 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-4">
-        {/* Radar Container */}
+      <div className="flex-1 overflow-y-auto p-3">
+        <div className="mb-3">
+          <div className="flex items-center gap-1 border border-scp-gray/40 bg-black/50 p-1 rounded">
+            <button
+              onClick={() => setActiveTab('map')}
+              className={`flex-1 px-2 py-1 text-[11px] font-mono uppercase tracking-wider transition-colors ${activeTab === 'map' ? 'bg-scp-term text-black' : 'text-gray-400 hover:text-scp-term'}`}
+            >
+              {t('game.map_title')}
+            </button>
+            <button
+              onClick={() => setActiveTab('npc')}
+              className={`flex-1 px-2 py-1 text-[11px] font-mono uppercase tracking-wider transition-colors ${activeTab === 'npc' ? 'bg-scp-term text-black' : 'text-gray-400 hover:text-scp-term'}`}
+            >
+              {t('game.map_npc')}
+            </button>
+            <button
+              onClick={() => setActiveTab('settlement')}
+              className={`flex-1 px-2 py-1 text-[11px] font-mono uppercase tracking-wider transition-colors ${activeTab === 'settlement' ? 'bg-scp-term text-black' : 'text-gray-400 hover:text-scp-term'}`}
+            >
+              {t('game.review_logs')}
+            </button>
+          </div>
+        </div>
+
+        {activeTab === 'map' && (
+        <div className="space-y-4">
         <div className="w-full flex justify-center py-2 relative">
             <div className="relative w-64 h-64 bg-scp-dark rounded-full overflow-hidden border-4 border-scp-border-strong shadow-[0_0_30px_rgba(0,0,0,0.8)] group select-none">
-                {/* Grid Layer */}
                 <div className="absolute inset-0 pointer-events-none opacity-30">
                     <svg viewBox="0 0 200 200" className="w-full h-full">
                         <circle cx="100" cy="100" r="98" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-scp-term_fix" />
@@ -372,10 +465,8 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                     </svg>
                 </div>
 
-                {/* Radar Sweep Animation */}
                 <div className="absolute inset-0 radar-sweep animate-radar-spin opacity-40 pointer-events-none z-0" />
 
-                {/* Decorative Text Overlay */}
                 <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[12px] text-scp-term/60 font-mono pointer-events-none z-10">
                     {t('game.map_scanning')}
                 </div>
@@ -435,9 +526,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                             </filter>
                         </defs>
                         <g transform={`translate(${viewTransform.x} ${viewTransform.y}) scale(${viewTransform.scale})`}>
-                            {/* Edges */}
                             {data.minimapEdges.map((edge, idx) => {
-                                // Only highlight edge if BOTH ends are discovered
                                 const isFullyDiscovered = edge.from.discovered && edge.to.discovered;
                                 return (
                                     <line
@@ -453,7 +542,6 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                                 );
                             })}
                             
-                            {/* Nodes */}
                             {data.minimapNodes.map(node => {
                                 return (
                                     <g
@@ -476,7 +564,6 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                                     >
                                         {renderNodeShape(node.x, node.y, node.danger, node.isCurrent, node.discovered)}
                                         
-                                        {/* Current Node Reticle */}
                                         {node.isCurrent && (
                                             <g className="animate-spin-slow" style={{ animationDuration: '8s' }}>
                                                 <rect x={node.x - 8} y={node.y - 8} width="4" height="1" className="fill-scp-term" />
@@ -491,17 +578,14 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                                             </g>
                                         )}
 
-                                        {/* Start Node Indicator */}
                                         {node.id === blueprint?.startNodeId && (
                                             <text x={node.x - 12} y={node.y + 4} fontSize="9" fill="rgba(148,163,184,0.9)" fontFamily="monospace">S</text>
                                         )}
 
-                                        {/* NPC Indicator (for discovered nodes) */}
                                         {node.npcCount > 0 && node.discovered && (
                                             <circle cx={node.x + 8} cy={node.y - 8} r="3" fill="rgba(234,179,8,1)" />
                                         )}
 
-                                        {/* Objective Indicators */}
                                         {node.mainStatus && (
                                             <circle cx={node.x} cy={node.y} r="8" fill="none" stroke="rgba(56,189,248,0.8)" strokeWidth="1" strokeDasharray="3 2" className="animate-spin-slow" />
                                         )}
@@ -509,7 +593,6 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                                             <rect x={node.x + 6} y={node.y + 6} width="4" height="4" fill="rgba(56,189,248,1)" />
                                         )}
 
-                                        {/* Labels */}
                                         {(node.isCurrent || (node.discovered && viewTransform.scale >= 1.2) || hoveredNodeId === node.id) && (
                                             <text
                                                 x={node.x + node.labelOffset.dx}
@@ -530,7 +613,6 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                 </div>
             </div>
             
-            {/* Reset View Button - Moved to top right relative to the container */}
             <button
                   onClick={resetView}
                   className="absolute top-2 right-4 text-[11px] font-mono text-scp-text/60 hover:text-scp-term border border-scp-term/30 px-1.5 py-0.5 bg-black/80 z-30"
@@ -538,7 +620,6 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                   {t('game.map_reset')}
             </button>
 
-            {/* Zoom Controls - Top Left relative to the container */}
             <div className="absolute top-2 left-4 z-30 flex gap-1">
                 <button 
                     onClick={zoomIn}
@@ -550,7 +631,6 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                 >-</button>
             </div>
             
-             {/* Tooltip Overlay - Moved outside radar container to avoid clipping if overflow hidden, but still positioned absolutely */}
             {hoveredNode && tooltipPosition && (
                 <div
                     className="absolute z-50 bg-scp-dark/95 border border-scp-term/50 backdrop-blur-md px-3 py-2 text-[12px] font-mono text-scp-text min-w-[140px] pointer-events-none shadow-[0_0_15px_rgba(51,255,0,0.2)]"
@@ -588,7 +668,6 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                             </>
                         ) : (
                             <>
-                                {/* Undiscovered Node Tooltip */}
                                 <div className="font-bold" style={{ color: dangerColor(hoveredNode.danger) }}>
                                     {t('game.map_tooltip_danger')} {hoveredNode.danger}
                                 </div>
@@ -605,7 +684,6 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
             )}
         </div>
 
-        {/* Legend - Updated per user request */}
         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-gray-400 border-t border-scp-gray/30 pt-2">
             <div className="flex items-center gap-2">
                 <span className="inline-block text-[12px] text-gray-400 font-mono">S</span>
@@ -625,12 +703,11 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
             </div>
         </div>
 
-        {/* List Views (Adjacency, etc.) */}
         <div className="space-y-3 pt-2">
             {activeObjective && isTouchMode && (
               <div className="border border-scp-term/30 bg-black/60 px-2 py-2 text-[11px] text-scp-text/80 space-y-1">
                 <div className="flex items-center justify-between gap-2 border-b border-scp-term/20 pb-1">
-                  <div className="font-bold truncate">{activeObjective.type === 'MAIN' ? 'MAIN' : 'SIDE'} | {activeObjective.title}</div>
+                  <div className="font-bold truncate">{activeObjective.type === 'MAIN' ? t('game.map_main_hint') : t('game.map_side_hint')} | {activeObjective.title}</div>
                   <button
                     onClick={() => setActiveObjectiveId(null)}
                     className="text-scp-text/60 hover:text-scp-text border border-scp-gray/30 px-1.5 py-0.5"
@@ -718,7 +795,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                           className="w-full text-left px-2 py-1.5 border border-scp-gray/30 text-scp-text hover:border-scp-term/60 hover:bg-scp-term/10 font-mono text-[12px] transition-colors group"
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="truncate font-bold group-hover:text-scp-term transition-colors">{o.type === 'MAIN' ? 'MAIN' : 'SIDE'} | {o.title}</span>
+                            <span className="truncate font-bold group-hover:text-scp-term transition-colors">{o.type === 'MAIN' ? t('game.map_main_hint') : t('game.map_side_hint')} | {o.title}</span>
                             <span className={`text-[11px] font-mono ${statusColor(o.status)}`}>{statusLabel(o.status)}</span>
                           </div>
                           <div className="mt-1 text-[11px] text-gray-500 flex justify-between items-center">
@@ -745,6 +822,196 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
               </div>
             )}
         </div>
+        </div>
+        )}
+
+        {activeTab === 'npc' && (
+          <div className="space-y-3">
+            {npcList.length === 0 && (
+              <div className="border border-scp-gray/30 bg-black/40 p-3 text-[11px] font-mono text-gray-400 scp-window">
+                {t('npc_panel.empty')}
+              </div>
+            )}
+            {npcList.map(npc => {
+              const isEncountered = encounteredNpcIds.has(npc.id);
+              const lastAction = npcLastActions[npc.id];
+              const actionLines = formatNpcActions(lastAction?.actions);
+              const actionText = actionLines.length > 0 ? actionLines.join('\n') : t('npc_panel.no_recent_action');
+              const summaryText = npcLastSummaries[npc.id] || t('npc_panel.no_summary');
+              const displaySummary = isEncountered ? summaryText : t('npc_panel.masked');
+              const displayAction = isEncountered ? actionText : t('npc_panel.masked');
+              const displayLocation = isEncountered ? getNodeName(npc.nodeId) : t('npc_panel.location_unknown');
+              return (
+              <div key={npc.id} className="border border-scp-gray/30 bg-black/40 p-3 scp-window space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs font-bold text-scp-text truncate">{npc.name}</div>
+                  <span className={`text-[10px] font-mono px-2 py-0.5 border ${npc.alive ? 'border-scp-term/60 text-scp-term' : 'border-red-500/60 text-red-400'}`}>
+                    {npc.alive ? t('npc_panel.status_alive') : t('npc_panel.status_dead')}
+                  </span>
+                </div>
+                <div className="text-[10px] text-gray-400 font-mono space-y-1">
+                  <div className="flex justify-between gap-2">
+                    <span className="uppercase">{t('npc_panel.location')}</span>
+                    <span className="text-scp-text/90 truncate">{displayLocation}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="uppercase">{t('npc_panel.archetype')}</span>
+                    <span className="text-scp-text/90 truncate">{npc.archetype || '-'}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="uppercase">{t('npc_panel.goal')}</span>
+                    <span className="text-scp-text/90 truncate">{npc.dialogueGoals?.[0] || t('npc_panel.no_goal')}</span>
+                  </div>
+                </div>
+                <div className="border-t border-scp-gray/30 pt-2 space-y-2">
+                  <div>
+                    <div className="text-[10px] text-gray-500 uppercase">{t('npc_panel.perspective')}</div>
+                    <div className="mt-1 font-mono text-scp-text/90 whitespace-pre-wrap">{displaySummary}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-gray-500 uppercase">{t('npc_panel.last_action')}</div>
+                    <div className="mt-1 font-mono text-scp-text/90 whitespace-pre-wrap">{displayAction}</div>
+                  </div>
+                </div>
+              </div>
+              );
+            })}
+          </div>
+        )}
+
+        {activeTab === 'settlement' && (
+          <div className="space-y-3">
+            {!currentSettlement && (
+              <div className="border border-scp-gray/30 bg-black/40 p-3 text-[11px] font-mono text-gray-400 scp-window">
+                {t('settlement.empty')}
+              </div>
+            )}
+            {currentSettlement && (
+              <div className="border border-scp-term/40 bg-black/50 p-3 scp-window space-y-2">
+                <div className="flex items-center justify-between text-[10px] font-mono text-scp-term">
+                  <span className="uppercase">{t('settlement.current_turn')}</span>
+                  <span>{t('game.turn')} {currentSettlement.turn}</span>
+                </div>
+                <div className="space-y-3 text-[11px] text-gray-300">
+                  <div>
+                    <div className="text-[10px] text-gray-500 uppercase">{t('settlement.map_changes')}</div>
+                    {buildMapChanges(currentSettlement.mapUpdate).length === 0 ? (
+                      <div className="mt-1 font-mono text-scp-text/60">{t('settlement.map_change_empty')}</div>
+                    ) : (
+                      <div className="mt-1 space-y-1 font-mono text-scp-text/90">
+                        {buildMapChanges(currentSettlement.mapUpdate).map((entry, idx) => (
+                          <div key={`map-change-${currentSettlement.turn}-${idx}`}>{entry}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-gray-500 uppercase">{t('settlement.npc_results')}</div>
+                    {(currentSettlement.npcActions || []).length === 0 && Object.keys(currentSettlement.npcSummaries || {}).length === 0 ? (
+                      <div className="mt-1 font-mono text-scp-text/60">{t('settlement.npc_result_empty')}</div>
+                    ) : (
+                      <div className="mt-1 space-y-2 font-mono text-scp-text/90">
+                        {(() => {
+                          const byNpcId = new Map<string, { npcId: string; summary?: string; actions?: any[] }>();
+                          Object.entries(currentSettlement.npcSummaries || {}).forEach(([npcId, summary]) => {
+                            byNpcId.set(npcId, { npcId, summary, actions: [] });
+                          });
+                          (currentSettlement.npcActions || []).forEach(action => {
+                            const prev = byNpcId.get(action.npcId) || { npcId: action.npcId };
+                            byNpcId.set(action.npcId, {
+                              ...prev,
+                              ...action,
+                              summary: prev.summary
+                            });
+                          });
+                          return Array.from(byNpcId.values());
+                        })().map(action => {
+                          const isEncountered = encounteredNpcIds.has(action.npcId);
+                          const actionLines = formatNpcActions(action.actions || []);
+                          const actionText = actionLines.length > 0 ? actionLines.join(' / ') : t('npc_panel.no_recent_action');
+                          const summaryText = action.summary || t('npc_panel.no_summary');
+                          const displayAction = isEncountered ? actionText : t('npc_panel.masked');
+                          const displaySummary = isEncountered ? summaryText : t('npc_panel.masked');
+                          return (
+                            <div key={`npc-settlement-${currentSettlement.turn}-${action.npcId}`} className="border border-scp-gray/30 bg-black/40 px-2 py-1.5">
+                              <div className="text-[10px] text-gray-400">{getNpcName(action.npcId)}</div>
+                              <div className="text-[10px] text-scp-text/70">{displaySummary}</div>
+                              <div className="text-[11px] text-scp-text/90">{displayAction}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            {historySettlements.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-[10px] text-gray-500 font-mono uppercase">{t('settlement.history')}</div>
+                {historySettlements.map(entry => (
+                  <div key={`settlement-${entry.turn}`} className="border border-scp-gray/30 bg-black/40 p-3 scp-window">
+                    <div className="flex items-center justify-between text-[10px] text-gray-400 font-mono mb-2">
+                      <span>{t('game.turn')} {entry.turn}</span>
+                    </div>
+                    <div className="space-y-2 text-[11px] text-gray-300">
+                      <div>
+                        <div className="text-[10px] text-gray-500 uppercase">{t('settlement.map_changes')}</div>
+                        {buildMapChanges(entry.mapUpdate).length === 0 ? (
+                          <div className="mt-1 font-mono text-scp-text/60">{t('settlement.map_change_empty')}</div>
+                        ) : (
+                          <div className="mt-1 space-y-1 font-mono text-scp-text/90">
+                            {buildMapChanges(entry.mapUpdate).map((change, idx) => (
+                              <div key={`map-change-${entry.turn}-${idx}`} className="line-clamp-2">{change}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-gray-500 uppercase">{t('settlement.npc_results')}</div>
+                        {(entry.npcActions || []).length === 0 && Object.keys(entry.npcSummaries || {}).length === 0 ? (
+                          <div className="mt-1 font-mono text-scp-text/60">{t('settlement.npc_result_empty')}</div>
+                        ) : (
+                          <div className="mt-1 space-y-2 font-mono text-scp-text/90">
+                            {(() => {
+                              const byNpcId = new Map<string, { npcId: string; summary?: string; actions?: any[] }>();
+                              Object.entries(entry.npcSummaries || {}).forEach(([npcId, summary]) => {
+                                byNpcId.set(npcId, { npcId, summary, actions: [] });
+                              });
+                              (entry.npcActions || []).forEach(action => {
+                                const prev = byNpcId.get(action.npcId) || { npcId: action.npcId };
+                                byNpcId.set(action.npcId, {
+                                  ...prev,
+                                  ...action,
+                                  summary: prev.summary
+                                });
+                              });
+                              return Array.from(byNpcId.values());
+                            })().map(action => {
+                              const isEncountered = encounteredNpcIds.has(action.npcId);
+                              const actionLines = formatNpcActions(action.actions || []);
+                              const actionText = actionLines.length > 0 ? actionLines.join(' / ') : t('npc_panel.no_recent_action');
+                              const summaryText = action.summary || t('npc_panel.no_summary');
+                              const displayAction = isEncountered ? actionText : t('npc_panel.masked');
+                              const displaySummary = isEncountered ? summaryText : t('npc_panel.masked');
+                              return (
+                                <div key={`npc-settlement-${entry.turn}-${action.npcId}`} className="border border-scp-gray/30 bg-black/40 px-2 py-1.5">
+                                  <div className="text-[10px] text-gray-400">{getNpcName(action.npcId)}</div>
+                                  <div className="text-[10px] text-scp-text/70 line-clamp-2">{displaySummary}</div>
+                                  <div className="text-[11px] text-scp-text/90 line-clamp-2">{displayAction}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </SidePanel>
   );

@@ -1,8 +1,8 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { AIService } from "../types";
-import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty } from "../../../types";
+import { AIService, RouterOutput, NPCActionProposal } from "../types";
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, MapBlueprint, MapBlueprintNPC } from "../../../types";
 import { aiConfig } from "../../../config/aiConfig";
-import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt } from "../prompts";
+import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getRouterSystemPrompt, getRouterTurnPrompt, getNPCSystemPrompt, getNPCContextDeltaPrompt } from "../prompts";
 import { normalizeGameReviewData, safeParseJson } from "../utils";
 import { AudioDramaSchema } from "../schemas";
 import { postJson, streamSse } from "./backendClient";
@@ -168,15 +168,16 @@ export class GeminiProvider implements AIService {
         }
     }
 
-    async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh', ragContext?: string, mapContext?: string): AsyncGenerator<string> {
+    async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh', ragContext?: string, mapContext?: string, npcContext?: string): AsyncGenerator<string> {
         console.log(`[GeminiProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}, Language: ${language}`);
         const config = await this.getConfig();
-        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, mapContext);
+        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, mapContext, npcContext);
 
         try {
             const cachedContent = await this.ensureCachedContentName();
             console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
 
+            console.log(`[GeminiProvider] Sending context message...\n${contextPrompt}`);
             let fullResponse = "";
             for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
@@ -199,6 +200,75 @@ export class GeminiProvider implements AIService {
         } catch (err) {
             console.error("[GeminiProvider] Error in sendAction: ", err);
             throw err;
+        }
+    }
+
+    async getRouterDecision(mapBlueprint: MapBlueprint, playerAction: string, narrativeOutput: string, currentLoc: string, allNpcs: { id: string, nodeId: string }[], npcContext: any, language: Language): Promise<RouterOutput> {
+        console.log(`[GeminiProvider] getRouterDecision called`);
+        const config = await this.getConfig();
+        const systemPrompt = getRouterSystemPrompt(mapBlueprint, language);
+        const turnPrompt = getRouterTurnPrompt(playerAction, narrativeOutput, currentLoc, allNpcs, npcContext);
+        try {
+            const { text } = await postJson<{ text: string | null }>("/api/ai/gemini/generate-content", {
+                apiKey: config.apiKey,
+                model: config.chatModel,
+                contents: [{ role: "user", parts: [{ text: turnPrompt }] }],
+                config: {
+                    systemInstruction: systemPrompt,
+                    responseMimeType: "application/json",
+                },
+            });
+            
+            if (!text) throw new Error("Empty response for router decision");
+            const parsed = JSON.parse(text) as RouterOutput;
+            console.log(`[GeminiProvider] Router decision:`, parsed);
+            return parsed;
+        } catch (error) {
+            console.error("[GeminiProvider] Error in getRouterDecision: ", error);
+            return { relevantNpcIds: [], encounteredNpcIds: [], npcSummaries: {} };
+        }
+    }
+
+    async getNPCAction(npc: MapBlueprintNPC, role: string, scpDesignation: string, language: Language, difficulty: GameDifficulty, gameBackground: string, narratorOpening: string, contextDelta: any, history?: any[]): Promise<{ proposal: NPCActionProposal, history: any[] }> {
+        console.log(`[GeminiProvider] getNPCAction called for ${npc.id}`);
+        const config = await this.getConfig();
+        const systemPrompt = getNPCSystemPrompt(npc, role, scpDesignation, language, difficulty, gameBackground, narratorOpening);
+        const turnPrompt = getNPCContextDeltaPrompt(contextDelta);
+        
+        const currentHistory = history || [];
+        const contents = [
+             ...currentHistory,
+             { role: "user", parts: [{ text: turnPrompt }] }
+        ];
+
+        try {
+            const { text } = await postJson<{ text: string | null }>("/api/ai/gemini/generate-content", {
+                apiKey: config.apiKey,
+                model: config.chatModel,
+                contents: contents,
+                config: {
+                    systemInstruction: systemPrompt,
+                    responseMimeType: "application/json",
+                },
+            });
+            
+            if (!text) throw new Error("Empty response for NPC action");
+            const parsed = JSON.parse(text) as NPCActionProposal;
+            
+            const newHistory = [
+                ...currentHistory,
+                { role: "user", parts: [{ text: turnPrompt }] },
+                { role: "model", parts: [{ text }] }
+            ];
+
+            return { proposal: parsed, history: newHistory };
+        } catch (error) {
+            console.error("[GeminiProvider] Error in getNPCAction: ", error);
+            // Return fallback wait action
+            return { 
+                proposal: { npcId: npc.id, actions: [{ type: "WAIT" }] }, 
+                history: currentHistory 
+            };
         }
     }
 

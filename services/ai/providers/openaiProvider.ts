@@ -1,7 +1,7 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { AIService } from "../types";
-import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty } from "../../../types";
-import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt } from "../prompts";
+import { AIService, RouterOutput, NPCActionProposal } from "../types";
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, MapBlueprint, MapBlueprintNPC } from "../../../types";
+import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getRouterSystemPrompt, getRouterTurnPrompt, getNPCSystemPrompt, getNPCContextDeltaPrompt } from "../prompts";
 import { normalizeGameReviewData, safeParseJson } from "../utils";
 import { AudioDramaSchema } from "../schemas";
 import { postJson, streamSse } from "./backendClient";
@@ -111,7 +111,7 @@ export class OpenAIProvider implements AIService {
         this.messages.push({ role: "assistant", content: fullResponse });
     }
 
-    async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh', ragContext?: string, mapContext?: string): AsyncGenerator<string> {
+    async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh', ragContext?: string, mapContext?: string, npcContext?: string): AsyncGenerator<string> {
         console.log(`[OpenAIProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}`);
         const config = await this.getConfig();
 
@@ -120,7 +120,7 @@ export class OpenAIProvider implements AIService {
             throw new Error("Game not initialized - session missing");
         }
 
-        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, mapContext);
+        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, mapContext, npcContext);
 
         try {
             let fullResponse = "";
@@ -141,6 +141,86 @@ export class OpenAIProvider implements AIService {
         } catch (err) {
             console.error("[OpenAIProvider] Error in sendAction: ", err);
             throw err;
+        }
+    }
+
+    async getRouterDecision(mapBlueprint: MapBlueprint, playerAction: string, narrativeOutput: string, currentLoc: string, allNpcs: { id: string, nodeId: string }[], npcContext: any, language: Language): Promise<RouterOutput> {
+        console.log(`[OpenAIProvider] getRouterDecision called`);
+        const config = await this.getConfig();
+        const systemPrompt = getRouterSystemPrompt(mapBlueprint, language);
+        const turnPrompt = getRouterTurnPrompt(playerAction, narrativeOutput, currentLoc, allNpcs, npcContext);
+
+        try {
+            const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
+                apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
+                chatModel: config.chatModel,
+                input: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: turnPrompt }
+                ],
+                text: {
+                    format: { type: "json_object" }
+                }
+            });
+            
+            const text = output_text || "";
+            if (!text) throw new Error("Empty response for router decision");
+            
+            const parsed = JSON.parse(text) as RouterOutput;
+            return parsed;
+        } catch (error) {
+            console.error("[OpenAIProvider] Error in getRouterDecision: ", error);
+            return { relevantNpcIds: [], encounteredNpcIds: [], npcSummaries: {} };
+        }
+    }
+
+    async getNPCAction(npc: MapBlueprintNPC, role: string, scpDesignation: string, language: Language, difficulty: GameDifficulty, gameBackground: string, narratorOpening: string, contextDelta: any, history?: any[]): Promise<{ proposal: NPCActionProposal, history: any[] }> {
+        console.log(`[OpenAIProvider] getNPCAction called for ${npc.id}`);
+        const config = await this.getConfig();
+        const systemPrompt = getNPCSystemPrompt(npc, role, scpDesignation, language, difficulty, gameBackground, narratorOpening);
+        const turnPrompt = getNPCContextDeltaPrompt(contextDelta);
+        
+        const currentHistory: ChatMessage[] = (history || []).map((msg: any) => ({
+            role: msg.role === 'model' ? 'assistant' : msg.role,
+            content: msg.parts ? msg.parts[0].text : msg.content
+        }));
+
+        const messages: ChatMessage[] = [
+            { role: "system", content: systemPrompt },
+            ...currentHistory,
+            { role: "user", content: turnPrompt }
+        ];
+
+        try {
+            const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
+                apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
+                chatModel: config.chatModel,
+                input: messages,
+                text: {
+                    format: { type: "json_object" }
+                }
+            });
+            
+            const text = output_text || "";
+            if (!text) throw new Error("Empty response for NPC action");
+            
+            const parsed = JSON.parse(text) as NPCActionProposal;
+            
+            const newHistory = [
+                ...currentHistory,
+                { role: "user", content: turnPrompt },
+                { role: "assistant", content: text }
+            ];
+
+            return { proposal: parsed, history: newHistory };
+        } catch (error) {
+            console.error("[OpenAIProvider] Error in getNPCAction: ", error);
+            return { 
+                proposal: { npcId: npc.id, actions: [{ type: "WAIT" }] }, 
+                history: currentHistory 
+            };
         }
     }
 

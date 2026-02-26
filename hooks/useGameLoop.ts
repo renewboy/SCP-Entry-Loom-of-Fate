@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { GameState, EndingType, Message, Language } from '../types';
 import {
-    sendAction,
     extractVisualPrompt,
     extractStability,
     extractEnding,
@@ -9,6 +8,7 @@ import {
     extractMapUpdate,
     generateImage
 } from '../services/aiService';
+import { agentOrchestrator } from '../services/agentOrchestrator';
 import { loadGlobalSettings } from '../services/indexedDBService';
 import { MapUpdate } from './useMapUpdate';
 
@@ -90,11 +90,86 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
         }));
 
         try {
-            console.log("[GameLoop] Invoking sendAction stream...");
-            let fullResponse = '';
+            console.log("[GameLoop] Starting Agent Orchestration...");
+            
+            // Phase 1: Router
+            const lastNarratorOutput = gameState.messages
+                .filter(m => m.sender === 'narrator')
+                .slice(-1)[0]?.content || "";
+            
+            const routerResult = await agentOrchestrator.runRouterPhase(
+                gameState,
+                originalInput,
+                lastNarratorOutput,
+                language
+            );
+            console.log(`[GameLoop] Router Relevant NPCs: ${routerResult.relevantNpcIds.join(', ')}`);
 
+            // Phase 2: NPC
+            const narratorOpening = gameState.messages.find(m => m.sender === 'narrator')?.content || "";
+            const npcProposals = await agentOrchestrator.runNPCPhase(
+                routerResult.relevantNpcIds,
+                gameState,
+                routerResult.npcSummaries || {},
+                narratorOpening,
+                language
+            );
+            console.log(`[GameLoop] NPC Proposals:`, npcProposals);
+            const npcActionSummaries = npcProposals.map(p => ({
+                npcId: p.npcId,
+                actions: p.actions
+            }));
+            const encounteredSet = new Set(gameState.encounteredNpcIds || []);
+            (routerResult.encounteredNpcIds || []).forEach(id => encounteredSet.add(id));
+            const currentNodeId = gameState.map?.currentNodeId;
+            (gameState.npcs || []).forEach(npc => {
+                if (npc.alive && npc.nodeId === currentNodeId) {
+                    encounteredSet.add(npc.id);
+                }
+            });
+            const npcSayMessages = npcProposals.flatMap(p => {
+                const npcInfo = gameState.npcs?.find(n => n.id === p.npcId);
+                const npcName = npcInfo?.name || p.npcId;
+                const isEncountered = encounteredSet.has(p.npcId);
+                return p.actions
+                    .filter(a => a.type === 'TALK' && a.target === 'player')
+                    .map(a => ({
+                        id: `${Date.now()}-${p.npcId}-${Math.random().toString(36).slice(2, 6)}`,
+                        sender: 'npc' as const,
+                        content: isEncountered ? (a.content || '') : t('npc_panel.masked'),
+                        timestamp: Date.now(),
+                        npcId: p.npcId,
+                        npcName: isEncountered ? npcName : t('npc_panel.masked')
+                    }));
+            });
+            const npcSummaries = routerResult.npcSummaries || {};
+            const npcLastSummaries = { ...(gameState.npcLastSummaries || {}) };
+            Object.entries(npcSummaries).forEach(([npcId, summary]) => {
+                if (typeof summary === 'string') {
+                    npcLastSummaries[npcId] = summary;
+                }
+            });
+            if (npcSayMessages.length > 0) {
+                setGameState(prev => ({
+                    ...prev,
+                    messages: prev.messages.flatMap(m => m.id === aiMsgId ? [...npcSayMessages, m] : [m])
+                }));
+            }
+
+            // Phase 3: Narrator (Streaming)
+            console.log("[GameLoop] Invoking Narrator Phase...");
+            let fullResponse = '';
             const mapContext = buildMapContext();
-            const stream = sendAction(userMsg.content, currentStability, newTurnCount, language, gameState.saveId, mapContext);
+            
+            const stream = agentOrchestrator.runNarratorPhase(
+                userMsg.content,
+                currentStability,
+                newTurnCount,
+                language,
+                gameState.saveId,
+                mapContext,
+                npcProposals
+            );
             const iterator = stream[Symbol.asyncIterator]();
 
             let idleTimeoutId: NodeJS.Timeout;
@@ -195,7 +270,31 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
                     };
                 }
 
-                return applyMapUpdate(base, mapUpdate);
+                const withMapUpdate = applyMapUpdate(base, mapUpdate);
+
+                const npcLastActions = { ...(withMapUpdate.npcLastActions || {}) };
+                npcActionSummaries.forEach(summary => {
+                    npcLastActions[summary.npcId] = summary;
+                });
+
+                const settlementLogs = [
+                    ...(withMapUpdate.settlementLogs || []),
+                    {
+                        turn: newTurnCount,
+                        timestamp: Date.now(),
+                        mapUpdate,
+                        npcActions: npcActionSummaries,
+                        npcSummaries
+                    }
+                ];
+
+                return {
+                    ...withMapUpdate,
+                    encounteredNpcIds: Array.from(encounteredSet),
+                    npcLastActions,
+                    npcLastSummaries,
+                    settlementLogs
+                };
             });
 
             if (visualPrompt) {

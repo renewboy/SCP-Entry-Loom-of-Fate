@@ -10,7 +10,7 @@ interface FeedbackOverlayProps {
 
 interface Notification {
   id: string;
-  type: 'UNLOCK' | 'OBJECTIVE' | 'OBJECTIVE_ADD' | 'OBJECTIVE_DELETE' | 'OBJECTIVE_FAIL' | 'LOCATION' | 'SYSTEM';
+  type: 'UNLOCK' | 'OBJECTIVE' | 'OBJECTIVE_ADD' | 'OBJECTIVE_DELETE' | 'OBJECTIVE_FAIL' | 'LOCATION' | 'SYSTEM' | 'NPC_MOVE';
   message: string;
   subMessage?: string;
   timestamp: number;
@@ -57,6 +57,21 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
       playSfx('footstep'); // Or a specific 'scan' sound if available
       
       setTimeout(() => setLocationScanActive(false), 2000);
+    }
+    
+    if (curr.npcs && prev.npcs) {
+      const encountered = new Set(curr.encounteredNpcIds || []);
+      curr.npcs.forEach(npc => {
+        const prevNpc = prev.npcs?.find(p => p.id === npc.id);
+        if (!prevNpc) return;
+        if (prevNpc.nodeId !== npc.nodeId) {
+          const node = curr.scpData?.mapBlueprint?.nodes.find(n => n.id === npc.nodeId);
+          const locationName = node?.name || npc.nodeId;
+          const displayName = encountered.has(npc.id) ? npc.name : t('npc_panel.masked');
+          const displayLocation = encountered.has(npc.id) ? locationName : t('npc_panel.masked');
+          addNotification('NPC_MOVE', t('game.npc_move', { name: displayName, location: displayLocation }));
+        }
+      });
     }
 
     if (curr.objectives) {
@@ -166,6 +181,7 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
               ${notif.type === 'OBJECTIVE_FAIL' ? 'border-l-red-600 text-red-400' : ''}
               ${notif.type === 'LOCATION' ? 'border-l-sky-500 text-sky-400' : ''}
               ${notif.type === 'SYSTEM' ? 'border-l-scp-alert text-scp-alert/80' : ''}
+              ${notif.type === 'NPC_MOVE' ? 'border-l-scp-term text-scp-term' : ''}
             `}
           >
              <div className="flex justify-between items-start">
@@ -191,6 +207,7 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ gameState }) => {
                     {notif.type === 'OBJECTIVE_FAIL' && <CheckCircle2 className="w-5 h-5" />}
                     {notif.type === 'LOCATION' && <MapPin className="w-5 h-5" />}
                     {notif.type === 'SYSTEM' && <CheckCircle2 className="w-5 h-5" />}
+                    {notif.type === 'NPC_MOVE' && <MapPin className="w-5 h-5" />}
                 </div>
              </div>
              

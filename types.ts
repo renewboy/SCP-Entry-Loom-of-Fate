@@ -66,12 +66,14 @@ export enum Role {
 
 export interface Message {
   id: string;
-  sender: 'user' | 'system' | 'narrator';
+  sender: 'user' | 'system' | 'narrator' | 'npc';
   content: string;
   timestamp: number;
-  imageUrl?: string; // If the message comes with an illustration
-  isTyping?: boolean; // For stream effect
-  stabilitySnapshot?: number; // Snapshot of stability at this message, used for history chart
+  imageUrl?: string;
+  isTyping?: boolean;
+  stabilitySnapshot?: number;
+  npcId?: string;
+  npcName?: string;
 }
 
 export interface StoryDraft {
@@ -165,6 +167,25 @@ export interface RuntimeNPCState {
   alive: boolean;
   secretTags?: string[];
   dialogueGoals?: string[];
+}
+
+export interface NPCActionSummary {
+  npcId: string;
+  actions: Array<{
+    type: string;
+    target?: string;
+    content?: string;
+    toNodeId?: string;
+    description?: string;
+  }>;
+}
+
+export interface SettlementLogEntry {
+  turn: number;
+  timestamp: number;
+  mapUpdate?: any;
+  npcActions?: NPCActionSummary[];
+  npcSummaries?: Record<string, string>;
 }
 
 export interface ObjectiveState {
@@ -314,6 +335,11 @@ export interface GameState {
   objectives?: ObjectiveState[];
   inventory?: ItemState[];
   chatHistory?: any[]; // Raw chat history from Gemini model
+  npcHistories?: Record<string, any[]>; // Persisted history for each NPC
+  encounteredNpcIds?: string[];
+  npcLastActions?: Record<string, NPCActionSummary>;
+  npcLastSummaries?: Record<string, string>;
+  settlementLogs?: SettlementLogEntry[];
   language?: Language; // Language setting at the time of save
   gameReview?: GameReviewData | null; // Persisted game review
   qaHistory?: QAPair[]; // Persisted Q&A history

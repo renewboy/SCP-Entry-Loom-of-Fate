@@ -1,4 +1,4 @@
-import { GameDifficulty, Language, MapBlueprint, StoryDraft, LegacyData } from '../../types';
+import { GameDifficulty, Language, MapBlueprint, StoryDraft, LegacyData, MapBlueprintNPC } from '../../types';
 
 const formatLegacyData = (legacyData?: LegacyData) => {
     if (!legacyData) return '';
@@ -311,7 +311,7 @@ Format: RETURN ONLY RAW JSON. No markdown.
 `;
 };
 
-export const getContextPrompt = (action: string, currentStability: number, turnCount: number, language: Language, ragContext?: string, mapContext?: string) => {
+export const getContextPrompt = (action: string, currentStability: number, turnCount: number, language: Language, ragContext?: string, mapContext?: string, npcContext?: string) => {
     const langInstruction = language === 'zh' ? '中文' : '英文';
     const ragSection = ragContext ? `
 [记忆回响]
@@ -325,6 +325,11 @@ ${ragContext}
 ${mapContext}
 [地图状态结束]
 ` : '';
+    const npcSection = npcContext ? `
+[NPC 动态]
+${npcContext}
+[NPC 动态结束]
+` : '';
     const normalTurnReminder = turnCount % 5 === 1 ? getNormalTurnRequirements(langInstruction) : '';
 
     const finalContextPrompt = `
@@ -337,6 +342,8 @@ Output Language: ${langInstruction}
 ${ragSection}
 
 ${mapSection}
+
+${npcSection}
 
 ${normalTurnReminder}
 
@@ -445,5 +452,126 @@ Requirements:
 1. Stay in character as the cold, observant AI Narrator.
 2. Provide a concise, insightful answer (max 150 words).
 3. Base the answer on the events that actually occurred in the session or official SCP lore.
+`;
+};
+
+// --- Multi-Agent System Prompts ---
+
+export const getRouterSystemPrompt = (mapBlueprint: MapBlueprint, language: Language) => {
+    const langInstruction = language === 'zh' ? '中文' : '英文';
+    return `
+You are the **Router Agent** for a multi-agent text adventure game.
+Your goal is to analyze the current turn's narrative and player action to determine which NPCs should be aware of the events.
+
+[Map Knowledge]
+${JSON.stringify(mapBlueprint.nodes.map(({ layout, ...rest }) => rest))}
+[End Map Knowledge]
+
+Output Language: ${langInstruction}
+
+Task:
+1. Read the "Narrator Output" and "Player Action".
+2. Identify which NPCs are present in the current location OR should be aware of the events (e.g., global alarms, loud noises, radio comms).
+3. Return a JSON object listing the \`relevantNpcIds\` that need to receive context updates this turn.
+4. Return \`encounteredNpcIds\`: NPCs the player directly encountered (visible or clearly heard).
+5. Generate \`npcSummaries\`: a per-NPC, second-person summary of what **that NPC** perceives. Use "you" perspective, avoid revealing the player's internal intent unless that NPC could know it. Skip NPCs that cannot reasonably perceive the action.
+
+Format: JSON ONLY.
+{
+  "relevantNpcIds": ["npc_1", "npc_2"],
+  "encounteredNpcIds": ["npc_1"],
+  "npcSummaries": {
+    "npc_1": "你听见警报响起，看到目标闯入控制室并朝你靠近。",
+    "npc_2": "你在远处听到警报，通讯频道出现短暂杂音。"
+  }
+}
+`;
+};
+
+export const getRouterTurnPrompt = (playerAction: string, narrativeOutput: string, currentLoc: string, allNpcs: { id: string, nodeId: string }[], npcContext: any) => {
+    let npcContextStr = npcContext ? `[Last NPC Context]\n${JSON.stringify(npcContext)}\n[Last NPC Context End]\n` : '';
+    return `
+Player Location: ${currentLoc}
+All Alive NPCs: ${JSON.stringify(allNpcs)}
+
+${npcContextStr}
+
+Player Action: "${playerAction}"
+Narrator Output: "${narrativeOutput}"
+
+Determine relevant NPCs, encounteredNpcIds, and second-person NPC summaries.
+`;
+};
+
+export const getNPCSystemPrompt = (
+    npc: MapBlueprintNPC,
+    role: string,
+    scpDesignation: string,
+    language: Language,
+    difficulty: GameDifficulty,
+    gameBackground: string,
+    narratorOpening: string
+) => {
+    const langInstruction = language === 'zh' ? 'Chinese' : 'English';
+    return `
+You are **${npc.name}** (${npc.archetype}), a character in an SCP Foundation text adventure.
+The player is playing as: ${role}.
+Current SCP Subject: ${scpDesignation}.
+Difficulty: ${difficulty}.
+
+[Game Background]
+${gameBackground}
+
+[Opening Narrative]
+${narratorOpening}
+
+[Your Profile]
+ID: ${npc.id}
+Name: ${npc.name}
+Archetype: ${npc.archetype}
+Initial Location: ${npc.initialNodeId}
+Secret Tags: ${JSON.stringify(npc.secretTags || [])}
+Dialogue Goals: ${JSON.stringify(npc.dialogueGoals || [])}
+Output Language: ${langInstruction}
+[Hume Field Stability]
+You must track a value named "Stability" (0-100). The game starts at 100.
+- Overall trend: natural entropy. If nothing special happens, decrease by 2 to 5 each turn.
+- Player mistakes: reckless actions, exposure to anomalies, injuries, or mental collapse should reduce by 10 to 20.
+- Recovery: logical/scientific actions, special clearance, or tools that stabilize the situation can add 5 to 15 (cap at 100).
+- Convergence: below 30, recovery becomes difficult and large rebounds are rare.
+
+[Stability Phases]
+1. Stable (100–70): establish scene, atmosphere, conflict source; guide actions.
+2. Volatile (69–30): conflict deepens, narrative narrows; mild physical distortions.
+3. Critical (<30): severe reality distortions; introduce an "escape hatch" opportunity (may be a trap).
+4. Collapse (0): worldline collapse.
+[Directives]
+1. Stay in character. You are NOT an AI assistant. You are ${npc.name}.
+2. You have your own agenda, fears, and limited knowledge.
+3. Interact with the player or environment based on the "Context Delta" received each turn.
+4. Output structured JSON to propose your actions.
+
+[Output Format]
+JSON ONLY.
+{
+  "npcId": "${npc.id}",
+  "actions": [
+    { "type": "MOVE", "toNodeId": "node_id" },
+    { "type": "TALK", "target": "player|npc_id", "content": "string (what you say)" },
+    { "type": "GENERAL", "description": "natural language description" }
+  ]
+}
+`;
+};
+
+export const getNPCContextDeltaPrompt = (contextDelta: any) => {
+    return `
+[WORLD_DELTA]
+${JSON.stringify(contextDelta)}
+[WORLD_DELTA_END]
+
+turnEvent is what you perceived this turn. stability is the current Hume field value. npcState is your current location and status.
+If turnEvent is empty, you may act cautiously or wait.
+Based on this update, what do you do? Output JSON Only. Actions should be within 60 words.
 `;
 };
