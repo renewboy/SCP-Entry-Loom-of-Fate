@@ -2,6 +2,7 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import { AIService } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt } from "../prompts";
+import { getEditorAssistantPrompt, editorTools } from "../editorPrompts";
 import { normalizeGameReviewData, safeParseJson } from "../utils";
 import { AudioDramaSchema } from "../schemas";
 import { postJson, streamSse } from "./backendClient";
@@ -13,6 +14,14 @@ type ChatMessage = {
   role: "system" | "user" | "assistant";
   content: string;
 };
+const getOpenAIText = (response: any): string => {
+    return response.choices?.[0]?.message?.content || "";
+};
+
+const getOpenAIDelta = (chunk: any): string => {
+    return chunk.choices?.[0]?.delta?.content || "";
+};
+
 export class OpenAIProvider implements AIService {
     private messages: ChatMessage[] = [];
     private systemInstruction: string = "";
@@ -39,7 +48,7 @@ export class OpenAIProvider implements AIService {
     public async generateImage(prompt: string, aspectRatio: "1:1" | "16:9" | "3:4" = "1:1"): Promise<string | null> {
         try {
             const config = await this.getConfig();
-            const { imageDataUrl } = await postJson<{ imageDataUrl: string | null }>("/api/ai/openai/generate-image", {
+            const response = await postJson<any>("/api/ai/openai/generate-image", {
                 apiKey: config.apiKey,
                 baseUrl: config.baseUrl,
                 model: config.imageModel,
@@ -49,7 +58,8 @@ export class OpenAIProvider implements AIService {
                     watermark: false,
                 }
             });
-            return imageDataUrl;
+            const item = response.data?.[0];
+            return item?.b64_json ? `data:image/png;base64,${item.b64_json}` : item?.url || null;
         } catch (error) {
             return null;
         }
@@ -60,7 +70,7 @@ export class OpenAIProvider implements AIService {
         try {
             const config = await this.getConfig();
             console.log(`[OpenAIProvider] Generating profile candidates for ${role}...`);
-            const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
+            const response = await postJson<any>("/api/ai/openai/response", {
                 apiKey: config.apiKey,
                 baseUrl: config.baseUrl,
                 chatModel: config.chatModel,
@@ -68,6 +78,7 @@ export class OpenAIProvider implements AIService {
                 tools: [{ type: "web_search" }],
                 text: { format: { type: "json_object" } },
             });
+            const output_text = getOpenAIText(response);
             console.log(`[OpenAIProvider] Raw response for profile candidates: ${output_text}`);
             const text = output_text || "";
             if (!text) throw new Error("Empty response for profile candidates");
@@ -100,7 +111,7 @@ export class OpenAIProvider implements AIService {
         try {
             const config = await this.getConfig();
             const prompt = getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData, profile);
-            const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
+            const response = await postJson<any>("/api/ai/openai/response", {
                 apiKey: config.apiKey,
                 baseUrl: config.baseUrl,
                 chatModel: config.chatModel,
@@ -108,7 +119,7 @@ export class OpenAIProvider implements AIService {
                 tools: [{ type: "web_search" }],
                 text: { format: { type: "json_object" } }
             });
-            const text = output_text || "";
+            const text = getOpenAIText(response);
             if (!text) throw new Error("No response from analysis");
 
             const parsed = safeParseJson(text);
@@ -143,13 +154,14 @@ export class OpenAIProvider implements AIService {
         this.qaHistory = [];
 
         let fullResponse = "";
-        for await (const delta of streamSse<string>("/api/ai/openai/response-stream", {
+        for await (const chunk of streamSse<any>("/api/ai/openai/response-stream", {
             apiKey: config.apiKey,
             baseUrl: config.baseUrl,
             chatModel: config.chatModel,
             input: this.messages,
             tools: [{ type: "web_search" }],
         })) {
+            const delta = getOpenAIDelta(chunk);
             fullResponse += delta;
             yield delta;
         }
@@ -169,13 +181,14 @@ export class OpenAIProvider implements AIService {
 
         try {
             let fullResponse = "";
-            for await (const delta of streamSse<string>("/api/ai/openai/response-stream", {
+            for await (const chunk of streamSse<any>("/api/ai/openai/response-stream", {
                 apiKey: config.apiKey,
                 baseUrl: config.baseUrl,
                 chatModel: config.chatModel,
                 input: [...this.messages, { role: "user", content: contextPrompt }],
                 tools: [],
             })) {
+                const delta = getOpenAIDelta(chunk);
                 fullResponse += delta;
                 yield delta;
             }
@@ -362,6 +375,107 @@ export class OpenAIProvider implements AIService {
             };
         } catch (error) {
              return { traits: [], items: [], echoes: [] };
+        }
+    }
+
+    async *streamEditorAssistant(
+        messages: { role: string; content: string }[],
+        scpData: SCPData,
+        language: Language,
+        onToolCall: (toolName: string, args: any) => Promise<any>
+    ): AsyncGenerator<string> {
+        const config = await this.getConfig();
+        const systemPrompt = getEditorAssistantPrompt(language);
+
+        const contextMessages = [
+            { role: "system", content: systemPrompt },
+            { role: "system", content: `[CURRENT MAP BLUEPRINT]\n${JSON.stringify(scpData.mapBlueprint)}\n[CURRENT STORY INFO]\nName: ${scpData.name}\nDesignation: ${scpData.designation}\nRole: ${scpData.role}\nBackground: ${scpData.storyDraft?.storyBackground}` },
+            ...messages
+        ];
+
+        let currentLoopMessages = [...contextMessages];
+        let loopCount = 0;
+        const MAX_LOOPS = 5;
+
+        while (loopCount < MAX_LOOPS) {
+            loopCount++;
+
+            const toolCalls: Record<number, { name: string; arguments: string; id: string }> = {};
+            let hasToolCalls = false;
+
+            for await (const chunk of streamSse<any>("/api/ai/openai/chat-completion-stream", {
+                apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
+                chatModel: config.chatModel, // User mentioned gpt-5, but we use config
+                input: currentLoopMessages,
+                tools: editorTools,
+                stream: true
+            })) {
+                if (chunk.choices && chunk.choices[0]?.delta) {
+                    const delta = chunk.choices[0].delta;
+                    if (delta.content) {
+                        yield delta.content;
+                    }
+                    if (delta.tool_calls) {
+                        hasToolCalls = true;
+                        for (const tc of delta.tool_calls) {
+                            const index = typeof tc.index === "number" ? tc.index : 0;
+                            if (!toolCalls[index]) {
+                                toolCalls[index] = { name: "", arguments: "", id: "" };
+                            }
+                            if (tc.id) toolCalls[index].id = tc.id;
+                            if (tc.function?.name) toolCalls[index].name = tc.function.name;
+                            if (tc.function?.arguments) toolCalls[index].arguments += tc.function.arguments;
+                        }
+                    }
+                }
+            }
+
+            if (!hasToolCalls) {
+                break;
+            }
+
+            const toolOutputs = [];
+            for (const call of Object.values(toolCalls)) {
+                try {
+                    const args = JSON.parse(call.arguments);
+                    console.log(`[EditorAssistant] Executing tool: ${call.name}`, args);
+                    yield `\n\n[Executing: ${call.name}]...\n`;
+                    
+                    const result = await onToolCall(call.name, args);
+                    
+                    toolOutputs.push({
+                        role: "tool",
+                        tool_call_id: call.id,
+                        content: JSON.stringify(result)
+                    });
+                } catch (e) {
+                    console.error(`Tool execution failed: ${e}`);
+                    toolOutputs.push({
+                        role: "tool",
+                        tool_call_id: call.id,
+                        content: JSON.stringify({ error: String(e) })
+                    });
+                }
+            }
+
+            const assistantMsg = {
+                role: "assistant",
+                content: null,
+                tool_calls: Object.values(toolCalls).map(c => ({
+                    id: c.id,
+                    type: "function",
+                    function: { name: c.name, arguments: c.arguments }
+                }))
+            };
+
+            // @ts-ignore
+            currentLoopMessages.push(assistantMsg);
+            
+            for (const output of toolOutputs) {
+                // @ts-ignore
+                currentLoopMessages.push(output);
+            }
         }
     }
 }

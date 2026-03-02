@@ -414,6 +414,14 @@ export const en = {
     placeholder_constraints: "e.g. 'Must not use weapons...'",
     placeholder_opening: "e.g. 'You wake up in a dark room...'",
   },
+  editor_assistant: {
+    title: "AI ASSISTANT",
+    placeholder: "Enter command (e.g. 'Add a safe room next to start')...",
+    thinking: "PROCESSING REQUEST...",
+    tool_executing: "EXECUTING PROTOCOLS...",
+    clear_chat: "CLEAR LOGS",
+    welcome: "Editor Assistant Online. Awaiting instructions for map or story modification.",
+  },
   entity_profile: {
     title: "ENTITY PROFILE AUGMENTATION",
     loading_candidates: "GENERATING SUBJECT CANDIDATES...",

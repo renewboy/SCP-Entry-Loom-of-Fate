@@ -414,6 +414,14 @@ export const zh = {
     placeholder_constraints: "例如：“禁止使用武器...”",
     placeholder_opening: "例如：“你在黑暗的房间醒来...”",
   },
+  editor_assistant: {
+    title: "AI 助手",
+    placeholder: "输入指令（例如：“在起点旁加一个安全屋”）...",
+    thinking: "正在处理请求...",
+    tool_executing: "正在执行协议...",
+    clear_chat: "清空记录",
+    welcome: "编辑器助手已上线。等待地图或故事修改指令。",
+  },
   entity_profile: {
     title: "实体档案补全程序",
     loading_candidates: "正在生成主体候选项...",

@@ -163,11 +163,7 @@ const server = http.createServer(async (req, res) => {
       const effectiveApiKey = body.apiKey || geminiApiKey;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
       const client = getGeminiClient(effectiveApiKey);
-      const response = await client.models.generateContent({
-        model: body.model,
-        contents: body.contents,
-        config: body.config,
-      });
+      const response = await client.models.generateContent(body);
       return sendJson(res, 200, response);
     }
 
@@ -235,15 +231,8 @@ const server = http.createServer(async (req, res) => {
       const effectiveApiKey = body.apiKey || geminiApiKey;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
       const client = getGeminiClient(effectiveApiKey);
-      const response = await client.models.countTokens({
-        model: body.model,
-        contents: body.contents,
-        config: body.config,
-      });
-      return sendJson(res, 200, {
-        totalTokens: response.totalTokens || 0,
-        cachedContentTokenCount: response.cachedContentTokenCount || 0,
-      });
+      const response = await client.models.countTokens(body);
+      return sendJson(res, 200, response);
     }
 
     if (req.method === "POST" && pathname === "/api/ai/gemini/chat-stream") {
@@ -252,13 +241,9 @@ const server = http.createServer(async (req, res) => {
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
       const client = getGeminiClient(effectiveApiKey);
       startSse(res);
-      const stream = await client.models.generateContentStream({
-        model: body.model,
-        contents: body.contents || [],
-        config: body.config,
-      });
+      const stream = await client.models.generateContentStream(body);
       for await (const chunk of stream) {
-        if (chunk.text) writeSse(res, chunk.text);
+        writeSse(res, chunk);
       }
       endSse(res);
       return;
@@ -269,12 +254,8 @@ const server = http.createServer(async (req, res) => {
       const effectiveApiKey = body.apiKey || geminiApiKey;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
       const client = getGeminiClient(effectiveApiKey);
-      const response = await client.models.embedContent({
-        model: body.model,
-        contents: body.texts || [],
-      });
-      const embeddings = response.embeddings?.map((e) => e.values) || [];
-      return sendJson(res, 200, { embeddings });
+      const response = await client.models.embedContent(body);
+      return sendJson(res, 200, response);
     }
 
     if (req.method === "POST" && pathname === "/api/ai/gemini/generate-image") {
@@ -289,15 +270,7 @@ const server = http.createServer(async (req, res) => {
           imageConfig: { aspectRatio: body.aspectRatio },
         },
       });
-      const parts = response.candidates?.[0]?.content?.parts || [];
-      let imageDataUrl = null;
-      for (const part of parts) {
-        if (part.inlineData) {
-          imageDataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-          break;
-        }
-      }
-      return sendJson(res, 200, { imageDataUrl });
+      return sendJson(res, 200, response);
     }
 
     if (req.method === "POST" && pathname === "/api/ai/openai/response") {
@@ -330,9 +303,7 @@ const server = http.createServer(async (req, res) => {
         text: body.text,
       });
       for await (const event of stream) {
-        if (event.type === "response.output_text.delta") {
-          writeSse(res, event.delta);
-        }
+        writeSse(res, event);
       }
       endSse(res);
       return;
@@ -349,9 +320,7 @@ const server = http.createServer(async (req, res) => {
         prompt: body.prompt,
         size: body.size,
       });
-      const item = response?.data?.[0];
-      const imageDataUrl = item?.b64_json ? `data:image/png;base64,${item.b64_json}` : item?.url || null;
-      return sendJson(res, 200, { imageDataUrl });
+      return sendJson(res, 200, response);
     }
 
     return sendJson(res, 404, { error: "Not found" });

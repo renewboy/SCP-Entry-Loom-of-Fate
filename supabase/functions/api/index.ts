@@ -61,14 +61,6 @@ const normalizePath = (pathname: string) => {
   return pathname;
 };
 
-const normalizeContents = (contents: any) => {
-  if (!contents) return [];
-  if (typeof contents === "string") {
-    return [{ role: "user", parts: [{ text: contents }] }];
-  }
-  return contents;
-};
-
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
@@ -378,28 +370,16 @@ serve(async (req) => {
       if (!geminiKey) return jsonResponse({ error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" }, 503, corsHeaders);
       const client = getGeminiClient(geminiKey);
       if (!client) return jsonResponse({ error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" }, 503, corsHeaders);
-      const response = await client.models.generateContent({
-        model: (body as any).model,
-        contents: normalizeContents((body as any).contents),
-        config: (body as any).config,
-      });
-      return jsonResponse({ text: response.text }, 200, corsHeaders);
+      const response = await client.models.generateContent(body);
+      return jsonResponse(response, 200, corsHeaders);
     }
 
     if (req.method === "POST" && path === "/api/ai/gemini/count-tokens") {
       if (!geminiKey) return jsonResponse({ error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" }, 503, corsHeaders);
       const client = getGeminiClient(geminiKey);
       if (!client) return jsonResponse({ error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" }, 503, corsHeaders);
-      const response = await client.models.countTokens({
-        model: (body as any).model,
-        contents: normalizeContents((body as any).contents),
-        config: (body as any).config,
-      });
-      return jsonResponse(
-        { totalTokens: response.totalTokens || 0, cachedContentTokenCount: response.cachedContentTokenCount || 0 },
-        200,
-        corsHeaders,
-      );
+      const response = await client.models.countTokens(body);
+      return jsonResponse(response, 200, corsHeaders);
     }
 
     if (req.method === "POST" && path === "/api/ai/gemini/chat-stream") {
@@ -408,13 +388,9 @@ serve(async (req) => {
       if (!client) return jsonResponse({ error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" }, 503, corsHeaders);
       const { response, write, close } = sseResponse(origin);
       (async () => {
-        const stream = await client.models.generateContentStream({
-          model: (body as any).model,
-          contents: normalizeContents((body as any).contents),
-          config: (body as any).config,
-        });
+        const stream = await client.models.generateContentStream(body);
         for await (const chunk of stream) {
-          if (chunk.text) await write(chunk.text);
+          await write(chunk);
         }
         await close();
       })();
@@ -425,13 +401,8 @@ serve(async (req) => {
       if (!geminiKey) return jsonResponse({ error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" }, 503, corsHeaders);
       const client = getGeminiClient(geminiKey);
       if (!client) return jsonResponse({ error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" }, 503, corsHeaders);
-      const texts: string[] = (body as any).texts || [];
-      const response = await client.models.embedContent({
-        model: (body as any).model,
-        contents: texts,
-      });
-      const embeddings = response.embeddings?.map((e) => e.values) || [];
-      return jsonResponse({ embeddings }, 200, corsHeaders);
+      const response = await client.models.embedContent(body);
+      return jsonResponse(response, 200, corsHeaders);
     }
 
     if (req.method === "POST" && path === "/api/ai/gemini/generate-image") {
@@ -445,25 +416,24 @@ serve(async (req) => {
           imageConfig: { aspectRatio: (body as any).aspectRatio },
         },
       });
-      const parts = response.candidates?.[0]?.content?.parts || [];
-      let imageDataUrl = null;
-      for (const part of parts) {
-        if (part.inlineData) {
-          imageDataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-          break;
-        }
-      }
-      return jsonResponse({ imageDataUrl }, 200, corsHeaders);
+      return jsonResponse(response, 200, corsHeaders);
     }
 
+    const {
+      apiKey,
+      baseUrl,
+      chatModel,
+      ...resBody
+    } = body;
+    
     if (req.method === "POST" && path === "/api/ai/openai/response") {
       if (!openaiKey) return jsonResponse({ error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" }, 503, corsHeaders);
       const client = new OpenAI({ apiKey: openaiKey, baseURL: openaiBaseUrl || undefined });
       const response = await client.responses.create({
-        model: (body as any).chatModel || openaiChatModel,
-        ...body,
+        model: chatModel || openaiChatModel,
+        ...resBody,
       });
-      return jsonResponse({ output_text: response.output_text }, 200, corsHeaders);
+      return jsonResponse(response, 200, corsHeaders);
     }
 
     if (req.method === "POST" && path === "/api/ai/openai/response-stream") {
@@ -472,14 +442,31 @@ serve(async (req) => {
       const { response, write, close } = sseResponse(origin);
       (async () => {
         const stream = await client.responses.create({
-          model: (body as any).chatModel || openaiChatModel,
-          ...body,
+          model: chatModel || openaiChatModel,
+          ...resBody,
           stream: true,
         });
         for await (const event of stream) {
-          if (event.type === "response.output_text.delta") {
-            await write(event.delta || "");
-          }
+          await write(event);
+        }
+        await close();
+      })();
+      return response;
+    }
+
+    if (req.method === "POST" && path === "/api/ai/openai/chat-completion-stream") {
+      if (!openaiKey) return jsonResponse({ error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" }, 503, corsHeaders);
+      const client = new OpenAI({ apiKey: openaiKey, baseURL: openaiBaseUrl || undefined });
+      const { response, write, close } = sseResponse(origin);
+      (async () => {
+        const stream = await client.chat.completions.create({
+          model: chatModel || openaiChatModel,
+          messages: resBody.input,
+          tools: resBody.tools,
+          stream: true,
+        });
+        for await (const event of stream) {
+          await write(event);
         }
         await close();
       })();
@@ -491,11 +478,9 @@ serve(async (req) => {
       const client = new OpenAI({ apiKey: openaiKey, baseURL: openaiBaseUrl || undefined });
       const response = await client.images.generate({
         model: (body as any).model || openaiImageModel,
-        ...body,
+        ...resBody,
       });
-      const item = response?.data?.[0];
-      const imageDataUrl = item?.b64_json ? `data:image/png;base64,${item.b64_json}` : item?.url || null;
-      return jsonResponse({ imageDataUrl }, 200, corsHeaders);
+      return jsonResponse(response, 200, corsHeaders);
     }
 
     return jsonResponse({ error: "Not found" }, 404, corsHeaders);

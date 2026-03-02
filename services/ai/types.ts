@@ -12,4 +12,10 @@ export interface AIService {
     generateGameReview(role: string, ending: EndingType, language: Language): Promise<GameReviewData>;
     askNarratorQuestion(question: string, language: Language): AsyncGenerator<string>;
     generateLegacyData(ending: string, role: string, language: Language): Promise<LegacyGenerationResult>;
+    streamEditorAssistant(
+        messages: { role: string; content: string }[],
+        scpData: SCPData,
+        language: Language,
+        onToolCall: (toolName: string, args: any) => Promise<any>
+    ): AsyncGenerator<string>;
 }

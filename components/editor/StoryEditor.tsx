@@ -33,6 +33,8 @@ import { useStoryEditorModals } from '../../hooks/storyEditor/useStoryEditorModa
 import { useStoryImageManager } from '../../hooks/storyEditor/useStoryImageManager';
 import { DEFAULT_BLUEPRINT, SCP173_TEMPLATE } from '../../constants/storyTemplates';
 
+import EditorAssistantPanel from './EditorAssistantPanel';
+
 interface StoryEditorProps {
     gameState: GameState;
     setGameState: React.Dispatch<React.SetStateAction<GameState>>;
@@ -40,6 +42,7 @@ interface StoryEditorProps {
 
 const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) => {
     const { t } = useTranslation();
+    const [showAssistant, setShowAssistant] = useState(false);
     const {
         blueprint,
         setBlueprint,
@@ -356,6 +359,14 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                     <div className={toolbarGroupDivider}></div>
                     <span className="text-scp-text-dim font-bold font-mono text-xs tracking-wider">{t('story_editor.title')}</span>
                     
+                    {/* Assistant Toggle */}
+                    <button
+                        onClick={() => setShowAssistant(!showAssistant)}
+                        className={`ml-4 ${toolbarButtonBase} ${showAssistant ? 'bg-scp-accent/10 border-scp-accent text-scp-accent' : ''}`}
+                    >
+                        <span>🤖</span> {t('editor_assistant.title')}
+                    </button>
+
                     {/* Tab Switcher */}
                     <div className="flex items-center gap-2 ml-4 bg-black/30 p-1 rounded">
                         <button 
@@ -472,6 +483,16 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                         />
                     </div>
                 </div>
+
+                {showAssistant && (
+                    <EditorAssistantPanel
+                        blueprint={blueprint}
+                        setBlueprint={setBlueprint}
+                        scpData={scpData}
+                        setScpData={setScpData}
+                        onClose={() => setShowAssistant(false)}
+                    />
+                )}
 
                 <SidePanel side="left" className={`absolute top-0 bottom-0 w-56 ${panelContainerBase}`}>
                     <div className={editorPanelHeader}>

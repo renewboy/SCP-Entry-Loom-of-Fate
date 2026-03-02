@@ -10,6 +10,10 @@ import { getEffectiveAIConfig } from "../../aiConfigService";
 
 const INIT_EMPTY_MAX_RETRIES = 3;
 
+const getGeminiText = (response: any): string => {
+    return response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+};
+
 export class GeminiProvider implements AIService {
     private history: any[] = [];
     private systemInstruction: string = "";
@@ -37,12 +41,21 @@ export class GeminiProvider implements AIService {
     public async generateImage(prompt: string, aspectRatio: "1:1" | "16:9" | "3:4" = "1:1"): Promise<string | null> {
         try {
             const config = await this.getConfig();
-            const { imageDataUrl } = await postJson<{ imageDataUrl: string | null }>("/api/ai/gemini/generate-image", {
+            const response = await postJson<any>("/api/ai/gemini/generate-image", {
                 apiKey: config.apiKey,
                 model: config.imageModel,
                 prompt,
                 aspectRatio,
             });
+            
+            const parts = response.candidates?.[0]?.content?.parts || [];
+            let imageDataUrl = null;
+            for (const part of parts) {
+                if (part.inlineData) {
+                    imageDataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                    break;
+                }
+            }
             return imageDataUrl;
         } catch (error) {
             return null;
@@ -54,14 +67,15 @@ export class GeminiProvider implements AIService {
             const config = await this.getConfig();
             const prompt = getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData, profile);
             console.log(`[GeminiProvider] Analyzing SCP: ${input}`);
-            const { text } = await postJson<{ text: string | null }>("/api/ai/gemini/generate-content", {
+            const response = await postJson<any>("/api/ai/gemini/generate-content", {
                 apiKey: config.apiKey,
                 model: config.chatModel,
-                contents: prompt,
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
                 config: {
                     tools: [{ googleSearch: {} }],
                 },
             });
+            const text = getGeminiText(response);
             if (!text) throw new Error("No response from analysis");
 
             const parsed = safeParseJson(text);
@@ -86,16 +100,17 @@ export class GeminiProvider implements AIService {
         try {
             const config = await this.getConfig();
             console.log(`[GeminiProvider] Generating profile candidates for ${role}...`);
-            const { text } = await postJson<{ text: string | null }>("/api/ai/gemini/generate-content", {
+            const response = await postJson<any>("/api/ai/gemini/generate-content", {
                 apiKey: config.apiKey,
                 model: config.chatModel,
-                contents: prompt,
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
                 config: {
                     temperature: 0.9,
                     tools: [{ googleSearch: {} }],
                 },
             });
 
+            const text = getGeminiText(response);
             if (!text) throw new Error("Empty response for profile candidates");
             const parsed = safeParseJson(text);
             return Array.isArray(parsed) ? parsed : [];
@@ -169,7 +184,7 @@ export class GeminiProvider implements AIService {
         console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
         for (let attempt = 0; attempt < INIT_EMPTY_MAX_RETRIES; attempt += 1) {
             let fullResponse = "";
-            for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
+            for await (const chunk of streamSse<any>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
                 model: config.chatModel,
                 contents: this.buildContents(startPrompt),
@@ -181,6 +196,7 @@ export class GeminiProvider implements AIService {
                     ],
                 },
             })) {
+                const delta = getGeminiText(chunk);
                 fullResponse += delta;
                 yield delta;
             }
@@ -211,7 +227,7 @@ export class GeminiProvider implements AIService {
             console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
 
             let fullResponse = "";
-            for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
+            for await (const chunk of streamSse<any>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
                 model: config.chatModel,
                 contents: this.buildContents(contextPrompt),
@@ -222,6 +238,7 @@ export class GeminiProvider implements AIService {
                     cachedContent: cachedContent || undefined,
                 },
             })) {
+                const delta = getGeminiText(chunk);
                 fullResponse += delta;
                 yield delta;
             }
@@ -265,16 +282,17 @@ export class GeminiProvider implements AIService {
         const prompt = getAudioDramaPrompt(storyLog, role, scpDesignation, language);
 
         try {
-            const { text } = await postJson<{ text: string | null }>("/api/ai/gemini/generate-content", {
+            const response = await postJson<any>("/api/ai/gemini/generate-content", {
                 apiKey: config.apiKey,
                 model: config.chatModel,
-                contents: prompt,
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
                 config: {
                     temperature: 0.7,
                     responseMimeType: "application/json",
                     responseJsonSchema: zodToJsonSchema(AudioDramaSchema as any),
                 },
             });
+            const text = getGeminiText(response);
             if (!text) throw new Error("Empty response for audio script");
 
             const parsed = JSON.parse(text) as AudioDramaScript;
@@ -296,7 +314,7 @@ export class GeminiProvider implements AIService {
         try {
             const cachedContent = await this.ensureCachedContentName();
             let text = "";
-            for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
+            for await (const chunk of streamSse<any>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
                 model: config.chatModel,
                 contents: this.buildContents(prompt),
@@ -307,7 +325,7 @@ export class GeminiProvider implements AIService {
                     cachedContent: cachedContent || undefined,
                 },
             })) {
-                text += delta;
+                text += getGeminiText(chunk);
             }
 
             if (!text) throw new Error("Empty response for review");
@@ -331,7 +349,7 @@ export class GeminiProvider implements AIService {
         try {
             const cachedContent = await this.ensureCachedContentName();
             let fullResponse = "";
-            for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
+            for await (const chunk of streamSse<any>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
                 model: config.chatModel,
                 contents: this.buildContents(prompt, [...this.gameReviewHistory, ...this.qaHistory]),
@@ -342,6 +360,7 @@ export class GeminiProvider implements AIService {
                     cachedContent: cachedContent || undefined,
                 },
             })) {
+                const delta = getGeminiText(chunk);
                 fullResponse += delta;
                 yield delta;
             }
@@ -363,7 +382,7 @@ export class GeminiProvider implements AIService {
         try {
             const cachedContent = await this.ensureCachedContentName();
             let text = "";
-            for await (const delta of streamSse<string>("/api/ai/gemini/chat-stream", {
+            for await (const chunk of streamSse<any>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
                 model: config.chatModel,
                 contents: this.buildContents(prompt),
@@ -374,7 +393,7 @@ export class GeminiProvider implements AIService {
                     cachedContent: cachedContent || undefined,
                 },
             })) {
-                text += delta;
+                text += getGeminiText(chunk);
             }
             if (!text) throw new Error("Empty response for legacy data");
 
