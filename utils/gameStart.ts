@@ -1,6 +1,7 @@
 import { GameState, GameStatus } from '../types';
 import { initializeGameChatStream, extractStability, extractVisualPrompt, generateImage, extractLoc, extractMapUpdate } from '../services/aiService';
 import { loadGlobalSettings } from '../services/indexedDBService';
+import { enhanceBackgroundPrompt, enhanceEntityPrompt, enhanceNpcPrompt } from '../services/ai/promptUtils';
 
 interface StartGameParams {
     gameState: GameState;
@@ -24,6 +25,11 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
             mapBlueprint: finalBlueprint
         };
 
+        setGameState(prev => ({
+            ...prev,
+            scpData: finalScpData
+        }));
+
         const draftBg = finalScpData.storyDraft?.backgroundImage;
         const draftEntity = finalScpData.storyDraft?.entityImage;
 
@@ -32,7 +38,7 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
         const hasBg = draftBg || gameState.backgroundImage;
         if (!hasBg && settings.enableBackgroundImages) {
              const bgDesc = finalScpData.visualDescription || `texture and atmosphere of ${finalScpData.name}`;
-             const bgPrompt = `Atmospheric, cinematic lighting, abstract horror background representing ${bgDesc}, subtle, texture, scp foundation style, dark moody`;
+             const bgPrompt = enhanceBackgroundPrompt(bgDesc);
              generateImage(bgPrompt, "16:9").then(bgUrl => {
                  if(bgUrl) setGameState(prev => ({...prev, backgroundImage: bgUrl}));
              });
@@ -41,10 +47,36 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
         // 2. Entity Image
         const hasEntity = draftEntity || gameState.mainImage;
         if (!hasEntity && settings.enableEntityImages) {
-            const entityDesc = finalScpData.entityDescription;
-            const mainPrompt = `Close up full body shot of ${entityDesc}. detailed, photorealistic, containment cell, scp foundation record photo`;
+            const entityDesc = finalScpData.entityDescription || finalScpData.designation;
+            const mainPrompt = enhanceEntityPrompt(entityDesc);
             generateImage(mainPrompt, "1:1").then(mainUrl => {
                  if(mainUrl) setGameState(prev => ({...prev, mainImage: mainUrl}));
+            });
+        }
+
+        // 3. NPC Images
+        if (settings.enableNpcImages && finalScpData.npcVisuals) {
+            Object.entries(finalScpData.npcVisuals).forEach(([npcId, visualPrompt]) => {
+                if (finalScpData.npcImages?.[npcId]) return;
+
+                const enhancedPrompt = enhanceNpcPrompt(visualPrompt);
+                generateImage(enhancedPrompt, "1:1").then(npcUrl => {
+                    if (npcUrl) {
+                        setGameState(prev => {
+                            if (!prev.scpData) return prev;
+                            return {
+                                ...prev,
+                                scpData: {
+                                    ...prev.scpData,
+                                    npcImages: {
+                                        ...(prev.scpData.npcImages || {}),
+                                        [npcId]: npcUrl
+                                    }
+                                }
+                            };
+                        });
+                    }
+                });
             });
         }
 

@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     enableSceneImages: false,
     enableBackgroundImages: true,
     enableEntityImages: true,
+    enableNpcImages: true,
     difficulty: 'normal',
     bgmVolume: 0.8,
     sfxVolume: 1,

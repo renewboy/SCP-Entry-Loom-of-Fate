@@ -62,7 +62,7 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
         }
     }, [isOpen, initialTab, attention]);
 
-    const handleToggle = (key: 'enableSceneImages' | 'enableBackgroundImages' | 'enableEntityImages') => {
+    const handleToggle = (key: 'enableSceneImages' | 'enableBackgroundImages' | 'enableEntityImages' | 'enableNpcImages') => {
         if (!settings) return;
         const newSettings = { ...settings, [key]: !settings[key] };
         setSettings(newSettings);
@@ -168,11 +168,12 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
 
     if (!isOpen || !settings || !aiSettings) return null;
 
-    const getLabel = (key: 'enableSceneImages' | 'enableBackgroundImages' | 'enableEntityImages') => {
-        const keyMap: Record<'enableSceneImages' | 'enableBackgroundImages' | 'enableEntityImages', string> = {
+    const getLabel = (key: 'enableSceneImages' | 'enableBackgroundImages' | 'enableEntityImages' | 'enableNpcImages') => {
+        const keyMap: Record<'enableSceneImages' | 'enableBackgroundImages' | 'enableEntityImages' | 'enableNpcImages', string> = {
             enableSceneImages: 'settings.scene_images',
             enableBackgroundImages: 'settings.bg_images',
-            enableEntityImages: 'settings.entity_images'
+            enableEntityImages: 'settings.entity_images',
+            enableNpcImages: 'settings.npc_images'
         };
         return t(keyMap[key]);
     };
@@ -248,7 +249,7 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
                                 <div className="text-xs text-gray-400 font-mono uppercase tracking-wider">
                                     {t('settings.section_images')}
                                 </div>
-                                {(['enableSceneImages', 'enableBackgroundImages', 'enableEntityImages'] as const).map((key) => (
+                                {(['enableSceneImages', 'enableBackgroundImages', 'enableEntityImages', 'enableNpcImages'] as const).map((key) => (
                                     <div key={key} className="flex items-center justify-between px-3 py-2 border border-transparent hover:border-scp-accent/30 transition-colors">
                                         <span className="text-[13px] text-scp-text font-mono tracking-wider">
                                             {getLabel(key)}

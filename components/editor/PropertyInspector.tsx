@@ -11,6 +11,14 @@ interface PropertyInspectorProps {
     updateNPC: (id: string, updates: Partial<MapBlueprintNPC>) => void;
     updateObjective: (id: string, updates: Partial<MapBlueprintObjective>) => void;
     setBlueprint: React.Dispatch<React.SetStateAction<MapBlueprint>>;
+    npcImagePrompts?: Record<string, string>;
+    onNpcPromptChange?: (npcId: string, value: string) => void;
+    onGenerateNpcImage?: (npcId: string) => void;
+    onUploadNpcImage?: (npcId: string, e: React.ChangeEvent<HTMLInputElement>) => void;
+    onDeleteNpcImage?: (npcId: string) => void;
+    npcImages?: Record<string, string>;
+    generatingState?: { npc: Record<string, boolean> };
+    setLightboxImage?: (url: string | null) => void;
 }
 
 import TagInput from './TagInput';
@@ -27,7 +35,8 @@ import {
 } from './editorStyles';
 
 const PropertyInspector: React.FC<PropertyInspectorProps> = ({ 
-    blueprint, selection, setSelection, updateNode, updateEdge, updateNPC, updateObjective, setBlueprint 
+    blueprint, selection, setSelection, updateNode, updateEdge, updateNPC, updateObjective, setBlueprint,
+    npcImagePrompts, onNpcPromptChange, onGenerateNpcImage, onUploadNpcImage, onDeleteNpcImage, npcImages, generatingState, setLightboxImage
 }) => {
     const { t } = useTranslation();
 
@@ -248,8 +257,69 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
         const npc = blueprint.npcs.find(n => n.id === selection.id);
         if (!npc) return null;
 
+        const npcImage = npcImages?.[npc.id];
+        const isGenerating = generatingState?.npc?.[npc.id];
+
         return (
             <div className="space-y-4 p-4">
+                <div className="space-y-2 border-b border-[var(--scp-border)] pb-4 mb-2">
+                    <label className={labelBase}>{t('map_editor.npc_avatar')}</label>
+                    
+                    <textarea 
+                        value={npcImagePrompts?.[npc.id] || ''}
+                        onChange={e => onNpcPromptChange?.(npc.id, e.target.value)}
+                        className={`${textareaBase} h-16 text-[10px] leading-tight mb-1`}
+                        placeholder="Visual description for AI generation..."
+                    />
+                    
+                    <div className="flex gap-1 justify-end">
+                        <button 
+                            onClick={() => onGenerateNpcImage?.(npc.id)}
+                            disabled={isGenerating}
+                            className="text-[10px] px-2 py-1 bg-scp-accent/20 border border-scp-accent/50 text-scp-accent hover:bg-scp-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {t('story_editor.btn_generate')}
+                        </button>
+                        <label className="text-[10px] px-2 py-1 bg-gray-800 border border-gray-600 text-gray-300 hover:bg-gray-700 cursor-pointer">
+                            {t('story_editor.btn_upload')}
+                            <input type="file" className="hidden" accept="image/*" onChange={(e) => onUploadNpcImage?.(npc.id, e)} />
+                        </label>
+                    </div>
+
+                    <div 
+                        className="w-full aspect-square bg-black/50 border border-gray-800 relative flex items-center justify-center overflow-hidden group cursor-pointer"
+                        onClick={() => npcImage && setLightboxImage?.(npcImage)}
+                    >
+                        {npcImage ? (
+                            <>
+                                <img src={npcImage} alt={npc.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeleteNpcImage?.(npc.id);
+                                    }}
+                                    className="absolute top-1 right-1 bg-black/70 hover:bg-red-900/80 text-white p-1 rounded-sm z-20 transition-colors opacity-0 group-hover:opacity-100"
+                                    title={t('common.delete')}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </>
+                        ) : (
+                            <div className="text-gray-700 text-xs flex flex-col items-center gap-1">
+                                <span>NO IMG</span>
+                            </div>
+                        )}
+                        {isGenerating && (
+                            <div className="absolute inset-0 bg-black/80 flex flex-col gap-2 items-center justify-center z-10 cursor-default" onClick={(e) => e.stopPropagation()}>
+                                <div className="w-6 h-6 border-2 border-scp-accent border-t-transparent rounded-full animate-spin"></div>
+                                <span className="text-[12px] text-scp-accent animate-pulse">GENERATING...</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 <div className={inputGroup}>
                     <label className={labelBase}>{t('map_editor.npc_id')}</label>
                     <input type="text" value={npc.id} onChange={e => updateNPC(npc.id, { id: e.target.value })} className={inputBase} />

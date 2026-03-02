@@ -99,7 +99,7 @@ Goal:
 4) Generate story draft fields (concise, in ${langInstruction}):
   - storyDraft.roleDetails: short profile of the player role.
   - storyDraft.storyBackground: brief overarching premise and context.
-4) Generate two ENGLISH visual strings for image templates:
+5) Generate two ENGLISH visual strings for image templates:
   - visualDescription
     - Comma-separated nouns/adjectives only.
     - Describe the SCP's texture, atmosphere, and material essence for an abstract background.
@@ -108,7 +108,8 @@ Goal:
     - Noun phrases only. No verbs, no background context.
     - Describe the entity's physical appearance in detail.
     - (Will be inserted into: "Close-up full body shot of [entityDescription], photorealistic, containment cell, scp foundation record photo")
-5) **Map Blueprint**:
+
+6) **Map Blueprint**:
   - Generate a small navigable map for the upcoming interactive fiction game session. The map is the physical space where the story takes place and where the player can move and explore.
   - The map should be a believable site / facility / area relevant to this SCP and the player's role (${role}).
   - Requirements:
@@ -129,7 +130,9 @@ ${legacyIntegrationRules}
     - "danger": reflects risk when entering/staying in that node, integer 0..100 (0-30 low, 31-70 moderate, 71-100 high)
     - "requires": a string array of access tokens (keys, clearance, flags, etc.); ungated node must use [] and blockedText must be ""
     - "blockedText": the reason why the node is blocked, if not blocked, leave it empty.
-
+7) npcVisuals
+  - Map NPC IDs (from mapBlueprint) to visual prompts. 
+  - Each prompt should be a concise description of the NPC's appearance.
 Output:
 Return ONLY one valid JSON object (no markdown, no extra text).
 
@@ -163,7 +166,10 @@ Structure:
     "objectives": [
       { "id": "obj_main", "title": "string", "type": "MAIN", "nodeId": "node_containment", "detail": "string", "reward": { "accessTokens": ["key_lvl2", "power_restored"], "stabilityDelta": 5 } }
     ]
-  }
+  },
+  "npcVisuals": {
+    "npc_id": "visual prompt string"
+  },
 }
 
 Semantic Notes:
@@ -175,22 +181,25 @@ Semantic Notes:
 const getNormalTurnRequirements = (langInstruction: string) => `
 【常规回合任务】
 1. 分析用户操作，并生成${langInstruction}叙事回应 (200字以内，必须遵守)。你生成的叙事回应必须逐步向某个结局收敛。
-2. 判定是否达成结局 (CONTAINED/DEATH/COLLAPSE/ESCAPED)，如达成必须生成[ENDING: TYPE]。
-3. 如果未达成结局，给玩家2-3个互动选项，并加上“其他（请输入）”，选项用数字编号。
-4. 如果 Stability <= 0，必须强制生成 [ENDING: COLLAPSE]。
-5. 地图机制：如果用户行动涉及前往地点，你必须根据[地图状态]判断可行性：一般只能移动到“可达邻接地点”；若被门禁阻挡，保持位置不变。
-6. 若本回合位置发生变化，你必须在末尾添加 [LOC: <node_id>]（node_id必须是地图节点ID）。
-7. 若发生地图状态变化，你可以在末尾添加 [MAP_UPDATE: <JSON>]。仅在有变化时填写对应字段，JSON字段说明如下：
+2. NPC说话时，必须使用[@npc_id: 对话内容]格式，不要在叙事中直接转述。对话内容为第一人称。不得夹杂其他内容。
+ - 每个NPC只能出现一次对白内容块。
+ - NPC对白必须独占一行。
+ - 示例：[@guard_01: 站住！这里是禁区。]
+3. 判定是否达成结局 (CONTAINED/DEATH/COLLAPSE/ESCAPED)，如达成必须生成[ENDING: TYPE]。
+4. 如果未达成结局，给玩家2-3个互动选项，并加上“其他（请输入）”，选项用数字编号。
+5. 如果 Stability <= 0，必须强制生成 [ENDING: COLLAPSE]。
+6. 地图机制：如果用户行动涉及前往地点，你必须根据[地图状态]判断可行性：一般只能移动到“可达邻接地点”；若被门禁阻挡，保持位置不变。
+7. 若本回合位置发生变化，你必须在末尾添加 [LOC: <node_id>]（node_id必须是地图节点ID）。
+8. 若发生地图状态变化，你可以在末尾添加 [MAP_UPDATE: <JSON>]。仅在有变化时填写对应字段，JSON字段说明如下：
    - addAccessTokens: ["token_id"],
    - moveNPCs: [{ "id": "npc_id", "nodeId": "node_id", "alive": true }],
    - updateObjectives: [{ "id": "obj_id", "status": "ACTIVE|COMPLETED|FAILED", "progress": 0-100 }]
    - addObjectives: [{ "id": "obj_id", "title": "string", "type": "MAIN|SIDE", "nodeId": "node_id", "status": "ACTIVE", "progress": 0-100, "detail": "string", "reward": { "accessTokens": ["token_id"], "stabilityDelta": -20..20 } }]
    - deleteObjectives: ["obj_id"]
   示例：[MAP_UPDATE: {"addAccessTokens": ["key_lvl2"], "moveNPCs": [{"id": "npc_1", "nodeId": "node_xxx"}],"updateObjectives": [{"id": "obj_xxx", "progress": 60, "detail": "string"}]]
-8. 在末尾添加 [STABILITY: <new_value>]。
-9. 若场景视觉发生重大变化，添加 [VISUAL: <prompt>]，如果变化不大则不要添加。
-10. 所有System Tags必须在**最末尾**添加。
-11. 禁止使用任何工具调用。`;
+9. 在末尾添加 [STABILITY: <new_value>]。
+10. 若场景视觉发生重大变化，添加 [VISUAL: <prompt>]，如果变化不大则不要添加。
+11. 所有System Tags必须在**最末尾**添加。`;
 
 export const getStartGamePrompt = (role: string, scpDesignation: string, containmentClass: string, language: Language, difficulty: GameDifficulty, legacyData?: LegacyData, mapBlueprint?: MapBlueprint, storyDraft?: StoryDraft) => {
     const langInstruction = language === 'zh' ? '中文' : '英文';

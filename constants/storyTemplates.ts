@@ -17,7 +17,24 @@ export const DEFAULT_BLUEPRINT: MapBlueprint = {
         { from: 'node_control', to: 'node_hallway_a', bidirectional: true },
         { from: 'node_hallway_a', to: 'node_storage', bidirectional: true }
     ],
-    npcs: [],
+    npcs: [
+        { 
+            id: 'npc_researcher_01', 
+            name: 'Dr. Bright', 
+            archetype: 'Researcher', 
+            initialNodeId: 'node_control',
+            secretTags: ['key_card_4'],
+            dialogueGoals: ['Monitor testing']
+        },
+        { 
+            id: 'npc_guard_01', 
+            name: 'Security Chief Franklin', 
+            archetype: 'Guard', 
+            initialNodeId: 'node_airlock',
+            secretTags: ['access_code', 'weapon_access'],
+            dialogueGoals: ['Secure the perimeter']
+        }
+    ],
     objectives: [
         { id: 'obj_clean', title: 'Clean Containment', type: 'MAIN', nodeId: 'node_containment' }
      ]
@@ -36,5 +53,10 @@ export const SCP173_TEMPLATE: SCPData = {
         narrativeConstraints: 'Maintain direct eye contact at all times. Alert others before blinking.',
         openingPrompt: 'The containment door slides open with a heavy grind. The air is stale and smells of blood and feces.'
     },
+    npcVisuals: {
+        'npc_researcher_01': 'A cynical researcher with glasses and an amulet, wearing a lab coat, holding a clipboard, scp foundation style art',
+        'npc_guard_01': 'A stern security chief in tactical gear, holding a P90, scar on left cheek, scp foundation style art'
+    },
+    npcImages: {},
     mapBlueprint: DEFAULT_BLUEPRINT
 };

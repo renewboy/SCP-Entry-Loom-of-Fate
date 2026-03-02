@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { SCPData } from '../../types';
 import { generateImage } from '../../services/aiService';
+import { enhanceBackgroundPrompt, enhanceEntityPrompt, enhanceNpcPrompt } from '../../services/ai/promptUtils';
 
 export const useStoryImageManager = ({
     scpData,
@@ -9,23 +10,37 @@ export const useStoryImageManager = ({
     scpData: SCPData;
     setScpData: React.Dispatch<React.SetStateAction<SCPData>>;
 }) => {
-    const [generatingState, setGeneratingState] = useState<{ bg: boolean; entity: boolean }>({ bg: false, entity: false });
+    const [generatingState, setGeneratingState] = useState<{ bg: boolean; entity: boolean; npc: Record<string, boolean> }>({ bg: false, entity: false, npc: {} });
     const [bgImagePrompt, setBgImagePrompt] = useState('');
     const [entityImagePrompt, setEntityImagePrompt] = useState('');
+    const [npcImagePrompts, setNpcImagePrompts] = useState<Record<string, string>>({});
     const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
     const getBgPrompt = useCallback((data: SCPData) => {
-        return `Atmospheric, cinematic lighting, abstract horror background representing ${data.visualDescription ? data.visualDescription : 'SCP Foundation'}, subtle, texture, scp foundation style, dark moody`;
+        return enhanceBackgroundPrompt(data.visualDescription ? data.visualDescription : 'SCP Foundation');
     }, []);
 
     const getEntityPrompt = useCallback((data: SCPData) => {
-        return `Close up full body shot of ${data.entityDescription ? data.entityDescription : data.designation}. detailed, photorealistic, containment cell, scp foundation record photo`;
+        return enhanceEntityPrompt(data.entityDescription ? data.entityDescription : data.designation);
     }, []);
 
     const setPromptsFromData = useCallback((data: SCPData) => {
         setBgImagePrompt(getBgPrompt(data));
         setEntityImagePrompt(getEntityPrompt(data));
+        setNpcImagePrompts(data.npcVisuals || {});
     }, [getBgPrompt, getEntityPrompt]);
+
+    const handleNpcPromptChange = (npcId: string, value: string) => {
+        setNpcImagePrompts(prev => ({ ...prev, [npcId]: value }));
+        // Also update SCPData to keep prompts in sync
+        setScpData(prev => ({
+            ...prev,
+            npcVisuals: {
+                ...(prev.npcVisuals || {}),
+                [npcId]: value
+            }
+        }));
+    };
 
     const handleImageUpload = (type: 'bg' | 'entity', e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -65,6 +80,66 @@ export const useStoryImageManager = ({
         }
     };
 
+    const handleGenerateNPCImage = async (npcId: string) => {
+        setGeneratingState(prev => ({ 
+            ...prev, 
+            npc: { ...prev.npc, [npcId]: true } 
+        }));
+        try {
+            const basePrompt = npcImagePrompts[npcId];
+            if (!basePrompt) return;
+            
+            // Add fallback style prompts for consistency
+            const enhancedPrompt = enhanceNpcPrompt(basePrompt);
+            
+            const url = await generateImage(enhancedPrompt, "1:1");
+            if (url) {
+                setScpData(prev => ({
+                    ...prev,
+                    npcImages: {
+                        ...(prev.npcImages || {}),
+                        [npcId]: url
+                    }
+                }));
+            }
+        } catch (e) {
+            alert("NPC Image generation failed");
+        } finally {
+            setGeneratingState(prev => ({ 
+                ...prev, 
+                npc: { ...prev.npc, [npcId]: false } 
+            }));
+        }
+    };
+
+    const handleUploadNPCImage = (npcId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setScpData(prev => ({
+                    ...prev,
+                    npcImages: {
+                        ...(prev.npcImages || {}),
+                        [npcId]: reader.result as string
+                    }
+                }));
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleDeleteNPCImage = (npcId: string) => {
+        setScpData(prev => {
+            const newImages = { ...(prev.npcImages || {}) };
+            delete newImages[npcId];
+            return {
+                ...prev,
+                npcImages: newImages
+            };
+        });
+    };
+
     const handleDeleteImage = (type: 'bg' | 'entity') => {
         setScpData(prev => ({
             ...prev,
@@ -86,6 +161,11 @@ export const useStoryImageManager = ({
         handleImageUpload,
         handleGenerateImage,
         handleDeleteImage,
-        setPromptsFromData
+        setPromptsFromData,
+        npcImagePrompts,
+        handleNpcPromptChange,
+        handleGenerateNPCImage,
+        handleUploadNPCImage,
+        handleDeleteNPCImage
     };
 };

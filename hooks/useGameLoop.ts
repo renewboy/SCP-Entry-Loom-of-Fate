@@ -10,6 +10,7 @@ import {
     generateImage
 } from '../services/aiService';
 import { loadGlobalSettings } from '../services/indexedDBService';
+import { enhanceScenePrompt } from '../services/ai/promptUtils';
 import { MapUpdate } from './useMapUpdate';
 
 const IDLE_TIMEOUT_MS = 30000;
@@ -42,7 +43,8 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
             return;
         }
 
-        const base64 = await generateImage(prompt + ", dark aesthetic, scp foundation style, cinematic lighting", "16:9");
+        const enhancedPrompt = enhanceScenePrompt(prompt);
+        const base64 = await generateImage(enhancedPrompt, "16:9");
         if (base64) {
             setGameState(prev => ({
                 ...prev,

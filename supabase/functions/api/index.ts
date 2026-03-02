@@ -497,6 +497,7 @@ serve(async (req) => {
         model: (body as any).model || openaiImageModel,
         prompt: (body as any).prompt,
         size: (body as any).size,
+        extra_body: (body as any).extra_body,
       });
       const item = response?.data?.[0];
       const imageDataUrl = item?.b64_json ? `data:image/png;base64,${item.b64_json}` : item?.url || null;

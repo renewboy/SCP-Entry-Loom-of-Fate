@@ -83,6 +83,11 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         setBgImagePrompt,
         entityImagePrompt,
         setEntityImagePrompt,
+        npcImagePrompts,
+        handleNpcPromptChange,
+        handleGenerateNPCImage,
+        handleUploadNPCImage,
+        handleDeleteNPCImage,
         lightboxImage,
         setLightboxImage,
         handleImageUpload,
@@ -538,6 +543,14 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                                 updateNPC={updateNPC}
                                 updateObjective={updateObjective}
                                 setBlueprint={setBlueprint}
+                                npcImagePrompts={npcImagePrompts}
+                                onNpcPromptChange={handleNpcPromptChange}
+                                onGenerateNpcImage={handleGenerateNPCImage}
+                                onUploadNpcImage={handleUploadNPCImage}
+                                onDeleteNpcImage={handleDeleteNPCImage}
+                                npcImages={scpData.npcImages}
+                                generatingState={generatingState}
+                                setLightboxImage={setLightboxImage}
                             />
                         ) : (
                             <StoryFormPanel

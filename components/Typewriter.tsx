@@ -1,5 +1,8 @@
 import React, { useEffect, useState, useRef, useMemo, createContext, useContext } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { RuntimeNPCState } from '../types';
+import NPCDialogue from './game/NPCDialogue';
+import { extractNpcDialogue } from '../utils/npcDialogue';
 
 // Context to determine if we are inside an ordered list
 const ListTypeContext = createContext({ ordered: false });
@@ -9,9 +12,12 @@ interface TypewriterProps {
   isStreaming: boolean;
   onComplete?: () => void;
   onOptionClick?: (text: string) => void;
+  npcs?: RuntimeNPCState[];
+  npcImages?: Record<string, string>;
+  onNpcImageClick?: (url: string) => void;
 }
 
-const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplete, onOptionClick }) => {
+const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplete, onOptionClick, npcs, npcImages, onNpcImageClick }) => {
   const [displayedContent, setDisplayedContent] = useState('');
   const [isVisualTyping, setIsVisualTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -127,8 +133,15 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
                 {children}
             </a>
         );
+    },
+    p: ({ children, ...props }: any) => {
+        const match = extractNpcDialogue(children, npcs);
+        if (match) {
+            return <NPCDialogue id={match.npcId} content={match.contentNodes} npcs={npcs} npcImages={npcImages} onImageClick={onNpcImageClick} />;
+        }
+        return <p {...props}>{children}</p>;
     }
-  }), [onOptionClick]);
+  }), [onOptionClick, npcs, npcImages, onNpcImageClick]);
 
   // Keep contentRef in sync with prop
   useEffect(() => {

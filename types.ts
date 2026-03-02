@@ -90,6 +90,8 @@ export interface SCPData {
   role: string; // Player role name/title
   visualDescription?: string; // Description for background image generation
   entityDescription?: string; // Description for main entity image generation
+  npcVisuals?: Record<string, string>; // Map of NPC ID to visual prompt
+  npcImages?: Record<string, string>; // Map of NPC ID to image URL/DataURL
   mapBlueprint?: MapBlueprint;
   storyDraft?: StoryDraft;
 }
@@ -391,6 +393,7 @@ export interface GlobalSettings {
   enableSceneImages: boolean;
   enableBackgroundImages: boolean;
   enableEntityImages: boolean;
+  enableNpcImages: boolean;
   difficulty: GameDifficulty;
   bgmVolume: number;
   sfxVolume: number;

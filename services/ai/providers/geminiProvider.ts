@@ -192,7 +192,7 @@ export class GeminiProvider implements AIService {
                 fullResponse += delta;
                 yield delta;
             }
-
+            console.log(`[GeminiProvider] SendAction Full response: "${fullResponse}"`);
             this.history.push({ role: "user", parts: [{ text: contextPrompt }] });
             this.history.push({ role: "model", parts: [{ text: fullResponse }] });
             await this.logTokenCount(this.history);

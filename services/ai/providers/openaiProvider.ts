@@ -44,7 +44,10 @@ export class OpenAIProvider implements AIService {
                 baseUrl: config.baseUrl,
                 model: config.imageModel,
                 size: imageSizeFromAspectRatio(aspectRatio),
-                prompt,
+                prompt: prompt,
+                extra_body: {
+                    watermark: false,
+                }
             });
             return imageDataUrl;
         } catch (error) {
