@@ -5,6 +5,7 @@ import EditorCanvas from './editor/EditorCanvas';
 import { loadGlobalSettings, saveEditingSCPData, saveGlobalSettings } from '../services/indexedDBService';
 import { setEditingStoryCache } from '../services/storyEditorCache';
 import { applyLayoutToBlueprint } from '../utils/mapLayout';
+import TransitionOverlay from './common/TransitionOverlay';
 
 interface TacticalPreviewProps {
     gameState: GameState;
@@ -19,11 +20,8 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
     // Check if returning from editor
     const isReturn = gameState.returnFromEditor;
     const [showIntro, setShowIntro] = useState(true);
-    const [introStep, setIntroStep] = useState(0);
     
     // Countdown State
-    const originalCountdown = isReturn ? 2000 : 5000;
-    const [countdown, setCountdown] = useState(originalCountdown / 1000); 
     const [enterPrep, setEnterPrep] = useState(true);
 
     const rawBlueprint = gameState.scpData?.mapBlueprint;
@@ -37,42 +35,18 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
     useEffect(() => {
         const initSettings = async () => {
             const settings = await loadGlobalSettings();
-            // If skipTacticalPrep is true, enterPrep should be false (auto-deploy)
-            // If skipTacticalPrep is false (default), enterPrep should be true (enter prep)
             setEnterPrep(!settings.skipTacticalPrep);
         };
         initSettings();
     }, []);
 
-    // Timer Logic
-    useEffect(() => {
-        if (!showIntro || countdown <= 0) return;
-        const timer = setInterval(() => setCountdown(c => c - 1), 1000);
-        return () => clearInterval(timer);
-    }, [showIntro, countdown]);
-
-    // Visual Steps based on mount
-    useEffect(() => {
-        if (!showIntro) return;
-        const stepTimers: NodeJS.Timeout[] = [];
-        stepTimers.push(setTimeout(() => setIntroStep(1), 800)); // Verifying...
-        stepTimers.push(setTimeout(() => setIntroStep(2), 1500)); // Access Granted
-        return () => stepTimers.forEach(clearTimeout);
-    }, [showIntro]);
-
-    // Handle Countdown Finish
-    useEffect(() => {
-        if (countdown === 0 && showIntro) {
-            if (enterPrep) {
-                // Fade out
-                setIntroStep(3);
-                setTimeout(() => setShowIntro(false), 800);
-            } else {
-                // Start Game
-                handleStartWeave();
-            }
+    const handleTransitionComplete = () => {
+        if (enterPrep) {
+            setShowIntro(false);
+        } else {
+            handleStartWeave();
         }
-    }, [countdown, showIntro, enterPrep]);
+    };
 
     const handleEdit = async () => {
         if (gameState.scpData) {
@@ -123,129 +97,43 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
 
     return (
         <div className="w-full h-full flex flex-col bg-[var(--scp-bg)] text-[var(--scp-text)] relative overflow-hidden font-mono scp-ui crt">
-            <style>
-                {`
-                @keyframes tp-glitch-shift {
-                    0% { transform: translate(0, 0); opacity: 0.4; }
-                    20% { transform: translate(-1px, -1px); opacity: 0.6; }
-                    40% { transform: translate(1px, 1px); opacity: 0.35; }
-                    60% { transform: translate(-2px, 0); opacity: 0.55; }
-                    80% { transform: translate(2px, -1px); opacity: 0.3; }
-                    100% { transform: translate(0, 0); opacity: 0.4; }
-                }
-                @keyframes tp-glitch-slice {
-                    0% { clip-path: inset(0 0 0 0); }
-                    25% { clip-path: inset(10% 0 60% 0); }
-                    50% { clip-path: inset(40% 0 30% 0); }
-                    75% { clip-path: inset(65% 0 10% 0); }
-                    100% { clip-path: inset(0 0 0 0); }
-                }
-                @keyframes tp-wave {
-                    0% { transform: translateY(0); }
-                    50% { transform: translateY(-2px); }
-                    100% { transform: translateY(0); }
-                }
-                .tp-glitch-shell {
-                    position: relative;
-                    animation: tp-glitch-shift 1.4s steps(2, end) infinite;
-                    box-shadow: 0 0 24px rgba(255, 64, 64, 0.2);
-                }
-                .tp-glitch {
-                    position: relative;
-                    display: inline-block;
-                    animation: tp-wave 1.6s ease-in-out infinite;
-                    text-shadow: 0 0 6px rgba(255, 64, 64, 0.25);
-                }
-                .tp-glitch::before,
-                .tp-glitch::after {
-                    content: attr(data-text);
-                    position: absolute;
-                    inset: 0;
-                    pointer-events: none;
-                }
-                .tp-glitch::before {
-                    color: rgba(255, 64, 64, 0.7);
-                    animation: tp-glitch-shift 1.1s steps(2, end) infinite, tp-glitch-slice 2.2s steps(3, end) infinite;
-                }
-                .tp-glitch::after {
-                    color: rgba(64, 255, 255, 0.7);
-                    animation: tp-glitch-shift 0.9s steps(2, end) infinite reverse, tp-glitch-slice 1.8s steps(3, end) infinite reverse;
-                }
-                @media (prefers-reduced-motion: reduce) {
-                    .tp-glitch,
-                    .tp-glitch-shell,
-                    .tp-glitch::before,
-                    .tp-glitch::after {
-                        animation: none;
-                    }
-                }
-            `}
-            </style>
             {/* Transition Overlay */}
-            {showIntro && (
-                <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center bg-black transition-opacity duration-700 ${introStep >= 3 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-                    <div className="w-full max-w-lg space-y-4 p-8 border-l-4 border-r-4 border-scp-alert bg-black/50 backdrop-blur-sm relative">
-                        <div className="absolute top-2 right-4 font-mono text-xl text-scp-alert font-bold">
-                            0{countdown}
-                        </div>
-                        
-                        <div className="text-scp-alert font-report text-3xl font-bold tracking-[0.2em] text-center animate-pulse">
-                            <span className="tp-glitch" data-text={t('map_editor.clearance_check')}>
-                                {t('map_editor.clearance_check')}
+            <TransitionOverlay
+                isVisible={showIntro}
+                onComplete={handleTransitionComplete}
+                allowSkip={!isReturn}
+                title={t('map_editor.clearance_check')}
+                steps={[
+                    { text: "IDENTITY VERIFIED", delay: 800 },
+                    { text: t('map_editor.access_granted'), delay: 1500 }
+                ]}
+                countdownDuration={isReturn ? 2 : 5}
+            >
+                {!isReturn && (
+                    <div className="flex items-center justify-center gap-2">
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                            <div className={`w-4 h-4 border border-scp-alert transition-all flex items-center justify-center ${enterPrep ? 'bg-scp-alert/20' : 'bg-transparent'}`}>
+                                {enterPrep && <div className="w-2 h-2 bg-scp-alert"></div>}
+                            </div>
+                            <input 
+                                type="checkbox" 
+                                className="hidden" 
+                                checked={enterPrep} 
+                                onChange={e => toggleEnterPrep(e.target.checked)} 
+                            />
+                            <span className="text-xs text-gray-400 group-hover:text-white font-mono tracking-wider transition-colors">
+                                {t('map_editor.enter_prep_checkbox') || "ENTER TACTICAL PREPARATION"}
                             </span>
-                        </div>
-                        
-                        <div className="h-2 w-full bg-gray-900 overflow-hidden relative border border-gray-800">
-                            <div className={`h-full bg-scp-alert transition-all duration-1000 ease-out ${introStep >= 1 ? 'w-full' : 'w-0'}`}></div>
-                        </div>
-
-                        <div className="space-y-1 text-xs text-scp-alert/70 font-mono text-center h-8">
-                            {introStep >= 1 && (
-                                <div>
-                                    <span className="tp-glitch" data-text="> IDENTITY VERIFIED">&gt; IDENTITY VERIFIED</span>
-                                </div>
-                            )}
-                            {introStep >= 2 && (
-                                <div className="text-white font-bold">
-                                    <span
-                                        className="tp-glitch"
-                                        data-text={`> ${t('map_editor.access_granted')}`}
-                                    >
-                                        &gt; {t('map_editor.access_granted')}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Skip / Enter Toggle */}
-                        {!isReturn && (
-                             <div className="mt-6 pt-4 border-t border-gray-800 flex items-center justify-center gap-2">
-                                <label className="flex items-center gap-2 cursor-pointer group">
-                                    <div className={`w-4 h-4 border border-scp-alert transition-all flex items-center justify-center ${enterPrep ? 'bg-scp-alert/20' : 'bg-transparent'}`}>
-                                        {enterPrep && <div className="w-2 h-2 bg-scp-alert"></div>}
-                                    </div>
-                                    <input 
-                                        type="checkbox" 
-                                        className="hidden" 
-                                        checked={enterPrep} 
-                                        onChange={e => toggleEnterPrep(e.target.checked)} 
-                                    />
-                                    <span className="text-xs text-gray-400 group-hover:text-white font-mono tracking-wider transition-colors">
-                                        {t('map_editor.enter_prep_checkbox') || "ENTER TACTICAL PREPARATION"}
-                                    </span>
-                                </label>
-                             </div>
-                        )}
-                        
-                        {!enterPrep && (
-                             <div className="text-center text-[10px] text-scp-alert animate-pulse mt-2 uppercase tracking-widest">
-                                 {t('map_editor.auto_deploy_msg') || "AUTO-DEPLOYMENT IMMINENT"}
-                             </div>
-                        )}
-
+                        </label>
                     </div>
-                </div>
-            )}
+                )}
+                
+                {!enterPrep && (
+                     <div className="text-center text-[10px] text-scp-alert animate-pulse mt-2 uppercase tracking-widest">
+                         {t('map_editor.auto_deploy_msg') || "AUTO-DEPLOYMENT IMMINENT"}
+                     </div>
+                )}
+            </TransitionOverlay>
 
             {/* Main Header */}
             <div className="h-14 border-b border-[var(--scp-border)] flex items-center justify-between px-6 bg-[var(--scp-surface)]/95 backdrop-blur shrink-0 z-10 shadow-lg">

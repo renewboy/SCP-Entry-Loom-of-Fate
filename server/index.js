@@ -168,7 +168,7 @@ const server = http.createServer(async (req, res) => {
         contents: body.contents,
         config: body.config,
       });
-      return sendJson(res, 200, { text: response.text });
+      return sendJson(res, 200, response);
     }
 
     if (req.method === "POST" && pathname === "/api/ai/gemini/cache") {
@@ -312,7 +312,7 @@ const server = http.createServer(async (req, res) => {
         tools: body.tools,
         text: body.text,
       });
-      return sendJson(res, 200, { output_text: response.output_text });
+      return sendJson(res, 200, response);
     }
 
     if (req.method === "POST" && pathname === "/api/ai/openai/response-stream") {

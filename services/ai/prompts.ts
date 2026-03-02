@@ -1,4 +1,4 @@
-import { GameDifficulty, Language, MapBlueprint, StoryDraft, LegacyData } from '../../types';
+import { GameDifficulty, Language, MapBlueprint, StoryDraft, LegacyData, EntityProfile } from '../../types';
 
 const formatLegacyData = (legacyData?: LegacyData) => {
     if (!legacyData) return '';
@@ -67,7 +67,7 @@ export const getSystemInstruction = (role: string, language: Language) => `
 5. 格式：使用Markdown。
 `;
 
-export const getAnalyzeSCPPrompt = (input: string, language: Language, role: string, difficulty: GameDifficulty, legacyData?: LegacyData) => {
+export const getAnalyzeSCPPrompt = (input: string, language: Language, role: string, difficulty: GameDifficulty, legacyData?: LegacyData, profile?: EntityProfile) => {
     const langInstruction = language === 'zh' ? 'Chinese' : 'English';
     const legacyString = formatLegacyData(legacyData);
     const legacyInjection = legacyString ? `
@@ -81,6 +81,17 @@ ${legacyString}
     - Where appropriate, translate inherited items into access tokens, gate requirements, or objective rewards.
     - Echoes should subtly inform location flavor, NPC motivations, or objective context.` : '';
     
+    const profileInjection = profile ? `
+[CLASSIFIED ENTITY RECORD]
+Designation/Name: ${profile.name}
+Existence Duration: ${profile.age}
+Special Capabilities: ${profile.abilities.join(', ')}
+Origin/History: ${profile.background}
+Narrative Anchors: ${profile.keywords.join(', ')}
+[END RECORD]
+Instruction: Incorporate these entity details into the story background, role details, mapBlueprint design, and ensure the world building aligns with the 'Narrative Anchors'.
+` : '';
+
     const finalPrompt = `
 You are a master-level SCP Foundation analysis agent for a narrative-driven text adventure game. Your job is to identify the SCP, research official sources, and generate a structured analysis plus a playable map blueprint.
 
@@ -88,7 +99,10 @@ User Input: ${input}
 Player Role: ${role}
 Game Difficulty: ${difficulty}
 Preferred Human Language for text: ${langInstruction}
+
 ${legacyInjection}
+
+${profileInjection}
 
 Goal:
 1) Determine the referenced SCP designation (e.g., "SCP-173") from user input.
@@ -124,7 +138,7 @@ Goal:
     - Interpret the provided difficulty as a continuous pressure level that scales map danger, gate density, NPC helpfulness, and resource scarcity in the same direction.
     - Higher difficulty should make routes riskier and objectives more demanding.
     - Lower difficulty should make routes safer and objectives clearer.
-${legacyIntegrationRules}
+    ${legacyIntegrationRules}
   - Node rules:
     - "id": stable, lowercase_with_underscores (e.g. "node_security_checkpoint")
     - "danger": reflects risk when entering/staying in that node, integer 0..100 (0-30 low, 31-70 moderate, 71-100 high)
@@ -176,6 +190,43 @@ Semantic Notes:
 - reward.stabilityDelta: integer delta applied when the objective is COMPLETED (positive: +, negative: -); keep within -20..+20.`;
 
   return finalPrompt;
+};
+
+export const getProfileCandidatesPrompt = (role: string, scpDesignation: string, language: Language) => {
+    const langInstruction = language === 'zh' ? 'Chinese' : 'English';
+    return `
+[SYSTEM COMMAND: ACT AS AN EXPERT CHARACTER AND STORY DESIGNER FOR AN SCP FOUNDATION TEXT ADVENTURE GAME]
+
+You are a master of SCP lore and narrative design. Your goal is to create deep, engaging, and highly distinct character profiles that will serve as the protagonist for a high-stakes interactive fiction experience.
+
+Context:
+- Role/Entity Type: ${role}
+- Target SCP: ${scpDesignation}
+- Language: ${langInstruction}
+
+Task: Generate 3 distinct, creative, and plausible profile candidates for the player character/entity.
+1. **Search**: Use the search tool to understand the Target SCP (${scpDesignation}) and how the Role (${role}) typically interacts with it.
+2. **Diversity**: Each candidate should offer a unique gameplay flavor (e.g., one combat-focused, one intellect/research-focused, one stealth/social or esoteric).
+3. **Non-Human Adaptation**: If the role is non-human (e.g., SCP object, AI, Monster), adapt fields accordingly (Age -> Existence Duration, Origins, etc.).
+
+Output Fields Explanation:
+- **name**: Character name or designation.
+- **age**: Biological age or existence duration (e.g., "34", "Unknown", "3 Centuries").
+- **abilities**: 2-3 specific skills or anomalous traits relevant to the SCP/Role.
+- **background**: A compelling 2-3 sentence origin story or service history.
+- **keywords**: "Narrative Anchors". These are 2-3 specific themes, world rules, or plot devices that will shape the story around this character (e.g., "Timeline Corruption", "Secret GOI Agenda", "Memetic Susceptibility", "Reality Bending"). The AI Narrator will use these to guide the plot.
+
+Output Format: JSON Array ONLY. NO markdown, NO extra text.
+[
+  {
+    "name": "string",
+    "age": "string",
+    "abilities": ["string", "string"],
+    "background": "string",
+    "keywords": ["string", "string"]
+  }
+]
+`;
 };
 
 const getNormalTurnRequirements = (langInstruction: string) => `

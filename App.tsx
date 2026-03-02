@@ -104,7 +104,7 @@ const AppContent: React.FC = () => {
 
       {/* Main Content Container - z-10 */}
       <div className="relative z-10 w-full flex justify-center items-center p-2 sm:p-4 h-full">
-        {(gameState.status === GameStatus.IDLE || gameState.status === GameStatus.ANALYZING) && (
+        {(gameState.status === GameStatus.IDLE || gameState.status === GameStatus.ANALYZING || gameState.status === GameStatus.ENTITY_PROFILE) && (
           <StartScreen gameState={gameState} setGameState={setGameState} legacyData={gameState.legacy} />
         )}
         {gameState.status === GameStatus.TACTICAL_PREVIEW && (
@@ -118,27 +118,30 @@ const AppContent: React.FC = () => {
         )}
       </div>
 
-      <AuthorLinks status={gameState.status} />
+      {gameState.status !== GameStatus.ENTITY_PROFILE && (
+        <>
+          <AuthorLinks status={gameState.status} />
 
-      {/* Footer Watermark */}
-      <div className="absolute bottom-2 left-4 text-[10px] text-gray-600 font-mono pointer-events-none z-20 mix-blend-difference">
-        {t('app.footer')}
-      </div>
+          <div className="absolute bottom-2 left-4 text-[10px] text-gray-600 font-mono pointer-events-none z-20 mix-blend-difference">
+            {t('app.footer')}
+          </div>
 
-      <div className="absolute bottom-2 left-0 right-0 text-[10px] text-gray-600 font-mono pointer-events-none z-20 mix-blend-difference flex justify-center">
-        © {new Date().getFullYear()} SCP Entry: Loom of Fate
-      </div>
+          <div className="absolute bottom-2 left-0 right-0 text-[10px] text-gray-600 font-mono pointer-events-none z-20 mix-blend-difference flex justify-center">
+            © {new Date().getFullYear()} SCP Entry: Loom of Fate
+          </div>
 
-      <div className="absolute bottom-2 right-4 text-[10px] text-gray-600 font-mono z-20 mix-blend-difference">
-        <a
-          href="https://creativecommons.org/licenses/by-sa/3.0/"
-          target="_blank"
-          rel="noreferrer"
-          className="pointer-events-auto underline decoration-dotted hover:text-gray-300"
-        >
-          {t('app.license')}
-        </a>
-      </div>
+          <div className="absolute bottom-2 right-4 text-[10px] text-gray-600 font-mono z-20 mix-blend-difference">
+            <a
+              href="https://creativecommons.org/licenses/by-sa/3.0/"
+              target="_blank"
+              rel="noreferrer"
+              className="pointer-events-auto underline decoration-dotted hover:text-gray-300"
+            >
+              {t('app.license')}
+            </a>
+          </div>
+        </>
+      )}
 
       {/* Global CRT Scanline Overlay */}
        <div className="pointer-events-none absolute inset-0 z-50 mix-blend-overlay opacity-10 bg-[url('https://www.transparenttextures.com/patterns/black-linen.png')]"></div>

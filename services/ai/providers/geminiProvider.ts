@@ -1,8 +1,8 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { AIService } from "../types";
-import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty } from "../../../types";
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
 import { aiConfig } from "../../../config/aiConfig";
-import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt } from "../prompts";
+import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt } from "../prompts";
 import { normalizeGameReviewData, safeParseJson } from "../utils";
 import { AudioDramaSchema } from "../schemas";
 import { postJson, streamSse } from "./backendClient";
@@ -49,10 +49,10 @@ export class GeminiProvider implements AIService {
         }
     }
 
-    async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData): Promise<SCPData> {
+    async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData> {
         try {
             const config = await this.getConfig();
-            const prompt = getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData);
+            const prompt = getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData, profile);
             console.log(`[GeminiProvider] Analyzing SCP: ${input}`);
             const { text } = await postJson<{ text: string | null }>("/api/ai/gemini/generate-content", {
                 apiKey: config.apiKey,
@@ -78,6 +78,39 @@ export class GeminiProvider implements AIService {
                 visualDescription: "dark abstract glitch horror texture, scp foundation aesthetic",
                 entityDescription: "unknown anomaly, redacted silhouette, scp foundation record",
             };
+        }
+    }
+
+    async generateProfileCandidates(role: string, scpDesignation: string, language: Language): Promise<EntityProfile[]> {
+        const prompt = getProfileCandidatesPrompt(role, scpDesignation, language);
+        try {
+            const config = await this.getConfig();
+            console.log(`[GeminiProvider] Generating profile candidates for ${role}...`);
+            const { text } = await postJson<{ text: string | null }>("/api/ai/gemini/generate-content", {
+                apiKey: config.apiKey,
+                model: config.chatModel,
+                contents: prompt,
+                config: {
+                    temperature: 0.9,
+                    tools: [{ googleSearch: {} }],
+                },
+            });
+
+            if (!text) throw new Error("Empty response for profile candidates");
+            const parsed = safeParseJson(text);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            console.error("Failed to generate profile candidates:", error);
+            // Return fallback candidates
+            return [
+                {
+                    name: role,
+                    age: "Unknown",
+                    abilities: ["Observation", "Basic Survival"],
+                    background: "A standard personnel assigned to this anomaly.",
+                    keywords: ["Survival", "Mystery"]
+                }
+            ];
         }
     }
 

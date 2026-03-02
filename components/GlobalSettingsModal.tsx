@@ -134,8 +134,8 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
         setConnectivityError(null);
         try {
             await testAIConnectivity(aiSettings);
-        } catch {
-            setConnectivityError(t('settings.ai_connectivity_failed'));
+        } catch (err) {
+            setConnectivityError(`Error: ${err}. ${t('settings.ai_connectivity_failed')}`);
             setIsTestingConnectivity(false);
             setSaveSuccess(false);
             return;

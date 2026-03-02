@@ -56,21 +56,64 @@ export const extractLoc = (text: string): { cleanText: string, locId: string | n
 };
 
 export const extractJsonObject = (text: string) => {
-  const first = text.indexOf('{');
-  const last = text.lastIndexOf('}');
-  if (first === -1 || last === -1 || last <= first) return null;
-  return text.slice(first, last + 1);
+  // Try to find array first
+  const firstArray = text.indexOf('[');
+  const lastArray = text.lastIndexOf(']');
+  
+  // Try to find object
+  const firstObj = text.indexOf('{');
+  const lastObj = text.lastIndexOf('}');
+
+  // Determine which comes first and is valid
+  let candidate = null;
+
+  if (firstArray !== -1 && lastArray !== -1 && lastArray > firstArray) {
+     candidate = text.slice(firstArray, lastArray + 1);
+  }
+  if (firstObj !== -1 && lastObj !== -1 && lastObj > firstObj) {
+      // If object is found, check if it's "better" (longer or the only one)
+      // Or if we need to decide based on context. 
+      // For now, let's just return the one that looks like a valid JSON structure.
+      const objCandidate = text.slice(firstObj, lastObj + 1);
+      
+      // If we found an array but it's inside the object, prefer object.
+      // If we found an object but it's inside the array, prefer array.
+      if (candidate) {
+          if (firstObj < firstArray && lastObj > lastArray) {
+              candidate = objCandidate;
+          }
+      } else {
+          candidate = objCandidate;
+      }
+  }
+  return candidate;
 };
 
 export const safeParseJson = (text: string): any | null => {
-  const raw = text.replace(/```json/g, '').replace(/```/g, '').trim();
-  const candidates = [raw, extractJsonObject(raw)].filter(Boolean) as string[];
+  const candidates: string[] = [];
 
-  for (const candidate of candidates) {
+  // 1. Priority: Look for ```json ... ``` blocks
+  const jsonBlockMatch = text.match(/```json\s*([\s\S]*?)\s*```/i);
+  if (jsonBlockMatch && jsonBlockMatch[1]) {
+    candidates.push(jsonBlockMatch[1].trim());
+  }
+
+  // 2. Fallback: Raw text stripped of markdown
+  const raw = text.replace(/```json/g, '').replace(/```/g, '').trim();
+  candidates.push(raw);
+
+  // 3. Fallback: Heuristic extraction
+  const extracted = extractJsonObject(raw);
+  if (extracted) candidates.push(extracted);
+
+  const uniqueCandidates = Array.from(new Set(candidates)).filter(Boolean);
+
+  for (const candidate of uniqueCandidates) {
     try {
       return JSON.parse(candidate);
     } catch {
       try {
+        // Try to fix trailing commas
         const cleaned = candidate.replace(/,\s*([}\]])/g, '$1');
         return JSON.parse(cleaned);
       } catch {

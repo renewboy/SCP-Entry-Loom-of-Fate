@@ -23,7 +23,8 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     difficulty: 'normal',
     bgmVolume: 0.8,
     sfxVolume: 1,
-    skipTacticalPrep: false
+    skipTacticalPrep: false,
+    skipEntityProfile: false
 };
 
 interface IDBSaveGame extends SaveGameMetadata {

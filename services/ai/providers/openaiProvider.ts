@@ -1,7 +1,7 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { AIService } from "../types";
-import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty } from "../../../types";
-import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt } from "../prompts";
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
+import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt } from "../prompts";
 import { normalizeGameReviewData, safeParseJson } from "../utils";
 import { AudioDramaSchema } from "../schemas";
 import { postJson, streamSse } from "./backendClient";
@@ -55,16 +55,58 @@ export class OpenAIProvider implements AIService {
         }
     }
 
-    async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData): Promise<SCPData> {
+    async generateProfileCandidates(role: string, scpDesignation: string, language: Language): Promise<EntityProfile[]> {
+        const prompt = getProfileCandidatesPrompt(role, scpDesignation, language);
         try {
             const config = await this.getConfig();
-            const prompt = getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData);
+            console.log(`[OpenAIProvider] Generating profile candidates for ${role}...`);
             const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
                 apiKey: config.apiKey,
                 baseUrl: config.baseUrl,
                 chatModel: config.chatModel,
                 input: prompt,
                 tools: [{ type: "web_search" }],
+                text: { format: { type: "json_object" } },
+            });
+            console.log(`[OpenAIProvider] Raw response for profile candidates: ${output_text}`);
+            const text = output_text || "";
+            if (!text) throw new Error("Empty response for profile candidates");
+            
+            const parsed = safeParseJson(text);
+            if (Array.isArray(parsed)) return parsed;
+            // Fallback for wrapped objects
+            if (parsed && typeof parsed === 'object') {
+                const values = Object.values(parsed);
+                const candidateArray = values.find(v => Array.isArray(v));
+                if (candidateArray) return candidateArray as EntityProfile[];
+            }
+            
+            return [];
+        } catch (error) {
+             console.error("Failed to generate profile candidates:", error);
+             return [
+                {
+                    name: role,
+                    age: "Unknown",
+                    abilities: ["Observation", "Basic Survival"],
+                    background: "A standard personnel assigned to this anomaly.",
+                    keywords: ["Survival", "Mystery"]
+                }
+            ];
+        }
+    }
+
+    async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData> {
+        try {
+            const config = await this.getConfig();
+            const prompt = getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData, profile);
+            const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
+                apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
+                chatModel: config.chatModel,
+                input: prompt,
+                tools: [{ type: "web_search" }],
+                text: { format: { type: "json_object" } }
             });
             const text = output_text || "";
             if (!text) throw new Error("No response from analysis");

@@ -1,11 +1,20 @@
 
 export enum GameStatus {
   IDLE = 'IDLE',
+  ENTITY_PROFILE = 'ENTITY_PROFILE', // Entity Profile Augmentation
   ANALYZING = 'ANALYZING', // Analyzing the SCP URL
   TACTICAL_PREVIEW = 'TACTICAL_PREVIEW', // Pre-game preview and edit
   STORY_EDITOR = 'STORY_EDITOR', // Creating/Editing Map Blueprint
   PLAYING = 'PLAYING',
   GAME_OVER = 'GAME_OVER'
+}
+
+export interface EntityProfile {
+  name: string;
+  age: string;
+  abilities: string[];
+  background: string;
+  keywords: string[];
 }
 
 export enum EndingType {
@@ -398,6 +407,7 @@ export interface GlobalSettings {
   bgmVolume: number;
   sfxVolume: number;
   skipTacticalPrep?: boolean;
+  skipEntityProfile?: boolean;
   aiSettings?: AISettings;
 }
 

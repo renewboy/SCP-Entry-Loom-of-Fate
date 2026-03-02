@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { analyzeSCPUrl, restoreChatSession } from '../services/aiService';
 import { loadGlobalSettings } from '../services/indexedDBService';
-import { GameState, GameStatus, Role, LegacyData } from '../types';
+import { GameState, GameStatus, Role, LegacyData, EntityProfile } from '../types';
 import ParticleText from './ParticleText';
 import BootSequenceOverlay from './BootSequenceOverlay';
 import SaveLoadModal from './SaveLoadModal';
@@ -14,6 +14,7 @@ import GlobalSettingsModal from './GlobalSettingsModal';
 import { startGameProcess } from '../utils/gameStart';
 import { checkAIConfigAvailable } from '../services/aiConfigService';
 import SettingsGearIcon from './common/SettingsGearIcon';
+import EntityProfileAugmentation from './EntityProfileAugmentation';
 
 declare global {
     interface Window {
@@ -46,6 +47,9 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
   const [settingsInitialTab, setSettingsInitialTab] = useState<'game' | 'ai'>('game');
   const [settingsAttention, setSettingsAttention] = useState(false);
   const [showBoot, setShowBoot] = useState(false);
+  
+  const [showProfileAugmentation, setShowProfileAugmentation] = useState(false);
+  const [entityProfile, setEntityProfile] = useState<EntityProfile | undefined>(undefined);
 
   useEffect(() => {
     setShowBoot(!bootShownInSession);
@@ -123,21 +127,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
     setUrlInput(scpStr);
   };
 
-  const handleStart = async () => {
-    if (!urlInput.trim() || loadingStep) return;
-    setError(null);
-    setCanRetryInit(false);
-    setLoadingStep(t('start.loading_checking_ai'));
-
-    const configCheck = await checkAIConfigAvailable();
-    if (!configCheck.available) {
-      setSettingsInitialTab('ai');
-      setSettingsAttention(true);
-      setSettingsModalOpen(true);
-      setLoadingStep(null);
-      return;
-    }
-    
+  const startAnalysis = async (profile?: EntityProfile) => {
     setLoadingStep(t('start.loading_access'));
 
     try {
@@ -146,7 +136,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
       const settings = await loadGlobalSettings();
       const difficulty = settings.difficulty || 'normal';
 
-      const scpData = await analyzeSCPUrl(urlInput, language, finalRole, difficulty, legacyData);
+      const scpData = await analyzeSCPUrl(urlInput, language, finalRole, difficulty, legacyData, profile);
       setLoadingStep(t('start.loading_retrieved', { designation: scpData.designation }));
 
       setLoadingStep(null);
@@ -167,6 +157,45 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
       setError(t('start.error_conn'));
       setLoadingStep(null);
     }
+  };
+
+  const handleStart = async () => {
+    if (!urlInput.trim() || loadingStep) return;
+    setError(null);
+    setCanRetryInit(false);
+    setLoadingStep(t('start.loading_checking_ai'));
+
+    const configCheck = await checkAIConfigAvailable();
+    if (!configCheck.available) {
+      setSettingsInitialTab('ai');
+      setSettingsAttention(true);
+      setSettingsModalOpen(true);
+      setLoadingStep(null);
+      return;
+    }
+    
+    // Check Entity Profile
+    if (!entityProfile) {
+        setLoadingStep(null);
+        setGameState(prev => ({ ...prev, status: GameStatus.ENTITY_PROFILE }));
+        setShowProfileAugmentation(true);
+        return;
+    }
+
+    startAnalysis(entityProfile);
+  };
+
+  const handleProfileComplete = (profile: EntityProfile) => {
+      setEntityProfile(profile);
+      setShowProfileAugmentation(false);
+      setGameState(prev => ({ ...prev, status: GameStatus.IDLE }));
+      startAnalysis(profile);
+  };
+
+  const handleProfileBack = () => {
+      setShowProfileAugmentation(false);
+      setGameState(prev => ({ ...prev, status: GameStatus.IDLE }));
+      startAnalysis(entityProfile);
   };
 
   const handleRetryInit = async () => {
@@ -195,6 +224,20 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
     return `> ${ROLE_TRANSLATIONS[role] || role}`;
   };
 
+
+  if (showProfileAugmentation) {
+      return (
+          <div className="absolute inset-0 z-50">
+              <EntityProfileAugmentation 
+                  role={selectedRole === Role.CUSTOM ? customRole : selectedRole}
+                  scpDesignation={urlInput}
+                  language={language}
+                  onComplete={handleProfileComplete}
+                  onBack={handleProfileBack}
+              />
+          </div>
+      );
+  }
 
   return (
     <>

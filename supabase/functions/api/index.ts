@@ -461,9 +461,7 @@ serve(async (req) => {
       const client = new OpenAI({ apiKey: openaiKey, baseURL: openaiBaseUrl || undefined });
       const response = await client.responses.create({
         model: (body as any).chatModel || openaiChatModel,
-        input: (body as any).input,
-        tools: (body as any).tools,
-        text: (body as any).text,
+        ...body,
       });
       return jsonResponse({ output_text: response.output_text }, 200, corsHeaders);
     }
@@ -475,10 +473,8 @@ serve(async (req) => {
       (async () => {
         const stream = await client.responses.create({
           model: (body as any).chatModel || openaiChatModel,
-          input: (body as any).input,
-          tools: (body as any).tools,
+          ...body,
           stream: true,
-          text: (body as any).text,
         });
         for await (const event of stream) {
           if (event.type === "response.output_text.delta") {
@@ -495,9 +491,7 @@ serve(async (req) => {
       const client = new OpenAI({ apiKey: openaiKey, baseURL: openaiBaseUrl || undefined });
       const response = await client.images.generate({
         model: (body as any).model || openaiImageModel,
-        prompt: (body as any).prompt,
-        size: (body as any).size,
-        extra_body: (body as any).extra_body,
+        ...body,
       });
       const item = response?.data?.[0];
       const imageDataUrl = item?.b64_json ? `data:image/png;base64,${item.b64_json}` : item?.url || null;
@@ -506,6 +500,7 @@ serve(async (req) => {
 
     return jsonResponse({ error: "Not found" }, 404, corsHeaders);
   } catch (error) {
-    return jsonResponse({ error: String((error as any)?.message || error) }, 500, corsHeaders);
+    console.log("api error: ", error);
+    return jsonResponse(error, 500, corsHeaders);
   }
 });

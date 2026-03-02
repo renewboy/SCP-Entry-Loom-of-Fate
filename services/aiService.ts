@@ -2,7 +2,7 @@ import { Content } from "@google/genai";
 import { AIService } from "./ai/types";
 import { GeminiProvider } from "./ai/providers/geminiProvider";
 import { OpenAIProvider } from "./ai/providers/openaiProvider";
-import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty } from "../types";
+import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../types";
 import { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate } from "./ai/utils";
 import { getEmbeddings } from "./ai/providers/embeddingProvider";
 import { searchLocalMemories } from "./indexedDBService";
@@ -54,8 +54,12 @@ export const resetProvider = () => {
     cachedProviderType = null;
 };
 
-export const analyzeSCPUrl = async (input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData): Promise<SCPData> => {
-    return (await getProvider()).analyzeSCPUrl(input, language, role, difficulty, legacyData);
+export const analyzeSCPUrl = async (input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData> => {
+    return (await getProvider()).analyzeSCPUrl(input, language, role, difficulty, legacyData, profile);
+};
+
+export const generateProfileCandidates = async (role: string, scpDesignation: string, language: Language = 'zh'): Promise<EntityProfile[]> => {
+    return (await getProvider()).generateProfileCandidates(role, scpDesignation, language);
 };
 
 export const initializeGameChatStream = async (scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData, difficulty: GameDifficulty = 'normal'): Promise<AsyncGenerator<string>> => {
