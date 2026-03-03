@@ -3,6 +3,7 @@ import { AIService } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
 import { aiConfig } from "../../../config/aiConfig";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt } from "../prompts";
+import { getEditorAssistantPrompt, editorTools } from "../editorPrompts";
 import { normalizeGameReviewData, safeParseJson } from "../utils";
 import { AudioDramaSchema } from "../schemas";
 import { postJson, streamSse } from "./backendClient";
@@ -166,6 +167,25 @@ export class GeminiProvider implements AIService {
             console.log(`[GeminiProvider] tokens total=${totalTokens} cached=${cachedContentTokenCount}`);
         } catch (error) {
         }
+    }
+
+    private buildGeminiTools() {
+        const toolList: any[] = [];
+        for (const tool of editorTools) {
+            const name = tool.function?.name;
+            // if (name === "web_search") {
+            //     toolList.push({ googleSearch: {} });
+            //     continue;
+            // }
+            toolList.push({
+                functionDeclarations: [{
+                    name,
+                    description: tool.function?.description || "",
+                    parameters: tool.function?.parameters,
+                }],
+            });
+        }
+        return toolList;
     }
 
     async *initializeGameChatStream(scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData, difficulty: GameDifficulty = 'normal'): AsyncGenerator<string> {
@@ -416,6 +436,82 @@ export class GeminiProvider implements AIService {
         } catch (error) {
             console.error("Failed to generate legacy data:", error);
             return { traits: [], items: [], echoes: [] };
+        }
+    }
+
+    async *streamEditorAssistant(
+        messages: { role: string; content: string }[],
+        scpData: SCPData,
+        language: Language,
+        onToolCall: (toolName: string, args: any) => Promise<any>
+    ): AsyncGenerator<string> {
+        const config = await this.getConfig();
+        const systemInstruction = `${getEditorAssistantPrompt(language)}\n\n[CURRENT MAP BLUEPRINT]\n${JSON.stringify(scpData.mapBlueprint)}\n[CURRENT STORY INFO]\nName: ${scpData.name}\nDesignation: ${scpData.designation}\nRole: ${scpData.role}\nBackground: ${scpData.storyDraft?.storyBackground}`;
+        const baseContents: any[] = messages.map(msg => ({
+            role: msg.role === "assistant" ? "model" : "user",
+            parts: [{ text: msg.content }]
+        }));
+        let currentContents: any[] = [...baseContents];
+        let loopCount = 0;
+        const MAX_LOOPS = 5;
+
+        while (loopCount < MAX_LOOPS) {
+            loopCount += 1;
+            const toolCalls: { name: string; args: any }[] = [];
+
+            for await (const chunk of streamSse<any>("/api/ai/gemini/chat-stream", {
+                apiKey: config.apiKey,
+                model: config.chatModel,
+                contents: currentContents,
+                config: {
+                    systemInstruction,
+                    tools: this.buildGeminiTools(),
+                },
+            })) {
+                const parts = chunk?.candidates?.[0]?.content?.parts || [];
+                for (const part of parts) {
+                    if (part.text) {
+                        yield part.text;
+                    }
+                    if (part.functionCall) {
+                        toolCalls.push({
+                            name: part.functionCall.name,
+                            args: part.functionCall.args || part.functionCall.arguments || {}
+                        });
+                    }
+                }
+            }
+
+            if (toolCalls.length === 0) {
+                break;
+            }
+
+            const modelToolParts = toolCalls.map(call => ({
+                functionCall: {
+                    name: call.name,
+                    args: call.args
+                }
+            }));
+            currentContents = [
+                ...currentContents,
+                { role: "model", parts: modelToolParts }
+            ];
+
+            const toolResponseParts = [];
+            for (const call of toolCalls) {
+                const result = await onToolCall(call.name, call.args);
+                const response = typeof result === "string" ? { result } : result;
+                toolResponseParts.push({
+                    functionResponse: {
+                        name: call.name,
+                        response
+                    }
+                });
+            }
+            currentContents = [
+                ...currentContents,
+                { role: "tool", parts: toolResponseParts }
+            ];
         }
     }
 }

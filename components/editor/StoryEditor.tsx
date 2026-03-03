@@ -6,6 +6,8 @@ import PropertyInspector from './PropertyInspector';
 import StoryFormPanel from './StoryFormPanel';
 import ConfirmationModal from '../ConfirmationModal';
 import SidePanel from '../common/SidePanel';
+import { Sparkles, ZoomIn, ZoomOut, Undo, Redo } from "lucide-react";
+
 import {
     addEntityButtonNpc,
     addEntityButtonObj,
@@ -362,9 +364,12 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                     {/* Assistant Toggle */}
                     <button
                         onClick={() => setShowAssistant(!showAssistant)}
-                        className={`ml-4 ${toolbarButtonBase} ${showAssistant ? 'bg-scp-accent/10 border-scp-accent text-scp-accent' : ''}`}
+                        className={`ml-4 px-3 py-1 text-xs font-bold transition-colors ${showAssistant ? 'bg-scp-accent text-white' : 'text-gray-400 hover:text-white'}`}
                     >
-                        <span>🤖</span> {t('editor_assistant.title')}
+                        <div className="flex items-center gap-2">
+                            <Sparkles size={16} strokeWidth={2} />
+                            <span>{t('editor_assistant.title')} (Beta)</span>
+                        </div>
                     </button>
 
                     {/* Tab Switcher */}
@@ -393,7 +398,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                                     className={toolbarHistoryButton(canUndo)}
                                     title="Undo (Ctrl+Z)"
                                 >
-                                    <span className="text-lg leading-none">↺</span> {t('common.undo')}
+                                    <Undo size={16} strokeWidth={1} /> {t('common.undo')}
                                 </button>
                                 <button 
                                     onClick={redo} 
@@ -401,7 +406,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                                     className={toolbarHistoryButton(canRedo)}
                                     title="Redo (Ctrl+Shift+Z)"
                                 >
-                                    <span className="text-lg leading-none">↻</span> {t('common.redo')}
+                                    <Redo size={16} strokeWidth={1} /> {t('common.redo')}
                                 </button>
                             </div>
                             <div className="flex items-center gap-1 ml-4 pl-4 border-l border-[var(--scp-border)]">
@@ -410,14 +415,14 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                                     className={toolbarHistoryButton(true)}
                                     title="Zoom In"
                                 >
-                                    <span className="material-icons text-[16px] leading-none">zoom_in</span>
+                                    <ZoomIn size={16} strokeWidth={1} />
                                 </button>
                                 <button
                                     onClick={() => canvasRef.current?.zoomOut()}
                                     className={toolbarHistoryButton(true)}
                                     title="Zoom Out"
                                 >
-                                    <span className="material-icons text-[16px] leading-none">zoom_out</span>
+                                    <ZoomOut size={16} strokeWidth={1} />
                                 </button>
                             </div>
                             
@@ -484,15 +489,14 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                     </div>
                 </div>
 
-                {showAssistant && (
-                    <EditorAssistantPanel
-                        blueprint={blueprint}
-                        setBlueprint={setBlueprint}
-                        scpData={scpData}
-                        setScpData={setScpData}
-                        onClose={() => setShowAssistant(false)}
-                    />
-                )}
+                <EditorAssistantPanel
+                    blueprint={blueprint}
+                    setBlueprint={setBlueprint}
+                    scpData={scpData}
+                    setScpData={setScpData}
+                    onClose={() => setShowAssistant(false)}
+                    isOpen={showAssistant}
+                />
 
                 <SidePanel side="left" className={`absolute top-0 bottom-0 w-56 ${panelContainerBase}`}>
                     <div className={editorPanelHeader}>
@@ -504,10 +508,10 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                         {/* NPCs Section */}
                         <div>
                             <div className="text-[12px] text-scp-text-dim uppercase font-bold mb-2 px-1 tracking-wider">
-                                {t('map_editor.npcs')} ({blueprint.npcs.length})
+                                {t('map_editor.npcs')} ({(blueprint.npcs || []).length})
                             </div>
                             <div className="space-y-1">
-                                {blueprint.npcs.map(npc => (
+                                {(blueprint.npcs || []).map(npc => (
                                     <div 
                                         key={npc.id}
                                         onClick={() => {
@@ -519,17 +523,17 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                                         <div className="text-[12px] opacity-60 truncate">{npc.archetype}</div>
                                     </div>
                                 ))}
-                                {blueprint.npcs.length === 0 && <div className="p-2 text-[12px] text-gray-600 italic text-center border border-dashed border-gray-800 rounded">No Entities</div>}
+                                {(blueprint.npcs || []).length === 0 && <div className="p-2 text-[12px] text-gray-600 italic text-center border border-dashed border-gray-800 rounded">No Entities</div>}
                             </div>
                         </div>
 
                         {/* Objectives Section */}
                         <div>
                             <div className="text-[12px] text-scp-text-dim uppercase font-bold mb-2 px-1 tracking-wider border-t border-[var(--scp-border)] pt-4">
-                                {t('map_editor.objectives')} ({blueprint.objectives.length})
+                                {t('map_editor.objectives')} ({(blueprint.objectives || []).length})
                             </div>
                             <div className="space-y-1">
-                                {blueprint.objectives.map(obj => (
+                                {(blueprint.objectives || []).map(obj => (
                                     <div 
                                         key={obj.id}
                                         onClick={() => {
@@ -541,7 +545,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                                         <div className="text-[12px] opacity-60 truncate">{obj.type}</div>
                                     </div>
                                 ))}
-                                {blueprint.objectives.length === 0 && <div className="p-2 text-[12px] text-gray-600 italic text-center border border-dashed border-gray-800 rounded">No Objectives</div>}
+                                {(blueprint.objectives || []).length === 0 && <div className="p-2 text-[12px] text-gray-600 italic text-center border border-dashed border-gray-800 rounded">No Objectives</div>}
                             </div>
                         </div>
                     </div>

@@ -32,7 +32,6 @@ export class OpenAIProvider implements AIService {
     private async getConfig() {
         if (this.cachedConfig) return this.cachedConfig;
         const effective = await getEffectiveAIConfig();
-        console.log(`[OpenAIProvider] Effective Config: ${JSON.stringify(effective)}`);
         this.cachedConfig = {
             apiKey: effective.openai.apiKey,
             baseUrl: effective.openai.baseUrl,

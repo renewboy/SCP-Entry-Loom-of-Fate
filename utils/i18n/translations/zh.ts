@@ -415,12 +415,12 @@ export const zh = {
     placeholder_opening: "例如：“你在黑暗的房间醒来...”",
   },
   editor_assistant: {
-    title: "AI 助手",
+    title: "命运织机AI",
     placeholder: "输入指令（例如：“在起点旁加一个安全屋”）...",
     thinking: "正在处理请求...",
     tool_executing: "正在执行协议...",
     clear_chat: "清空记录",
-    welcome: "编辑器助手已上线。等待地图或故事修改指令。",
+    welcome: "[命运织机终端]\n> 界面已初始化。\n> 致敬，长官。命运织机已就绪。\n> 当前状态：命运蓝图已加载。\n> 等待您的指令，以编织、更改或切断叙事之线。\n> 请陈述您的修改请求。",
   },
   entity_profile: {
     title: "实体档案补全程序",
