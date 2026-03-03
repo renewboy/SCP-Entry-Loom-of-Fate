@@ -3,11 +3,12 @@ import { AIService } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
 import { aiConfig } from "../../../config/aiConfig";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt } from "../prompts";
-import { getEditorAssistantPrompt, editorTools } from "../editorPrompts";
+import { getEditorAssistantPrompt, getEditorAssistantContext, editorTools } from "../editorPrompts";
 import { normalizeGameReviewData, safeParseJson } from "../utils";
 import { AudioDramaSchema } from "../schemas";
 import { postJson, streamSse } from "./backendClient";
 import { getEffectiveAIConfig } from "../../aiConfigService";
+import { AgentStreamEvent } from "../streamProtocol";
 
 const INIT_EMPTY_MAX_RETRIES = 3;
 
@@ -444,9 +445,9 @@ export class GeminiProvider implements AIService {
         scpData: SCPData,
         language: Language,
         onToolCall: (toolName: string, args: any) => Promise<any>
-    ): AsyncGenerator<string> {
+    ): AsyncGenerator<AgentStreamEvent> {
         const config = await this.getConfig();
-        const systemInstruction = `${getEditorAssistantPrompt(language)}\n\n[CURRENT MAP BLUEPRINT]\n${JSON.stringify(scpData.mapBlueprint)}\n[CURRENT STORY INFO]\nName: ${scpData.name}\nDesignation: ${scpData.designation}\nRole: ${scpData.role}\nBackground: ${scpData.storyDraft?.storyBackground}`;
+        const systemInstruction = `${getEditorAssistantPrompt(language)}\n\n${getEditorAssistantContext(scpData)}`;
         const baseContents: any[] = messages.map(msg => ({
             role: msg.role === "assistant" ? "model" : "user",
             parts: [{ text: msg.content }]
@@ -455,11 +456,15 @@ export class GeminiProvider implements AIService {
         let loopCount = 0;
         const MAX_LOOPS = 5;
         console.log(`[GeminiProvider] streamEditorAssistant called. Input: ${JSON.stringify(messages)}`);
+
         while (loopCount < MAX_LOOPS) {
             loopCount += 1;
             const toolCalls: { name: string; args: any }[] = [];
             console.log(`[GeminiProvider] streamEditorAssistant loop ${loopCount}`);
-            for await (const chunk of streamSse<any>("/api/ai/gemini/chat-stream", {
+            
+            // 1. 调用 Gemini API，处理流式响应
+            // 注意：Gemini 的 stream 可能同时包含 text 和 functionCall
+            const stream = streamSse<any>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
                 model: config.chatModel,
                 contents: currentContents,
@@ -467,24 +472,34 @@ export class GeminiProvider implements AIService {
                     systemInstruction,
                     tools: this.buildGeminiTools(),
                 },
-            })) {
-                const parts = chunk?.candidates?.[0]?.content?.parts || [];
-                for (const part of parts) {
-                    if (part.text) {
-                        yield part.text;
-                    }
-                    if (part.functionCall) {
-                        toolCalls.push({
-                            name: part.functionCall.name,
-                            args: part.functionCall.args || part.functionCall.arguments || {}
-                        });
+            });
+
+            for await (const chunk of stream) {
+                const candidates = chunk?.candidates || [];
+                for (const candidate of candidates) {
+                    const parts = candidate?.content?.parts || [];
+                    for (const part of parts) {
+                        // 处理文本增量
+                        if (part.text) {
+                            yield { type: "assistant_delta", delta: part.text };
+                        }
+                        // 收集工具调用（Gemini 通常是在流的末尾一次性给出 functionCall）
+                        if (part.functionCall) {
+                            toolCalls.push({
+                                name: part.functionCall.name,
+                                args: part.functionCall.args || part.functionCall.arguments || {}
+                            });
+                        }
                     }
                 }
             }
+
+            // 2. 如果没有工具调用，结束循环
             if (toolCalls.length === 0) {
                 break;
             }
 
+            // 3. 将工具调用追加到 currentContents (Model turn)
             const modelToolParts = toolCalls.map(call => ({
                 functionCall: {
                     name: call.name,
@@ -496,19 +511,67 @@ export class GeminiProvider implements AIService {
                 { role: "model", parts: modelToolParts }
             ];
 
+            // 4. 执行工具并产出结果
             const toolResponseParts = [];
             for (const call of toolCalls) {
-                yield `\n\n[Executing: ${call.name}]...\n`;
-                const result = await onToolCall(call.name, call.args);
-                console.log(`[GeminiProvider] streamEditorAssistant toolCall result: ${JSON.stringify(result)}`);
-                const response = typeof result === "string" ? { result } : result;
-                toolResponseParts.push({
-                    functionResponse: {
-                        name: call.name,
-                        response
-                    }
-                });
+                const callId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+                const startTime = Date.now();
+                
+                // 发送 "开始执行" 事件
+                yield { 
+                    type: "tool_call", 
+                    callId, 
+                    name: call.name, 
+                    args: call.args, 
+                    state: "start",
+                    startTime
+                };
+
+                try {
+                    const result = await onToolCall(call.name, call.args);
+                    const endTime = Date.now();
+                    console.log(`[GeminiProvider] streamEditorAssistant toolCall result: ${JSON.stringify(result)}`);
+                    
+                    // 发送 "执行成功" 事件
+                    yield { 
+                        type: "tool_call", 
+                        callId, 
+                        name: call.name, 
+                        state: "result", 
+                        result,
+                        endTime
+                    };
+
+                    const response = typeof result === "string" ? { result } : result;
+                    toolResponseParts.push({
+                        functionResponse: {
+                            name: call.name,
+                            response
+                        }
+                    });
+                } catch (e) {
+                    const endTime = Date.now();
+                    // 发送 "执行失败" 事件
+                    yield { 
+                        type: "tool_call", 
+                        callId, 
+                        name: call.name, 
+                        state: "error", 
+                        error: String(e),
+                        endTime
+                    };
+                    
+                    // 即使失败，也要把错误信息喂回给模型，以便模型知道出错了
+                    toolResponseParts.push({
+                        functionResponse: {
+                            name: call.name,
+                            response: { error: String(e) }
+                        }
+                    });
+                }
             }
+
+            // 5. 将工具结果追加到 currentContents (Tool turn)
             currentContents = [
                 ...currentContents,
                 { role: "tool", parts: toolResponseParts }

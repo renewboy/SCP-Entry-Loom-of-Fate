@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import { useTranslation } from '../../utils/i18n';
 import { SCPData, Language } from '../../types';
 import { OpenAIProvider } from '../../services/ai/providers/openaiProvider';
@@ -21,6 +22,146 @@ interface EditorAssistantPanelProps {
     isOpen: boolean;
 }
 
+const SANITIZE_SCHEMA = {
+    ...defaultSchema,
+    tagNames: Array.from(new Set([...(defaultSchema.tagNames || []), 'table', 'thead', 'tbody', 'tr', 'th', 'td'])),
+    attributes: {
+        ...(defaultSchema.attributes || {}),
+        table: [...((defaultSchema.attributes as any)?.table || []), 'align'],
+        th: [...((defaultSchema.attributes as any)?.th || []), 'align'],
+        td: [...((defaultSchema.attributes as any)?.td || []), 'align']
+    }
+};
+
+const MARKDOWN_COMPONENTS = {
+    h1: ({ children }: any) => <h1 className="text-lg font-bold my-3 pb-1 border-b border-gray-700">{children}</h1>,
+    h2: ({ children }: any) => <h2 className="text-base font-bold my-2 pb-1 border-b border-gray-800">{children}</h2>,
+    h3: ({ children }: any) => <h3 className="text-sm font-bold my-2">{children}</h3>,
+    h4: ({ children }: any) => <h4 className="text-sm font-semibold my-1">{children}</h4>,
+    hr: () => <hr className="my-4 border-gray-700" />,
+    blockquote: ({ children }: any) => <blockquote className="border-l-2 border-scp-accent pl-3 my-2 text-gray-400 italic">{children}</blockquote>,
+    a: ({ href, children }: any) => (
+        <a href={href} target="_blank" rel="noreferrer" className="text-scp-accent underline underline-offset-2 hover:text-white">
+            {children}
+        </a>
+    ),
+    code: ({ className, children }: any) => {
+        const text = Array.isArray(children) ? children.join('') : String(children ?? '');
+        const isBlock = Boolean(className && String(className).includes('language-')) || text.includes('\n');
+        if (isBlock) {
+            return <code className="font-mono text-xs text-gray-200">{children}</code>;
+        }
+        return <code className="px-1.5 py-0.5 mx-0.5 rounded bg-black/40 border border-gray-700 font-mono text-[0.9em]">{children}</code>;
+    },
+    pre: ({ children }: any) => (
+        <pre className="my-3 p-3 rounded bg-black/40 border border-gray-800 overflow-x-auto">{children}</pre>
+    ),
+    p: ({ children }: any) => <p className="leading-relaxed my-2">{children}</p>,
+    ul: ({ children }: any) => <ul className="list-disc pl-5 my-2 space-y-1">{children}</ul>,
+    ol: ({ children }: any) => <ol className="list-decimal pl-5 my-2 space-y-1">{children}</ol>,
+    li: ({ children }: any) => <li className="leading-relaxed">{children}</li>,
+    table: ({ children }: any) => (
+        <div className="overflow-x-auto my-4 rounded border border-gray-800">
+            <table className="w-full text-left border-collapse bg-black/20">{children}</table>
+        </div>
+    ),
+    thead: ({ children }: any) => <thead className="bg-white/5">{children}</thead>,
+    tbody: ({ children }: any) => <tbody className="divide-y divide-gray-800">{children}</tbody>,
+    tr: ({ children }: any) => <tr className="hover:bg-white/5 transition-colors">{children}</tr>,
+    th: ({ children }: any) => <th className="px-3 py-2 text-xs font-bold text-gray-300 border-b border-gray-700">{children}</th>,
+    td: ({ children }: any) => <td className="px-3 py-2 text-xs text-gray-400 border-r border-gray-800 last:border-r-0">{children}</td>,
+};
+
+const Markdown = React.memo(({ content }: { content: string }) => (
+    <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkBreaks]}
+        rehypePlugins={[[rehypeSanitize, SANITIZE_SCHEMA]]}
+        components={MARKDOWN_COMPONENTS}
+    >
+        {content}
+    </ReactMarkdown>
+));
+
+interface ToolCallCardData {
+    callId: string;
+    name: string;
+    state: "running" | "success" | "error";
+    args?: any;
+    result?: any;
+    error?: string;
+    startTime: number;
+    endTime?: number;
+}
+
+type AssistantBlock =
+    | { kind: 'text'; content: string }
+    | { kind: 'tool'; data: ToolCallCardData };
+
+type ChatMessage =
+    | { kind: 'user'; content: string }
+    | { kind: 'assistant'; blocks: AssistantBlock[] };
+
+const ToolCard = ({ data }: { data: ToolCallCardData }) => {
+    const { t } = useTranslation();
+    const [expanded, setExpanded] = useState(false);
+    const duration = data.endTime ? data.endTime - data.startTime : 0;
+    
+    return (
+        <div className="my-2 border border-[var(--scp-border)] rounded bg-black/30 overflow-hidden text-xs font-mono">
+            <button
+                type="button"
+                className="w-full flex items-center justify-between px-2 py-1.5 bg-black/40 hover:bg-black/60 transition-colors"
+                onClick={() => setExpanded(!expanded)}
+            >
+                <div className="flex items-center gap-2 min-w-0">
+                    <span
+                        className={`inline-block w-2 h-2 rounded-sm flex-shrink-0 ${
+                            data.state === 'error'
+                                ? 'bg-red-500'
+                                : data.state === 'running'
+                                  ? 'bg-scp-accent'
+                                  : 'bg-green-500'
+                        }`}
+                    />
+                    <span className="text-[10px] tracking-widest uppercase text-gray-500 flex-shrink-0">{t('editor_assistant.tool_called')}</span>
+                    <span className="font-semibold tracking-wider uppercase text-scp-text truncate">{data.name}</span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-gray-500 flex-shrink-0">
+                    {data.state !== 'running' && <span>{duration}ms</span>}
+                    <span className="text-gray-600">{expanded ? '▾' : '▸'}</span>
+                </div>
+            </button>
+            
+            {expanded && (
+                <div className="p-2 border-t border-[var(--scp-border)] bg-black/40 space-y-2">
+                    <div>
+                        <div className="text-[10px] text-gray-500 mb-0.5">ARGS</div>
+                        <pre className="overflow-x-auto text-gray-300 p-2 bg-black/50 border border-gray-800 rounded">
+                            {JSON.stringify(data.args, null, 2)}
+                        </pre>
+                    </div>
+                    {data.result && (
+                        <div>
+                            <div className="text-[10px] text-gray-500 mb-0.5">RESULT</div>
+                            <pre className="overflow-x-auto text-gray-300 p-2 bg-black/50 border border-gray-800 rounded">
+                                {JSON.stringify(data.result, null, 2)}
+                            </pre>
+                        </div>
+                    )}
+                    {data.error && (
+                        <div>
+                            <div className="text-[10px] text-red-500 mb-0.5">ERROR</div>
+                            <pre className="overflow-x-auto text-red-400 p-2 bg-black/50 border border-gray-800 rounded whitespace-pre-wrap">
+                                {data.error}
+                            </pre>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
     blueprint,
     setBlueprint,
@@ -31,65 +172,13 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
 }) => {
     const { t, language } = useTranslation();
     const [input, setInput] = useState('');
-    const [messages, setMessages] = useState<{ role: 'user' | 'assistant' | 'system'; content: string }[]>([]);
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [currentStreamingContent, setCurrentStreamingContent] = useState('');
+    const [currentBlocks, setCurrentBlocks] = useState<AssistantBlock[]>([]);
     const [welcomeStreamingContent, setWelcomeStreamingContent] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const openaiProvider = useRef(new OpenAIProvider());
     const geminiProvider = useRef(new GeminiProvider());
-    const sanitizeSchema = {
-        ...defaultSchema,
-        tagNames: Array.from(new Set([...(defaultSchema.tagNames || []), 'table', 'thead', 'tbody', 'tr', 'th', 'td'])),
-        attributes: {
-            ...(defaultSchema.attributes || {}),
-            table: [...((defaultSchema.attributes as any)?.table || []), 'align'],
-            th: [...((defaultSchema.attributes as any)?.th || []), 'align'],
-            td: [...((defaultSchema.attributes as any)?.td || []), 'align']
-        }
-    };
-    const markdownComponents = {
-        a: ({ href, children }: any) => (
-            <a href={href} target="_blank" rel="noreferrer" className="text-scp-accent underline underline-offset-2 hover:text-white">
-                {children}
-            </a>
-        ),
-        code: ({ inline, children }: any) => (
-            <code className={inline ? "px-1 py-0.5 rounded bg-black/40 border border-gray-800" : ""}>{children}</code>
-        ),
-        pre: ({ children }: any) => (
-            <pre className="p-2 rounded bg-black/40 border border-gray-800 overflow-x-auto">{children}</pre>
-        ),
-        h1: ({ children }: any) => <h1 className="text-sm font-semibold leading-snug">{children}</h1>,
-        h2: ({ children }: any) => <h2 className="text-sm font-semibold leading-snug">{children}</h2>,
-        h3: ({ children }: any) => <h3 className="text-xs font-semibold leading-snug">{children}</h3>,
-        h4: ({ children }: any) => <h4 className="text-xs font-semibold leading-snug">{children}</h4>,
-        p: ({ children }: any) => <p className="leading-[1.65]">{children}</p>,
-        ul: ({ children }: any) => <ul className="list-disc pl-5 space-y-1.5">{children}</ul>,
-        ol: ({ children }: any) => <ol className="list-decimal pl-5 space-y-1.5">{children}</ol>,
-        li: ({ children }: any) => <li className="leading-[1.65]">{children}</li>,
-        table: ({ children }: any) => (
-            <div className="overflow-x-auto">
-                <table className="w-full border-collapse border border-gray-800">{children}</table>
-            </div>
-        ),
-        thead: ({ children }: any) => <thead className="bg-black/30">{children}</thead>,
-        tbody: ({ children }: any) => <tbody>{children}</tbody>,
-        tr: ({ children }: any) => <tr className="border-b border-gray-800">{children}</tr>,
-        th: ({ children }: any) => <th className="border border-gray-800 px-2 py-2 text-left font-semibold leading-[1.4]">{children}</th>,
-        td: ({ children }: any) => <td className="border border-gray-800 px-2 py-2 align-top leading-[1.65]">{children}</td>,
-    };
-    const Markdown = ({ content }: { content: string }) => (
-        <div className="space-y-2">
-            <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[[rehypeSanitize, sanitizeSchema]]}
-                components={markdownComponents}
-            >
-                {content}
-            </ReactMarkdown>
-        </div>
-    );
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -97,7 +186,7 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages, currentStreamingContent]);
+    }, [messages, currentBlocks]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -128,7 +217,14 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
             historyLoadedRef.current = false;
             const saved = await loadSetting(historyKey);
             if (Array.isArray(saved)) {
-                setMessages(saved);
+                const converted: ChatMessage[] = saved.map((m: any) => {
+                    if (m?.kind === 'user' && typeof m?.content === 'string') return m as ChatMessage;
+                    if (m?.kind === 'assistant' && Array.isArray(m?.blocks)) return m as ChatMessage;
+                    if (m?.role === 'user' && typeof m?.content === 'string') return { kind: 'user', content: m.content };
+                    if (m?.role === 'assistant' && typeof m?.content === 'string') return { kind: 'assistant', blocks: [{ kind: 'text', content: m.content }] };
+                    return { kind: 'assistant', blocks: [{ kind: 'text', content: JSON.stringify(m) }] };
+                });
+                setMessages(converted);
             }
             historyLoadedRef.current = true;
         };
@@ -146,17 +242,25 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
         // --- Tool Implementation ---
         try {
             switch (toolName) {
-                case 'update_story_info': {
-                    const { storyBackground, ...rest } = args || {};
+                case 'update_basic_info': {
+                    const { storyDraft: _storyDraft, mapBlueprint: _mapBlueprint, ...rest } = args || {};
                     setScpData((prev) => ({
                         ...prev,
-                        ...rest,
+                        ...rest
+                    }));
+                    return { success: true, message: "SCP data updated." };
+                }
+
+                case 'update_story_draft': {
+                    const rest = args || {};
+                    setScpData((prev) => ({
+                        ...prev,
                         storyDraft: {
                             ...(prev.storyDraft || {}),
-                            ...(storyBackground !== undefined ? { storyBackground } : {})
+                            ...rest
                         }
                     }));
-                    return { success: true, message: "Story info updated." };
+                    return { success: true, message: "Story draft updated." };
                 }
 
                 case 'multi_step': {
@@ -431,37 +535,110 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
         e?.preventDefault();
         if (!input.trim() || isLoading) return;
 
-        const userMsg = { role: 'user' as const, content: input };
-        setMessages(prev => [...prev, userMsg]);
+        const userMsg: ChatMessage = { kind: 'user', content: input };
+        const newMessages = [...messages, userMsg];
+        setMessages(newMessages);
         setInput('');
         setIsLoading(true);
-        setCurrentStreamingContent('');
-        console.log("before streamEditorAssistant call");
+        setCurrentBlocks([]);
+
         try {
             const config = await getEffectiveAIConfig();
             const provider = config.provider === 'gemini' ? geminiProvider.current : openaiProvider.current;
-            console.log(`streamEditorAssistant call with messages:", ${JSON.stringify(userMsg)}, provider: ${config.provider}`);
+            
+            // Prepare history for provider (only content, no tool cards)
+            const historyForProvider = newMessages.map(m => {
+                if (m.kind === 'user') return { role: 'user', content: m.content };
+                const text = m.blocks.filter(b => b.kind === 'text').map(b => b.content).join('');
+                return { role: 'assistant', content: text };
+            });
             
             const stream = provider.streamEditorAssistant(
-                [...messages, userMsg],
-                { ...scpData, mapBlueprint: blueprint }, // Ensure we pass the LATEST blueprint
+                historyForProvider,
+                { ...scpData, mapBlueprint: blueprint },
                 language as Language,
                 handleToolCall
             );
 
-            let fullContent = "";
+            let blocks: AssistantBlock[] = [];
 
-            for await (const chunk of stream) {
-                fullContent += chunk;
-                setCurrentStreamingContent(fullContent);
+            const addText = (delta: string) => {
+                if (!delta) return;
+                const last = blocks[blocks.length - 1];
+                if (last && last.kind === 'text') {
+                    last.content += delta;
+                } else {
+                    blocks.push({ kind: 'text', content: delta });
+                }
+                setCurrentBlocks([...blocks]);
+            };
+
+            const upsertTool = (data: ToolCallCardData) => {
+                const idx = blocks.findIndex(b => b.kind === 'tool' && b.data.callId === data.callId);
+                if (idx >= 0) {
+                    const existing = (blocks[idx] as any).data as ToolCallCardData;
+                    blocks[idx] = { kind: 'tool', data: { ...existing, ...data } };
+                } else {
+                    blocks.push({ kind: 'tool', data });
+                }
+                setCurrentBlocks([...blocks]);
+            };
+
+            for await (const event of stream) {
+                if (typeof event === 'string') {
+                    addText(event);
+                    continue;
+                }
+                
+                if (event.type === 'assistant_delta') {
+                    addText(event.delta);
+                } else if (event.type === 'tool_call') {
+                    if (event.state === 'start') {
+                        upsertTool({
+                            callId: event.callId,
+                            name: event.name,
+                            state: 'running',
+                            args: event.args,
+                            startTime: event.startTime
+                        });
+                    } else if (event.state === 'result') {
+                        const existing = blocks.find(b => b.kind === 'tool' && b.data.callId === event.callId);
+                        upsertTool({
+                            callId: event.callId,
+                            name: event.name,
+                            state: 'success',
+                            args: existing && existing.kind === 'tool' ? existing.data.args : undefined,
+                            result: event.result,
+                            endTime: event.endTime,
+                            startTime: existing && existing.kind === 'tool' ? existing.data.startTime : Date.now()
+                        });
+                    } else if (event.state === 'error') {
+                        const existing = blocks.find(b => b.kind === 'tool' && b.data.callId === event.callId);
+                        upsertTool({
+                            callId: event.callId,
+                            name: event.name,
+                            state: 'error',
+                            args: existing && existing.kind === 'tool' ? existing.data.args : undefined,
+                            error: event.error,
+                            endTime: event.endTime,
+                            startTime: existing && existing.kind === 'tool' ? existing.data.startTime : Date.now()
+                        });
+                    }
+                }
             }
 
-            setMessages(prev => [...prev, { role: 'assistant', content: fullContent }]);
-            setCurrentStreamingContent('');
+            setMessages(prev => [
+                ...prev, 
+                { 
+                    kind: 'assistant',
+                    blocks
+                }
+            ]);
+            setCurrentBlocks([]);
 
         } catch (error) {
             console.error("Assistant error:", error);
-            setMessages(prev => [...prev, { role: 'assistant', content: `[ERROR] ${error}` }]);
+            setMessages(prev => [...prev, { kind: 'assistant', blocks: [{ kind: 'text', content: `[ERROR] ${error}` }] }]);
         } finally {
             setIsLoading(false);
         }
@@ -469,7 +646,7 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
 
     const handleClear = () => {
         setMessages([]);
-        setCurrentStreamingContent('');
+        setCurrentBlocks([]);
     };
 
     return (
@@ -506,18 +683,24 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
                 )}
 
                 {messages.map((msg, idx) => (
-                    <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                    <div key={idx} className={`flex flex-col ${msg.kind === 'user' ? 'items-end' : 'items-start'}`}>
                         <div 
                             className={`max-w-[90%] p-2 rounded text-xs break-words ${
-                                msg.role === 'user' 
+                                msg.kind === 'user' 
                                     ? 'bg-scp-accent/20 text-white border border-scp-accent/40' 
                                     : 'bg-[#1a1a1a] text-scp-text border border-gray-800'
                             }`}
                         >
-                            {msg.role === 'user' ? (
+                            {msg.kind === 'user' ? (
                                 <div className="whitespace-pre-wrap">{msg.content}</div>
                             ) : (
-                                <Markdown content={msg.content} />
+                                <div className="space-y-2">
+                                    {msg.blocks.map((b, i) => (
+                                        b.kind === 'text'
+                                            ? <Markdown key={`t-${i}`} content={b.content} />
+                                            : <ToolCard key={b.data.callId} data={b.data} />
+                                    ))}
+                                </div>
                             )}
                         </div>
                     </div>
@@ -527,11 +710,18 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
                 {isLoading && (
                     <div className="flex flex-col items-start">
                         <div className="max-w-[90%] p-2 rounded text-xs break-words bg-[#1a1a1a] text-scp-text border border-gray-800 animate-pulse">
-                            {currentStreamingContent ? (
-                                <Markdown content={currentStreamingContent} />
+                            {currentBlocks.length > 0 ? (
+                                <div className="space-y-2">
+                                    {currentBlocks.map((b, i) => (
+                                        b.kind === 'text'
+                                            ? <Markdown key={`ct-${i}`} content={b.content} />
+                                            : <ToolCard key={b.data.callId} data={b.data} />
+                                    ))}
+                                </div>
                             ) : (
                                 t('editor_assistant.thinking')
                             )}
+                            
                             <span className="inline-block w-2 h-4 ml-1 bg-scp-accent animate-blink align-middle"></span>
                         </div>
                     </div>

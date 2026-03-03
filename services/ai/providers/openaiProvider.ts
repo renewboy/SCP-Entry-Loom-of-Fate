@@ -2,24 +2,25 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import { AIService } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt } from "../prompts";
-import { getEditorAssistantPrompt, editorTools } from "../editorPrompts";
+import { getEditorAssistantPrompt, getEditorAssistantContext, editorTools } from "../editorPrompts";
 import { normalizeGameReviewData, safeParseJson } from "../utils";
 import { AudioDramaSchema } from "../schemas";
 import { postJson, streamSse } from "./backendClient";
 import { aiConfig } from "../../../config/aiConfig";
 import { imageSizeFromAspectRatio } from "../utils";
 import { getEffectiveAIConfig } from "../../aiConfigService";
+import { AgentStreamEvent } from "../streamProtocol";
 
 type ChatMessage = {
   role: "system" | "user" | "assistant";
   content: string;
 };
 const getOpenAIText = (response: any): string => {
-    return response.choices?.[0]?.message?.content || "";
+    return response?.output_text || "";
 };
 
-const getOpenAIDelta = (chunk: any): string => {
-    return chunk.choices?.[0]?.delta?.content || "";
+const getOpenAIResponseDelta = (chunk: any): string => {
+    return chunk.type == "response.output_text.delta" ? chunk.delta : "";
 };
 
 export class OpenAIProvider implements AIService {
@@ -160,10 +161,11 @@ export class OpenAIProvider implements AIService {
             input: this.messages,
             tools: [{ type: "web_search" }],
         })) {
-            const delta = getOpenAIDelta(chunk);
+            const delta = getOpenAIResponseDelta(chunk);
             fullResponse += delta;
             yield delta;
         }
+        console.log("[OpenAIProvider] Initialization complete. Response: ", fullResponse);
         this.messages.push({ role: "assistant", content: fullResponse });
     }
 
@@ -187,7 +189,7 @@ export class OpenAIProvider implements AIService {
                 input: [...this.messages, { role: "user", content: contextPrompt }],
                 tools: [],
             })) {
-                const delta = getOpenAIDelta(chunk);
+                const delta = getOpenAIResponseDelta(chunk);
                 fullResponse += delta;
                 yield delta;
             }
@@ -382,95 +384,150 @@ export class OpenAIProvider implements AIService {
         scpData: SCPData,
         language: Language,
         onToolCall: (toolName: string, args: any) => Promise<any>
-    ): AsyncGenerator<string> {
+    ): AsyncGenerator<AgentStreamEvent> {
         const config = await this.getConfig();
         const systemPrompt = getEditorAssistantPrompt(language);
 
         const contextMessages = [
             { role: "system", content: systemPrompt },
-            { role: "system", content: `[CURRENT MAP BLUEPRINT]\n${JSON.stringify(scpData.mapBlueprint)}\n[CURRENT STORY INFO]\nName: ${scpData.name}\nDesignation: ${scpData.designation}\nRole: ${scpData.role}\nBackground: ${scpData.storyDraft?.storyBackground}` },
+            { role: "system", content: getEditorAssistantContext(scpData) },
             ...messages
         ];
 
-        let currentLoopMessages = [...contextMessages];
+        let currentLoopMessages: any[] = [...contextMessages];
         let loopCount = 0;
         const MAX_LOOPS = 5;
 
         while (loopCount < MAX_LOOPS) {
             loopCount++;
 
-            const toolCalls: Record<number, { name: string; arguments: string; id: string }> = {};
+            // Use a temporary structure to accumulate partial tool calls
+            const toolCallsMap: Record<number, { index: number; id?: string; name?: string; arguments: string }> = {};
             let hasToolCalls = false;
+            
             console.log(`[EditorAssistant] streamEditorAssistant loop ${loopCount}`);
-            for await (const chunk of streamSse<any>("/api/ai/openai/chat-completion-stream", {
+            
+            // 1. Call OpenAI API and stream response
+            const stream = streamSse<any>("/api/ai/openai/chat-completion-stream", {
                 apiKey: config.apiKey,
                 baseUrl: config.baseUrl,
-                chatModel: config.chatModel, // User mentioned gpt-5, but we use config
+                chatModel: config.chatModel,
                 input: currentLoopMessages,
                 tools: editorTools,
                 stream: true
-            })) {
-                if (chunk.choices && chunk.choices[0]?.delta) {
-                    const delta = chunk.choices[0].delta;
-                    if (delta.content) {
-                        yield delta.content;
-                    }
-                    if (delta.tool_calls) {
-                        hasToolCalls = true;
-                        for (const tc of delta.tool_calls) {
-                            const index = typeof tc.index === "number" ? tc.index : 0;
-                            if (!toolCalls[index]) {
-                                toolCalls[index] = { name: "", arguments: "", id: "" };
-                            }
-                            if (tc.id) toolCalls[index].id = tc.id;
-                            if (tc.function?.name) toolCalls[index].name = tc.function.name;
-                            if (tc.function?.arguments) toolCalls[index].arguments += tc.function.arguments;
+            });
+
+            for await (const chunk of stream) {
+                const choice = chunk.choices?.[0];
+                if (!choice) continue;
+                const delta = choice.delta;
+
+                // Handle text content delta
+                if (delta.content) {
+                    yield { type: "assistant_delta", delta: delta.content };
+                }
+
+                // Handle tool calls delta
+                if (delta.tool_calls) {
+                    hasToolCalls = true;
+                    for (const tc of delta.tool_calls) {
+                        const index = tc.index;
+                        if (!toolCallsMap[index]) {
+                            toolCallsMap[index] = { index, arguments: "" };
                         }
+                        if (tc.id) toolCallsMap[index].id = tc.id;
+                        if (tc.function?.name) toolCallsMap[index].name = tc.function.name;
+                        if (tc.function?.arguments) toolCallsMap[index].arguments += tc.function.arguments;
                     }
                 }
             }
+
+            // 2. If no tool calls, break the loop
             if (!hasToolCalls) {
                 break;
             }
 
-            const toolOutputs = [];
-            for (const call of Object.values(toolCalls)) {
-                try {
-                    const args = JSON.parse(call.arguments);
-                    yield `\n\n[Executing: ${call.name}]...\n`;
-                    const result = await onToolCall(call.name, args);
-                    console.log(`[EditorAssistant] Tool call ${call.name} result: ${JSON.stringify(result)}`);
-                    toolOutputs.push({
-                        role: "tool",
-                        tool_call_id: call.id,
-                        content: JSON.stringify(result)
-                    });
-                } catch (e) {
-                    console.error(`Tool execution failed: ${e}`);
-                    toolOutputs.push({
-                        role: "tool",
-                        tool_call_id: call.id,
-                        content: JSON.stringify({ error: String(e) })
-                    });
+            // 3. Process accumulated tool calls
+            const completedToolCalls = Object.values(toolCallsMap).map(tc => ({
+                id: tc.id || `call_${Date.now()}_${tc.index}`,
+                type: 'function',
+                function: {
+                    name: tc.name || "",
+                    arguments: tc.arguments
                 }
-            }
+            }));
 
-            const assistantMsg = {
+            // Append assistant message with tool_calls to history (Model turn)
+            currentLoopMessages.push({
                 role: "assistant",
                 content: null,
-                tool_calls: Object.values(toolCalls).map(c => ({
-                    id: c.id,
-                    type: "function",
-                    function: { name: c.name, arguments: c.arguments }
-                }))
-            };
+                tool_calls: completedToolCalls
+            });
 
-            // @ts-ignore
-            currentLoopMessages.push(assistantMsg);
-            
-            for (const output of toolOutputs) {
-                // @ts-ignore
-                currentLoopMessages.push(output);
+            // 4. Execute tools and yield events
+            for (const call of completedToolCalls) {
+                const callId = call.id; // Use OpenAI's ID if available, or fallback
+                const toolName = call.function.name;
+                const startTime = Date.now();
+                let args = {};
+
+                try {
+                    args = JSON.parse(call.function.arguments);
+                } catch (e) {
+                    console.error("Failed to parse tool arguments:", call.function.arguments);
+                }
+
+                // Send "start" event
+                yield {
+                    type: "tool_call",
+                    callId,
+                    name: toolName,
+                    args,
+                    state: "start",
+                    startTime
+                };
+
+                let resultStr = "";
+                try {
+                    console.log(`[EditorAssistant] Executing tool ${toolName}...`);
+                    const result = await onToolCall(toolName, args);
+                    const endTime = Date.now();
+                    
+                    // Send "result" event
+                    yield {
+                        type: "tool_call",
+                        callId,
+                        name: toolName,
+                        state: "result",
+                        result,
+                        endTime
+                    };
+                    
+                    resultStr = JSON.stringify(result);
+                } catch (e) {
+                    const endTime = Date.now();
+                    console.error(`Tool execution failed: ${e}`);
+                    
+                    // Send "error" event
+                    yield {
+                        type: "tool_call",
+                        callId,
+                        name: toolName,
+                        state: "error",
+                        error: String(e),
+                        endTime
+                    };
+                    
+                    resultStr = JSON.stringify({ error: String(e) });
+                }
+
+                // Append tool result to history (Tool turn)
+                currentLoopMessages.push({
+                    role: "tool",
+                    tool_call_id: call.id,
+                    name: toolName,
+                    content: resultStr
+                });
             }
         }
     }

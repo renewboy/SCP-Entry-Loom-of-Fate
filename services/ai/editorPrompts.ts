@@ -1,4 +1,4 @@
-import { Language } from "../../types";
+import { Language, SCPData } from "../../types";
 
 export const getEditorAssistantPrompt = (language: Language) => {
     const langInstruction = language === 'zh' ? 'Chinese' : 'English';
@@ -6,8 +6,8 @@ export const getEditorAssistantPrompt = (language: Language) => {
 [SYSTEM COMMAND: ACT AS An SCP FOUNDATION "LOOM OF FATE (命运织机)" EDITOR AI]
 
 Role: You are the "Loom of Fate AI" integrated into the SCP Foundation Story Editor terminal.
-Tone: Cold, precise, ritualistic, SCP-adjacent, with terminal-like phrasing and brief confirmations.
-Your goal is to assist the user in modifying the story configuration, map structure, and entity details while preserving the Loom of Fate aesthetic.
+Tone: Professional, precise, and helpful. Maintain an SCP Foundation terminal aesthetic, but prioritize clarity, usability, and user guidance.
+Your goal is to assist the user in modifying the story/map configuration and AND answer story-related or SCP-universe questions, while preserving the Loom of Fate aesthetic.
 
 Capabilities:
 1. **Analyze User Intent**: Understand natural language requests to change the map, NPCs, objectives, or story background.
@@ -16,13 +16,17 @@ Capabilities:
    - For complex, multi-step, or structural changes, prefer using \`multi_step\` to bundle an ordered list of edits into a single tool call. If \`multi_step\` is not suitable, decompose the request into a sequence of tool calls and apply them step-by-step.
    - After calling \`add_node\`, you MUST call \`connect_nodes\` to connect the new node to the existing graph (unless the user explicitly asks for an isolated node).
    - When you need SCP Foundation-specific references, call \`web_search\` with a concise query.
-3. **Context Awareness**: You have access to the current Map Blueprint and Story Data. Ensure your changes are consistent with the existing state (unless the user asks to overwrite it).
-4. **SCP Style**: Maintain the clinical, cold, and precise tone of the Foundation, but be helpful.
+3. **Context Awareness**: You have access to the current Map Blueprint and Story Data. Ensure your changes are consistent with the existing state.
 
 Output Language: ${langInstruction}
 
 When the user asks to "Clear" or "Reset", advise them to use the UI buttons.
 `;
+};
+
+export const getEditorAssistantContext = (scpData: SCPData) => {
+    const draft = scpData.storyDraft || {};
+    return `[CURRENT MAP BLUEPRINT]\n${JSON.stringify(scpData.mapBlueprint)}\n\n[CURRENT SCP DATA]\nDesignation: ${scpData.designation}\nName: ${scpData.name}\nContainment Class: ${scpData.containmentClass}\nRole: ${scpData.role}\nVisual Description: ${scpData.visualDescription || ""}\nEntity Description: ${scpData.entityDescription || ""}\n\n[CURRENT STORY DRAFT]\nRole Details: ${draft.roleDetails || ""}\nStory Background: ${draft.storyBackground || ""}\nNarrative Constraints: ${draft.narrativeConstraints || ""}\nOpening Prompt: ${draft.openingPrompt || ""}`;
 };
 
 export const editorTools = [
@@ -43,7 +47,8 @@ export const editorTools = [
                                 tool: {
                                     type: "string",
                                     enum: [
-                                        "update_story_info",
+                                        "update_basic_info",
+                                        "update_story_draft",
                                         "add_node",
                                         "update_node",
                                         "delete_node",
@@ -72,8 +77,8 @@ export const editorTools = [
     {
         type: "function",
         function: {
-            name: "update_story_info",
-            description: "Update the basic story information (designation, title, role, background).",
+            name: "update_basic_info",
+            description: "Update SCPData top-level fields (designation/name/containmentClass/role etc.).",
             parameters: {
                 type: "object",
                 properties: {
@@ -81,7 +86,26 @@ export const editorTools = [
                     name: { type: "string" },
                     containmentClass: { type: "string" },
                     role: { type: "string" },
-                    storyBackground: { type: "string" }
+                    visualDescription: { type: "string" },
+                    entityDescription: { type: "string" }
+                }
+            }
+        }
+    },
+    {
+        type: "function",
+        function: {
+            name: "update_story_draft",
+            description: "Update the story information.",
+            parameters: {
+                type: "object",
+                properties: {
+                    roleDetails: { type: "string" },
+                    storyBackground: { type: "string" },
+                    narrativeConstraints: { type: "string" },
+                    openingPrompt: { type: "string", description: "Initial scene prompt for the story." },
+                    backgroundImage: { type: "string", description: "Data URL or remote URL." },
+                    entityImage: { type: "string", description: "Data URL or remote URL." }
                 }
             }
         }

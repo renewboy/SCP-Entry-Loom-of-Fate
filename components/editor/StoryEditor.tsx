@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { GameState, GameStatus, SCPData } from '../../types';
 import { useTranslation } from '../../utils/i18n';
 import EditorCanvas, { EditorCanvasRef } from './EditorCanvas';
@@ -30,7 +30,6 @@ import {
 } from './editorStyles';
 import { loadEditingSCPData, saveEditingSCPData } from '../../services/indexedDBService';
 import { getEditingStoryCache, setEditingStoryCache } from '../../services/storyEditorCache';
-import { useBlueprintEditor } from '../../hooks/storyEditor/useBlueprintEditor';
 import { useStoryEditorModals } from '../../hooks/storyEditor/useStoryEditorModals';
 import { useStoryImageManager } from '../../hooks/storyEditor/useStoryImageManager';
 import { DEFAULT_BLUEPRINT, SCP173_TEMPLATE } from '../../constants/storyTemplates';
@@ -43,40 +42,15 @@ interface StoryEditorProps {
     setGameState: React.Dispatch<React.SetStateAction<GameState>>;
 }
 
+type EditorSelection = { type: 'node' | 'edge' | 'npc' | 'objective', id: string } | null;
+
 const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) => {
     const { t } = useTranslation();
     const [showAssistant, setShowAssistant] = useState(false);
-    const actionStackRef = useRef<Array<'map' | 'story'>>([]);
-    const redoStackRef = useRef<Array<'map' | 'story'>>([]);
     const isHydratingRef = useRef(true);
-    const [, forceHistoryRender] = useState(0);
-    const recordAction = useCallback((type: 'map' | 'story') => {
-        if (isHydratingRef.current) return;
-        actionStackRef.current.push(type);
-        redoStackRef.current = [];
-        forceHistoryRender(v => v + 1);
-    }, []);
-    const {
-        blueprint,
-        setBlueprint,
-        undo,
-        redo,
-        canUndo,
-        canRedo,
-        selection,
-        setSelection,
-        updateNode,
-        updateEdge,
-        updateNPC,
-        updateObjective,
-        addNode,
-        addEdge,
-        addNPC,
-        addObjective,
-        handleDeleteSelection,
-        commit: commitBlueprint,
-        hasPending: hasPendingMap
-    } = useBlueprintEditor(DEFAULT_BLUEPRINT, { onCommit: () => recordAction('map'), mergeDelayMs: 600 });
+    const [selectionState, setSelectionState] = useState<EditorSelection>(null);
+    const selectionRef = useRef<EditorSelection>(null);
+    const selectionHistoryRef = useRef<EditorSelection[]>([null]);
 
     const hasLoadedRef = useRef(false);
     const canvasRef = useRef<EditorCanvasRef>(null);
@@ -86,12 +60,13 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
     const {
         state: scpData,
         setState: setScpData,
-        undo: undoStory,
-        redo: redoStory,
-        canUndo: canUndoStory,
-        canRedo: canRedoStory,
+        undo,
+        redo,
+        canUndo,
+        canRedo,
         commit: commitScpData,
-        hasPending: hasPendingStory
+        reset: resetScpData,
+        index: historyIndex
     } = useHistory<SCPData>({
         designation: '',
         name: '',
@@ -99,7 +74,187 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         role: '',
         storyDraft: {},
         mapBlueprint: DEFAULT_BLUEPRINT
-    }, { onCommit: () => recordAction('story'), mergeDelayMs: 700 });
+    }, {
+        mergeDelayMs: 600,
+        onCommit: () => {
+            if (isHydratingRef.current) return;
+            selectionHistoryRef.current = selectionHistoryRef.current.slice(0, historyIndex + 1);
+            selectionHistoryRef.current.push(selectionRef.current ?? null);
+        }
+    });
+
+    const blueprint = useMemo(() => scpData.mapBlueprint || DEFAULT_BLUEPRINT, [scpData.mapBlueprint]);
+    const commitBlueprint = commitScpData;
+
+    const setSelection = useCallback((next: EditorSelection | ((prev: EditorSelection) => EditorSelection)) => {
+        setSelectionState(prev => {
+            const resolved = typeof next === 'function' ? next(prev) : next;
+            selectionRef.current = resolved;
+            selectionHistoryRef.current[historyIndex] = resolved;
+            return resolved;
+        });
+    }, [historyIndex]);
+
+    const isSelectionValid = useCallback((sel: EditorSelection) => {
+        if (!sel) return true;
+        if (sel.type === 'node') return blueprint.nodes.some(n => n.id === sel.id);
+        if (sel.type === 'npc') return blueprint.npcs.some(n => n.id === sel.id);
+        if (sel.type === 'objective') return blueprint.objectives.some(o => o.id === sel.id);
+        if (sel.type === 'edge') return blueprint.edges.some(e => `${e.from}-${e.to}` === sel.id);
+        return false;
+    }, [blueprint]);
+
+    const setBlueprint = useCallback((next: any, commitMode?: 'immediate' | 'deferred') => {
+        setScpData(prev => {
+            const current = prev.mapBlueprint || DEFAULT_BLUEPRINT;
+            const resolved = typeof next === 'function' ? next(current) : next;
+            return {
+                ...prev,
+                mapBlueprint: resolved
+            };
+        }, commitMode);
+    }, [setScpData]);
+
+    const updateNode = useCallback((id: string, updates: any) => {
+        setBlueprint((prev: any) => {
+            if (updates.id && updates.id !== id) {
+                const newId = updates.id;
+                if (selectionState?.type === 'node' && selectionState.id === id) {
+                    setSelection(s => s ? { ...s, id: newId } : null);
+                }
+                return {
+                    ...prev,
+                    nodes: prev.nodes.map((n: any) => n.id === id ? { ...n, ...updates } : n),
+                    edges: prev.edges.map((e: any) => ({
+                        ...e,
+                        from: e.from === id ? newId : e.from,
+                        to: e.to === id ? newId : e.to
+                    })),
+                    npcs: prev.npcs.map((n: any) => ({
+                        ...n,
+                        initialNodeId: n.initialNodeId === id ? newId : n.initialNodeId
+                    })),
+                    objectives: prev.objectives.map((o: any) => ({
+                        ...o,
+                        nodeId: o.nodeId === id ? newId : o.nodeId
+                    })),
+                    startNodeId: prev.startNodeId === id ? newId : prev.startNodeId
+                };
+            }
+            return {
+                ...prev,
+                nodes: prev.nodes.map((n: any) => n.id === id ? { ...n, ...updates } : n)
+            };
+        }, 'deferred');
+    }, [selectionState, setBlueprint, setSelection]);
+
+    const updateEdge = useCallback((from: string, to: string, updates: any) => {
+        setBlueprint((prev: any) => ({
+            ...prev,
+            edges: prev.edges.map((e: any) => (e.from === from && e.to === to) ? { ...e, ...updates } : e)
+        }), 'immediate');
+    }, [setBlueprint]);
+
+    const updateNPC = useCallback((id: string, updates: any) => {
+        setBlueprint((prev: any) => {
+            if (updates.id && updates.id !== id) {
+                if (selectionState?.type === 'npc' && selectionState.id === id) {
+                    setSelection(s => s ? { ...s, id: updates.id } : null);
+                }
+            }
+            return {
+                ...prev,
+                npcs: prev.npcs.map((n: any) => n.id === id ? { ...n, ...updates } : n)
+            };
+        }, 'deferred');
+    }, [selectionState, setBlueprint, setSelection]);
+
+    const updateObjective = useCallback((id: string, updates: any) => {
+        setBlueprint((prev: any) => {
+            if (updates.id && updates.id !== id) {
+                if (selectionState?.type === 'objective' && selectionState.id === id) {
+                    setSelection(s => s ? { ...s, id: updates.id } : null);
+                }
+            }
+            return {
+                ...prev,
+                objectives: prev.objectives.map((o: any) => o.id === id ? { ...o, ...updates } : o)
+            };
+        }, 'deferred');
+    }, [selectionState, setBlueprint, setSelection]);
+
+    const addNode = useCallback(() => {
+        const id = `node_${Math.floor(Math.random() * 900) + 100}`;
+        const newNode = {
+            id,
+            name: 'New Node',
+            danger: 0,
+            layout: { x: 100, y: 100 }
+        };
+        setBlueprint((prev: any) => ({ ...prev, nodes: [...prev.nodes, newNode] }), 'immediate');
+        setSelection({ type: 'node', id });
+    }, [setBlueprint]);
+
+    const addEdge = useCallback((from: string, to: string) => {
+        const exists = blueprint.edges.some((e: any) =>
+            (e.from === from && e.to === to) || (e.bidirectional && e.from === to && e.to === from)
+        );
+        if (exists) return;
+        setBlueprint((prev: any) => ({
+            ...prev,
+            edges: [...prev.edges, { from, to, bidirectional: true }]
+        }), 'immediate');
+    }, [blueprint.edges, setBlueprint]);
+
+    const addNPC = useCallback(() => {
+        const id = `npc_${Math.floor(Math.random() * 900) + 100}`;
+        const targetNodeId = (selectionState?.type === 'node' && selectionState.id) ? selectionState.id : blueprint.startNodeId;
+        const newNPC = {
+            id,
+            name: 'New NPC',
+            archetype: 'Researcher',
+            initialNodeId: targetNodeId
+        };
+        setBlueprint((prev: any) => ({ ...prev, npcs: [...prev.npcs, newNPC] }), 'immediate');
+        setSelection({ type: 'npc', id });
+    }, [blueprint.startNodeId, selectionState, setBlueprint, setSelection]);
+
+    const addObjective = useCallback(() => {
+        const id = `obj_${Math.floor(Math.random() * 900) + 100}`;
+        const targetNodeId = (selectionState?.type === 'node' && selectionState.id) ? selectionState.id : blueprint.startNodeId;
+        const newObj = {
+            id,
+            title: 'New Objective',
+            type: 'MAIN',
+            nodeId: targetNodeId
+        };
+        setBlueprint((prev: any) => ({ ...prev, objectives: [...prev.objectives, newObj] }), 'immediate');
+        setSelection({ type: 'objective', id });
+    }, [blueprint.startNodeId, selectionState, setBlueprint, setSelection]);
+
+    const handleDeleteSelection = useCallback(() => {
+        if (!selectionState) return;
+        if (selectionState.type === 'node') {
+            setBlueprint((prev: any) => ({
+                ...prev,
+                nodes: prev.nodes.filter((n: any) => n.id !== selectionState.id),
+                edges: prev.edges.filter((e: any) => e.from !== selectionState.id && e.to !== selectionState.id),
+                npcs: prev.npcs.filter((n: any) => n.initialNodeId !== selectionState.id),
+                objectives: prev.objectives.filter((o: any) => o.nodeId !== selectionState.id)
+            }), 'immediate');
+        } else if (selectionState.type === 'edge') {
+            const [from, to] = selectionState.id.split('-');
+            setBlueprint((prev: any) => ({
+                ...prev,
+                edges: prev.edges.filter((e: any) => !(e.from === from && e.to === to))
+            }), 'immediate');
+        } else if (selectionState.type === 'npc') {
+            setBlueprint((prev: any) => ({ ...prev, npcs: prev.npcs.filter((n: any) => n.id !== selectionState.id) }), 'immediate');
+        } else if (selectionState.type === 'objective') {
+            setBlueprint((prev: any) => ({ ...prev, objectives: prev.objectives.filter((o: any) => o.id !== selectionState.id) }), 'immediate');
+        }
+        setSelection(null);
+    }, [selectionState, setBlueprint, setSelection]);
 
     const [isStarting, setIsStarting] = useState(false);
     const [showValidationErrors, setShowValidationErrors] = useState(false);
@@ -154,6 +309,16 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
     };
 
     useEffect(() => {
+        if (isHydratingRef.current) return;
+        const snapshot = selectionHistoryRef.current[historyIndex] ?? null;
+        if (snapshot && !isSelectionValid(snapshot)) {
+            setSelection(null);
+            return;
+        }
+        setSelection(snapshot);
+    }, [historyIndex, isSelectionValid, setSelection]);
+
+    useEffect(() => {
         if (hasLoadedRef.current) return;
         hasLoadedRef.current = true;
         const loadInitial = async () => {
@@ -170,12 +335,15 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
             }
 
             if (loadedData) {
-                setBlueprint(loadedData.mapBlueprint || DEFAULT_BLUEPRINT, 'immediate');
-                setScpData(loadedData, 'immediate');
+                resetScpData({
+                    ...loadedData,
+                    mapBlueprint: loadedData.mapBlueprint || DEFAULT_BLUEPRINT
+                });
+                selectionRef.current = null;
+                selectionHistoryRef.current = [null];
+                setSelectionState(null);
             } else if (gameState.scpData) {
                 // 3. Fallback to GameState (Tactical Preview)
-                setBlueprint(gameState.scpData.mapBlueprint || DEFAULT_BLUEPRINT, 'immediate');
-                
                 const initialStoryDraft = gameState.scpData.storyDraft || {
                     roleDetails: gameState.role !== 'CUSTOM' ? gameState.role : '',
                     storyBackground: '',
@@ -183,14 +351,24 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                     entityImage: gameState.mainImage || undefined
                 };
 
-                setScpData({
+                resetScpData({
                     ...gameState.scpData,
+                    mapBlueprint: gameState.scpData.mapBlueprint || DEFAULT_BLUEPRINT,
                     storyDraft: initialStoryDraft,
                     role: gameState.scpData.role || gameState.role || SCP173_TEMPLATE.role
-                }, 'immediate');
+                });
+                selectionRef.current = null;
+                selectionHistoryRef.current = [null];
+                setSelectionState(null);
             } else {
                  // No data, initialize with template
-                 setScpData(SCP173_TEMPLATE, 'immediate');
+                 resetScpData({
+                    ...SCP173_TEMPLATE,
+                    mapBlueprint: SCP173_TEMPLATE.mapBlueprint || DEFAULT_BLUEPRINT
+                 });
+                selectionRef.current = null;
+                selectionHistoryRef.current = [null];
+                setSelectionState(null);
             }
 
             const sourceData = loadedData || gameState.scpData || SCP173_TEMPLATE;
@@ -209,65 +387,17 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
     }, [blueprint, scpData]);
 
     const handleUndo = useCallback(() => {
-        if (actionStackRef.current.length === 0) {
-            if (activeTab === 'MAP' && hasPendingMap) {
-                actionStackRef.current.push('map');
-            } else if (activeTab === 'STORY' && hasPendingStory) {
-                actionStackRef.current.push('story');
-            } else if (hasPendingMap) {
-                actionStackRef.current.push('map');
-            } else if (hasPendingStory) {
-                actionStackRef.current.push('story');
-            }
-        }
-        const last = actionStackRef.current.pop();
-        if (!last) return;
-        if (last === 'map') {
-            if (!canUndo) {
-                actionStackRef.current.push(last);
-                return;
-            }
-            undo();
-            redoStackRef.current.push('map');
-        } else {
-            if (!canUndoStory) {
-                actionStackRef.current.push(last);
-                return;
-            }
-            undoStory();
-            redoStackRef.current.push('story');
-        }
-        forceHistoryRender(v => v + 1);
-    }, [undo, undoStory, canUndo, canUndoStory, activeTab, hasPendingMap, hasPendingStory]);
+        if (!canUndo) return;
+        undo();
+    }, [canUndo, undo]);
 
     const handleRedo = useCallback(() => {
-        const last = redoStackRef.current.pop();
-        if (!last) return;
-        if (last === 'map') {
-            if (!canRedo) {
-                redoStackRef.current.push(last);
-                return;
-            }
-            redo();
-            actionStackRef.current.push('map');
-        } else {
-            if (!canRedoStory) {
-                redoStackRef.current.push(last);
-                return;
-            }
-            redoStory();
-            actionStackRef.current.push('story');
-        }
-        forceHistoryRender(v => v + 1);
-    }, [redo, redoStory, canRedo, canRedoStory]);
-
-    const canUndoCombined = actionStackRef.current.length > 0;
-    const canRedoCombined = redoStackRef.current.length > 0;
+        if (!canRedo) return;
+        redo();
+    }, [canRedo, redo]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
-
             if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
                 if (e.shiftKey) {
                     e.preventDefault();
@@ -472,16 +602,16 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                         <div className="flex items-center gap-1 ml-4 pl-4 border-l border-[var(--scp-border)]">
                             <button 
                                 onClick={handleUndo} 
-                                disabled={!canUndoCombined}
-                                className={toolbarHistoryButton(canUndoCombined)}
+                                disabled={!canUndo}
+                                className={toolbarHistoryButton(canUndo)}
                                 title="Undo (Ctrl+Z)"
                             >
                                 <Undo size={16} strokeWidth={1} /> {t('common.undo')}
                             </button>
                             <button 
                                 onClick={handleRedo} 
-                                disabled={!canRedoCombined}
-                                className={toolbarHistoryButton(canRedoCombined)}
+                                disabled={!canRedo}
+                                className={toolbarHistoryButton(canRedo)}
                                 title="Redo (Ctrl+Shift+Z)"
                             >
                                 <Redo size={16} strokeWidth={1} /> {t('common.redo')}
@@ -559,7 +689,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                         <EditorCanvas 
                             ref={canvasRef}
                             blueprint={blueprint} 
-                            selection={selection} 
+                            selection={selectionState} 
                             setSelection={handleMapSelection} 
                             updateNode={updateNode}
                             addNode={addNode}
@@ -600,7 +730,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                                         onClick={() => {
                                             handleMapSelection({ type: 'npc', id: npc.id });
                                         }}
-                                        className={`${listItemBase} ${selection?.type === 'npc' && selection.id === npc.id ? listItemNpcActive : listItemInactive}`}
+                                        className={`${listItemBase} ${selectionState?.type === 'npc' && selectionState.id === npc.id ? listItemNpcActive : listItemInactive}`}
                                     >
                                         <div className="font-bold truncate">{npc.name}</div>
                                         <div className="text-[12px] opacity-60 truncate">{npc.archetype}</div>
@@ -622,7 +752,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                                         onClick={() => {
                                             handleMapSelection({ type: 'objective', id: obj.id });
                                         }}
-                                        className={`${listItemBase} ${selection?.type === 'objective' && selection.id === obj.id ? listItemObjectiveActive : listItemInactive}`}
+                                        className={`${listItemBase} ${selectionState?.type === 'objective' && selectionState.id === obj.id ? listItemObjectiveActive : listItemInactive}`}
                                     >
                                         <div className="font-bold truncate">{obj.title}</div>
                                         <div className="text-[12px] opacity-60 truncate">{obj.type}</div>
@@ -644,7 +774,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                         {activeTab === 'MAP' ? (
                             <PropertyInspector 
                                 blueprint={blueprint}
-                                selection={selection}
+                                selection={selectionState}
                                 setSelection={handleMapSelection}
                                 updateNode={updateNode}
                                 updateEdge={updateEdge}

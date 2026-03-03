@@ -419,6 +419,7 @@ export const en = {
     placeholder: "Enter command (e.g. 'Add a safe room next to start')...",
     thinking: "PROCESSING REQUEST...",
     tool_executing: "EXECUTING PROTOCOLS...",
+    tool_called: "CALLED",
     clear_chat: "CLEAR LOGS",
     welcome: "[LOOM OF FATE TERMINAL]\n> Interface initialized.\n> Greetings, Commander. The Loom of Fate is online.\n> Current status: Fate Blueprint loaded.\n> Awaiting your commands to weave, alter, or sever narrative threads.\n> State your modification request.",
   },

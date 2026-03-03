@@ -299,16 +299,16 @@ serve(async (req) => {
     }
   }
 
-  const geminiKey = (body as any).apiKey || Deno.env.get("GEMINI_API_KEY") || Deno.env.get("API_KEY") || "";
+  const geminiKey = (body as any).apiKey || Deno.env.get("GEMINI_API_KEY") || "";
   const openaiKey = (body as any).apiKey || Deno.env.get("OPENAI_API_KEY") || "";
-  const openaiBaseUrl = (body as any).baseUrl || Deno.env.get("OPENAI_BASE_URL") || "https://api.openai.com/v1";
+  const openaiBaseUrl = (body as any).baseUrl || Deno.env.get("OPENAI_BASE_URL") || "";
   const openaiChatModel = Deno.env.get("OPENAI_CHAT_MODEL") || "";
   const openaiImageModel = Deno.env.get("OPENAI_IMAGE_MODEL") || "";
 
   try {
     if (req.method === "GET" && path === "/api/status") {
       return jsonResponse(
-        { geminiAvailable: !!(Deno.env.get("GEMINI_API_KEY") || Deno.env.get("API_KEY")), openaiAvailable: !!Deno.env.get("OPENAI_API_KEY") },
+        { geminiAvailable: !!(Deno.env.get("GEMINI_API_KEY")), openaiAvailable: !!Deno.env.get("OPENAI_API_KEY") },
         200,
         corsHeaders,
       );

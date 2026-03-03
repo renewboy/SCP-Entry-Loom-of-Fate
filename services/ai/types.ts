@@ -1,5 +1,7 @@
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from '../../types';
 
+import { AgentStreamEvent } from './streamProtocol';
+
 export interface AIService {
     analyzeSCPUrl(input: string, language: Language, role: string, difficulty: GameDifficulty, legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData>;
     generateProfileCandidates(role: string, scpDesignation: string, language: Language): Promise<EntityProfile[]>;
@@ -17,5 +19,5 @@ export interface AIService {
         scpData: SCPData,
         language: Language,
         onToolCall: (toolName: string, args: any) => Promise<any>
-    ): AsyncGenerator<string>;
+    ): AsyncGenerator<AgentStreamEvent>;
 }

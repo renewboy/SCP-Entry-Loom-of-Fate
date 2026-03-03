@@ -76,6 +76,16 @@ export function useHistory<T>(initialState: T, options?: HistoryOptions) {
         }
     }, [commitNow]);
 
+    const reset = useCallback((nextState: T) => {
+        clearPendingTimer();
+        transactionDepthRef.current = 0;
+        setHistoryState({
+            history: [nextState],
+            index: 0,
+            present: nextState
+        });
+    }, [clearPendingTimer]);
+
     const setState = useCallback((newState: T | ((prev: T) => T), commitMode?: 'immediate' | 'deferred') => {
         setHistoryState(prevState => {
             const current = prevState.present;
@@ -166,6 +176,9 @@ export function useHistory<T>(initialState: T, options?: HistoryOptions) {
         commit: commitNow,
         beginTransaction,
         commitTransaction,
+        reset,
+        history,
+        index,
         canUndo: index > 0,
         canRedo: index < history.length - 1,
         hasPending

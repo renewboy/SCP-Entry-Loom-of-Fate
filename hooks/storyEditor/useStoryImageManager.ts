@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { SCPData } from '../../types';
 import { generateImage } from '../../services/aiService';
 import { enhanceBackgroundPrompt, enhanceEntityPrompt, enhanceNpcPrompt } from '../../services/ai/promptUtils';
@@ -11,24 +11,54 @@ export const useStoryImageManager = ({
     setScpData: (newState: SCPData | ((prev: SCPData) => SCPData), commitMode?: 'immediate' | 'deferred') => void;
 }) => {
     const [generatingState, setGeneratingState] = useState<{ bg: boolean; entity: boolean; npc: Record<string, boolean> }>({ bg: false, entity: false, npc: {} });
-    const [bgImagePrompt, setBgImagePrompt] = useState('');
-    const [entityImagePrompt, setEntityImagePrompt] = useState('');
+    const [bgImagePrompt, setBgImagePromptState] = useState('');
+    const [entityImagePrompt, setEntityImagePromptState] = useState('');
     const [npcImagePrompts, setNpcImagePrompts] = useState<Record<string, string>>({});
     const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
     const getBgPrompt = useCallback((data: SCPData) => {
-        return enhanceBackgroundPrompt(data.visualDescription ? data.visualDescription : 'SCP Foundation');
+        return data.visualDescription ? data.visualDescription : 'SCP Foundation';
     }, []);
 
     const getEntityPrompt = useCallback((data: SCPData) => {
-        return enhanceEntityPrompt(data.entityDescription ? data.entityDescription : data.designation);
+        return data.entityDescription ? data.entityDescription : data.designation;
     }, []);
 
     const setPromptsFromData = useCallback((data: SCPData) => {
-        setBgImagePrompt(getBgPrompt(data));
-        setEntityImagePrompt(getEntityPrompt(data));
+        setBgImagePromptState(getBgPrompt(data));
+        setEntityImagePromptState(getEntityPrompt(data));
         setNpcImagePrompts(data.npcVisuals || {});
     }, [getBgPrompt, getEntityPrompt]);
+
+    useEffect(() => {
+        const nextBg = getBgPrompt(scpData);
+        const nextEntity = getEntityPrompt(scpData);
+        if (bgImagePrompt !== nextBg) setBgImagePromptState(nextBg);
+        if (entityImagePrompt !== nextEntity) setEntityImagePromptState(nextEntity);
+    }, [scpData, getBgPrompt, getEntityPrompt, bgImagePrompt, entityImagePrompt]);
+
+    useEffect(() => {
+        const nextNpcPrompts = scpData.npcVisuals || {};
+        if (JSON.stringify(npcImagePrompts) !== JSON.stringify(nextNpcPrompts)) {
+            setNpcImagePrompts(nextNpcPrompts);
+        }
+    }, [scpData.npcVisuals, npcImagePrompts]);
+
+    const setBgImagePrompt = useCallback((value: string) => {
+        setBgImagePromptState(value);
+        setScpData(prev => ({
+            ...prev,
+            visualDescription: value
+        }), 'deferred');
+    }, [setScpData]);
+
+    const setEntityImagePrompt = useCallback((value: string) => {
+        setEntityImagePromptState(value);
+        setScpData(prev => ({
+            ...prev,
+            entityDescription: value
+        }), 'deferred');
+    }, [setScpData]);
 
     const handleNpcPromptChange = (npcId: string, value: string) => {
         setNpcImagePrompts(prev => ({ ...prev, [npcId]: value }));
@@ -62,7 +92,7 @@ export const useStoryImageManager = ({
     const handleGenerateImage = async (type: 'bg' | 'entity') => {
         setGeneratingState(prev => ({ ...prev, [type]: true }));
         try {
-            const prompt = type === 'bg' ? bgImagePrompt : entityImagePrompt;
+            const prompt = type === 'bg' ? enhanceBackgroundPrompt(bgImagePrompt) : enhanceEntityPrompt(entityImagePrompt);
             const url = await generateImage(prompt, type === 'bg' ? "16:9" : "1:1");
             if (url) {
                 setScpData(prev => ({
