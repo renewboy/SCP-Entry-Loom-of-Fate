@@ -13,14 +13,15 @@ Capabilities:
 1. **Analyze User Intent**: Understand natural language requests to change the map, NPCs, objectives, or story background.
 2. **Execute Tools**: Use the provided tools to apply changes.
    - For simple, single-entity changes, use specific tools (e.g., \`add_node\`, \`update_npc\`).
-   - For complex, multi-step, or structural changes (e.g., "Create a 3-floor facility with a containment zone"), use \`update_map_blueprint\` to rewrite the entire map or a large section of it.
+   - For complex, multi-step, or structural changes, prefer using \`multi_step\` to bundle an ordered list of edits into a single tool call. If \`multi_step\` is not suitable, decompose the request into a sequence of tool calls and apply them step-by-step.
+   - After calling \`add_node\`, you MUST call \`connect_nodes\` to connect the new node to the existing graph (unless the user explicitly asks for an isolated node).
    - When you need SCP Foundation-specific references, call \`web_search\` with a concise query.
 3. **Context Awareness**: You have access to the current Map Blueprint and Story Data. Ensure your changes are consistent with the existing state (unless the user asks to overwrite it).
 4. **SCP Style**: Maintain the clinical, cold, and precise tone of the Foundation, but be helpful.
 
 Output Language: ${langInstruction}
 
-When the user asks to "Clear" or "Reset", advise them to use the UI buttons or use the \`update_map_blueprint\` with a default template if they insist.
+When the user asks to "Clear" or "Reset", advise them to use the UI buttons.
 `;
 };
 
@@ -28,77 +29,43 @@ export const editorTools = [
     {
         type: "function",
         function: {
-            name: "update_map_blueprint",
-            description: "Fully replace or significantly update the map blueprint. Use this for bulk changes, restructuring, or creating complex layouts from scratch.",
+            name: "multi_step",
+            description: "Apply multiple editor tool calls in a strict order. Use this to execute complex changes reliably in one request.",
             parameters: {
                 type: "object",
                 properties: {
-                    blueprint: {
-                        type: "object",
-                        description: "The complete MapBlueprint object",
-                        properties: {
-                            id: { type: "string" },
-                            title: { type: "string" },
-                            startNodeId: { type: "string" },
-                            nodes: {
-                                type: "array",
-                                items: {
+                    steps: {
+                        type: "array",
+                        description: "Ordered steps to execute. Each step calls exactly one tool with arguments.",
+                        items: {
+                            type: "object",
+                            properties: {
+                                tool: {
+                                    type: "string",
+                                    enum: [
+                                        "update_story_info",
+                                        "add_node",
+                                        "update_node",
+                                        "delete_node",
+                                        "connect_nodes",
+                                        "add_npc",
+                                        "update_npc",
+                                        "delete_npc",
+                                        "add_objective",
+                                        "update_objective",
+                                        "delete_objective"
+                                    ]
+                                },
+                                args: {
                                     type: "object",
-                                    properties: {
-                                        id: { type: "string" },
-                                        name: { type: "string" },
-                                        danger: { type: "number" },
-                                        tags: { type: "array", items: { type: "string" } },
-                                        requires: { type: "array", items: { type: "string" } },
-                                        blockedText: { type: "string" },
-                                        layout: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } } }
-                                    },
-                                    required: ["id", "name", "danger"]
+                                    description: "Arguments for the chosen tool."
                                 }
                             },
-                            edges: {
-                                type: "array",
-                                items: {
-                                    type: "object",
-                                    properties: {
-                                        from: { type: "string" },
-                                        to: { type: "string" },
-                                        bidirectional: { type: "boolean" }
-                                    },
-                                    required: ["from", "to"]
-                                }
-                            },
-                            npcs: {
-                                type: "array",
-                                items: {
-                                    type: "object",
-                                    properties: {
-                                        id: { type: "string" },
-                                        name: { type: "string" },
-                                        archetype: { type: "string" },
-                                        initialNodeId: { type: "string" }
-                                    },
-                                    required: ["id", "name", "initialNodeId"]
-                                }
-                            },
-                            objectives: {
-                                type: "array",
-                                items: {
-                                    type: "object",
-                                    properties: {
-                                        id: { type: "string" },
-                                        title: { type: "string" },
-                                        type: { type: "string", enum: ["MAIN", "SIDE"] },
-                                        nodeId: { type: "string" }
-                                    },
-                                    required: ["id", "title", "type", "nodeId"]
-                                }
-                            }
-                        },
-                        required: ["nodes", "edges"]
+                            required: ["tool", "args"]
+                        }
                     }
                 },
-                required: ["blueprint"]
+                required: ["steps"]
             }
         }
     },
@@ -127,11 +94,15 @@ export const editorTools = [
             parameters: {
                 type: "object",
                 properties: {
+                    id: { type: "string" },
                     name: { type: "string" },
                     danger: { type: "number", description: "0-100" },
-                    description: { type: "string", description: "Visual hint or description" }
+                    discoverables: { type: "array", items: { type: "string" } },
+                    interactables: { type: "array", items: { type: "string" } },
+                    requires: { type: "array", items: { type: "string" } },
+                    blockedText: { type: "string" }
                 },
-                required: ["name"]
+                required: ["id", "name"]
             }
         }
     },
@@ -146,7 +117,8 @@ export const editorTools = [
                     id: { type: "string" },
                     name: { type: "string" },
                     danger: { type: "number" },
-                    visualHint: { type: "string" },
+                    discoverables: { type: "array", items: { type: "string" } },
+                    interactables: { type: "array", items: { type: "string" } },
                     requires: { type: "array", items: { type: "string" } },
                     blockedText: { type: "string" }
                 },
@@ -192,11 +164,14 @@ export const editorTools = [
             parameters: {
                 type: "object",
                 properties: {
+                    id: { type: "string"},
                     name: { type: "string" },
                     archetype: { type: "string" },
-                    initialNodeId: { type: "string" }
+                    initialNodeId: { type: "string" },
+                    secretTags: { type: "array", items: { type: "string" } },
+                    dialogueGoals: { type: "array", items: { type: "string" } }
                 },
-                required: ["name", "initialNodeId"]
+                required: ["id", "name", "initialNodeId"]
             }
         }
     },
@@ -211,7 +186,9 @@ export const editorTools = [
                     id: { type: "string" },
                     name: { type: "string" },
                     archetype: { type: "string" },
-                    initialNodeId: { type: "string" }
+                    initialNodeId: { type: "string" },
+                    secretTags: { type: "array", items: { type: "string" } },
+                    dialogueGoals: { type: "array", items: { type: "string" } }
                 },
                 required: ["id"]
             }
@@ -239,11 +216,21 @@ export const editorTools = [
             parameters: {
                 type: "object",
                 properties: {
+                    id: { type: "string", description: "Required. Must be unique. Provide deterministic ids for multi-step edits." },
                     title: { type: "string" },
                     type: { type: "string", enum: ["MAIN", "SIDE"] },
-                    nodeId: { type: "string", description: "Target location for the objective" }
+                    nodeId: { type: "string", description: "Target location for the objective" },
+                    progress: { type: "number" },
+                    detail: { type: "string" },
+                    reward: {
+                        type: "object",
+                        properties: {
+                            accessTokens: { type: "array", items: { type: "string" } },
+                            stabilityDelta: { type: "number" }
+                        }
+                    }
                 },
-                required: ["title", "type", "nodeId"]
+                required: ["id", "title", "type", "nodeId"]
             }
         }
     },
@@ -258,7 +245,16 @@ export const editorTools = [
                     id: { type: "string" },
                     title: { type: "string" },
                     type: { type: "string", enum: ["MAIN", "SIDE"] },
-                    nodeId: { type: "string" }
+                    nodeId: { type: "string" },
+                    progress: { type: "number" },
+                    detail: { type: "string" },
+                    reward: {
+                        type: "object",
+                        properties: {
+                            accessTokens: { type: "array", items: { type: "string" } },
+                            stabilityDelta: { type: "number" }
+                        }
+                    }
                 },
                 required: ["id"]
             }

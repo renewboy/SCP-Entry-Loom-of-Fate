@@ -10,7 +10,7 @@ interface PropertyInspectorProps {
     updateEdge: (from: string, to: string, updates: Partial<MapBlueprintEdge>) => void;
     updateNPC: (id: string, updates: Partial<MapBlueprintNPC>) => void;
     updateObjective: (id: string, updates: Partial<MapBlueprintObjective>) => void;
-    setBlueprint: React.Dispatch<React.SetStateAction<MapBlueprint>>;
+    setBlueprint: (next: MapBlueprint | ((prev: MapBlueprint) => MapBlueprint), commitMode?: 'immediate' | 'deferred') => void;
     npcImagePrompts?: Record<string, string>;
     onNpcPromptChange?: (npcId: string, value: string) => void;
     onGenerateNpcImage?: (npcId: string) => void;
@@ -19,6 +19,8 @@ interface PropertyInspectorProps {
     npcImages?: Record<string, string>;
     generatingState?: { npc: Record<string, boolean> };
     setLightboxImage?: (url: string | null) => void;
+    commitBlueprint: () => void;
+    commitScpData: () => void;
 }
 
 import TagInput from './TagInput';
@@ -36,7 +38,7 @@ import {
 
 const PropertyInspector: React.FC<PropertyInspectorProps> = ({ 
     blueprint, selection, setSelection, updateNode, updateEdge, updateNPC, updateObjective, setBlueprint,
-    npcImagePrompts, onNpcPromptChange, onGenerateNpcImage, onUploadNpcImage, onDeleteNpcImage, npcImages, generatingState, setLightboxImage
+    npcImagePrompts, onNpcPromptChange, onGenerateNpcImage, onUploadNpcImage, onDeleteNpcImage, npcImages, generatingState, setLightboxImage, commitBlueprint, commitScpData
 }) => {
     const { t } = useTranslation();
 
@@ -53,16 +55,28 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                 <div className="space-y-4">
                     <div className={inputGroup}>
                         <label className={labelBase}>{t('map_editor.map_id')}</label>
-                        <input type="text" value={blueprint.id} onChange={e => setBlueprint(prev => ({...prev, id: e.target.value}))} className={inputBase} />
+                        <input
+                            type="text"
+                            value={blueprint.id}
+                            onChange={e => setBlueprint(prev => ({...prev, id: e.target.value}), 'deferred')}
+                            onBlur={commitBlueprint}
+                            className={inputBase}
+                        />
                     </div>
                     <div className={inputGroup}>
                         <label className={labelBase}>{t('map_editor.map_title')}</label>
-                        <input type="text" value={blueprint.title} onChange={e => setBlueprint(prev => ({...prev, title: e.target.value}))} className={inputBase} />
+                        <input
+                            type="text"
+                            value={blueprint.title}
+                            onChange={e => setBlueprint(prev => ({...prev, title: e.target.value}), 'deferred')}
+                            onBlur={commitBlueprint}
+                            className={inputBase}
+                        />
                     </div>
                      <CustomSelect 
                         label={t('map_editor.start_node_id')}
                         value={blueprint.startNodeId}
-                        onChange={(val) => setBlueprint(prev => ({...prev, startNodeId: val}))}
+                        onChange={(val) => setBlueprint(prev => ({...prev, startNodeId: val}), 'immediate')}
                         options={blueprint.nodes.map(n => ({ value: n.id, label: `${n.name} (${n.id})` }))}
                     />
                 </div>
@@ -85,6 +99,7 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                         type="text" 
                         value={node.id} 
                         onChange={(e) => updateNode(node.id, { id: e.target.value })}
+                        onBlur={commitBlueprint}
                         className={inputBase}
                     />
                 </div>
@@ -94,6 +109,7 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                         type="text" 
                         value={node.name} 
                         onChange={(e) => updateNode(node.id, { name: e.target.value })}
+                        onBlur={commitBlueprint}
                         className={inputBase}
                     />
                 </div>
@@ -105,17 +121,19 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                             min="0" max="100" 
                             value={node.danger} 
                             onChange={(e) => updateNode(node.id, { danger: parseInt(e.target.value) })}
+                            onMouseUp={commitBlueprint}
+                            onTouchEnd={commitBlueprint}
                             className={rangeInputBase}
                         />
                         <div className={`text-xs font-mono w-8 text-right ${node.danger > 50 ? 'text-scp-alert' : (node.danger > 30 ? 'text-scp-amber' : 'text-scp-term')}`}>{node.danger}</div>
                     </div>
                 </div>
                 
-                <TagInput label={t('map_editor.requires')} tags={node.requires} onChange={(newTags) => updateNode(node.id, { requires: newTags })} />
+                <TagInput label={t('map_editor.requires')} tags={node.requires} onChange={(newTags) => { updateNode(node.id, { requires: newTags }); commitBlueprint(); }} />
                 
-                <TagInput label={t('map_editor.discoverables')} tags={node.discoverables} onChange={(newTags) => updateNode(node.id, { discoverables: newTags })} />
+                <TagInput label={t('map_editor.discoverables')} tags={node.discoverables} onChange={(newTags) => { updateNode(node.id, { discoverables: newTags }); commitBlueprint(); }} />
                 
-                <TagInput label={t('map_editor.interactables')} tags={node.interactables} onChange={(newTags) => updateNode(node.id, { interactables: newTags })} />
+                <TagInput label={t('map_editor.interactables')} tags={node.interactables} onChange={(newTags) => { updateNode(node.id, { interactables: newTags }); commitBlueprint(); }} />
 
                 <div className={inputGroup}>
                     <label className={labelBase}>{t('map_editor.visual_hint')}</label>
@@ -123,6 +141,7 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                         type="text" 
                         value={node.visualHint || ''} 
                         onChange={(e) => updateNode(node.id, { visualHint: e.target.value })}
+                        onBlur={commitBlueprint}
                         className={inputBase}
                     />
                 </div>
@@ -132,6 +151,7 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                     <textarea 
                         value={node.blockedText || ''} 
                         onChange={(e) => updateNode(node.id, { blockedText: e.target.value })}
+                        onBlur={commitBlueprint}
                         className={`${textareaBase} h-20`}
                     />
                 </div>
@@ -145,7 +165,7 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                                 edges: prev.edges.filter(e => e.from !== node.id && e.to !== node.id),
                                 npcs: prev.npcs.filter(n => n.initialNodeId !== node.id),
                                 objectives: prev.objectives.filter(o => o.nodeId !== node.id)
-                            }));
+                            }), 'immediate');
                         }}
                         className={deleteButton}
                     >
@@ -189,10 +209,11 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                             }
                             return e;
                         })
-                    }));
+                    }), 'immediate');
                     setSelection({ type: 'edge', id: `${canonicalFrom}-${canonicalTo}` });
                 } else {
                     updateEdge(from, to, { bidirectional: false });
+                    commitBlueprint();
                 }
             } else if (currentState === 'canonical_fwd') {
                  setBlueprint(prev => ({
@@ -203,10 +224,11 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                         }
                         return e;
                     })
-                }));
+                }), 'immediate');
                 setSelection({ type: 'edge', id: `${to}-${from}` });
             } else {
                 updateEdge(from, to, { bidirectional: true });
+                commitBlueprint();
             }
         };
 
@@ -242,7 +264,7 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                             setBlueprint(prev => ({
                                 ...prev,
                                 edges: prev.edges.filter(e => !(e.from === from && e.to === to))
-                            }));
+                            }), 'immediate');
                         }}
                         className={deleteButton}
                     >
@@ -268,6 +290,7 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                     <textarea 
                         value={npcImagePrompts?.[npc.id] || ''}
                         onChange={e => onNpcPromptChange?.(npc.id, e.target.value)}
+                        onBlur={commitScpData}
                         className={`${textareaBase} h-16 text-[10px] leading-tight mb-1`}
                         placeholder="Visual description for AI generation..."
                     />
@@ -322,27 +345,27 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
 
                 <div className={inputGroup}>
                     <label className={labelBase}>{t('map_editor.npc_id')}</label>
-                    <input type="text" value={npc.id} onChange={e => updateNPC(npc.id, { id: e.target.value })} className={inputBase} />
+                    <input type="text" value={npc.id} onChange={e => updateNPC(npc.id, { id: e.target.value })} onBlur={commitBlueprint} className={inputBase} />
                 </div>
                 <div className={inputGroup}>
                     <label className={labelBase}>{t('map_editor.npc_name')}</label>
-                    <input type="text" value={npc.name} onChange={e => updateNPC(npc.id, { name: e.target.value })} className={inputBase} />
+                    <input type="text" value={npc.name} onChange={e => updateNPC(npc.id, { name: e.target.value })} onBlur={commitBlueprint} className={inputBase} />
                 </div>
                 <div className={inputGroup}>
                     <label className={labelBase}>{t('map_editor.npc_archetype')}</label>
-                    <input type="text" value={npc.archetype} onChange={e => updateNPC(npc.id, { archetype: e.target.value })} className={inputBase} />
+                    <input type="text" value={npc.archetype} onChange={e => updateNPC(npc.id, { archetype: e.target.value })} onBlur={commitBlueprint} className={inputBase} />
                 </div>
                  <CustomSelect 
                     label={t('map_editor.initial_node_id')}
                     value={npc.initialNodeId}
-                    onChange={(val) => updateNPC(npc.id, { initialNodeId: val })}
+                    onChange={(val) => { updateNPC(npc.id, { initialNodeId: val }); commitBlueprint(); }}
                     options={blueprint.nodes.map(n => ({ value: n.id, label: `${n.name} (${n.id})` }))}
                 />
-                <TagInput label={t('map_editor.secret_tags')} tags={npc.secretTags} onChange={(newTags) => updateNPC(npc.id, { secretTags: newTags })} />
-                <TagInput label={t('map_editor.dialogue_goals')} tags={npc.dialogueGoals} onChange={(newTags) => updateNPC(npc.id, { dialogueGoals: newTags })} />
+                <TagInput label={t('map_editor.secret_tags')} tags={npc.secretTags} onChange={(newTags) => { updateNPC(npc.id, { secretTags: newTags }); commitBlueprint(); }} />
+                <TagInput label={t('map_editor.dialogue_goals')} tags={npc.dialogueGoals} onChange={(newTags) => { updateNPC(npc.id, { dialogueGoals: newTags }); commitBlueprint(); }} />
                 
                 <div className="pt-4 border-t border-[var(--scp-border)]">
-                     <button onClick={() => { setBlueprint(prev => ({ ...prev, npcs: prev.npcs.filter(n => n.id !== npc.id) })); }} className={deleteButton}>{t('common.delete')}</button>
+                     <button onClick={() => { setBlueprint(prev => ({ ...prev, npcs: prev.npcs.filter(n => n.id !== npc.id) }), 'immediate'); }} className={deleteButton}>{t('common.delete')}</button>
                 </div>
             </div>
         );
@@ -356,27 +379,27 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
             <div className="space-y-4 p-4">
                 <div className={inputGroup}>
                     <label className={labelBase}>{t('map_editor.obj_id')}</label>
-                    <input type="text" value={obj.id} onChange={e => updateObjective(obj.id, { id: e.target.value })} className={inputBase} />
+                    <input type="text" value={obj.id} onChange={e => updateObjective(obj.id, { id: e.target.value })} onBlur={commitBlueprint} className={inputBase} />
                 </div>
                 <div className={inputGroup}>
                     <label className={labelBase}>{t('map_editor.obj_title')}</label>
-                    <input type="text" value={obj.title} onChange={e => updateObjective(obj.id, { title: e.target.value })} className={inputBase} />
+                    <input type="text" value={obj.title} onChange={e => updateObjective(obj.id, { title: e.target.value })} onBlur={commitBlueprint} className={inputBase} />
                 </div>
                  <CustomSelect 
                     label={t('map_editor.obj_type')}
                     value={obj.type}
-                    onChange={(val) => updateObjective(obj.id, { type: val as any })}
+                    onChange={(val) => { updateObjective(obj.id, { type: val as any }); commitBlueprint(); }}
                     options={[{ value: 'MAIN', label: t('map_editor.obj_main') }, { value: 'SIDE', label: t('map_editor.obj_side') }]}
                 />
                  <CustomSelect 
                     label={t('map_editor.target_node_id')}
                     value={obj.nodeId}
-                    onChange={(val) => updateObjective(obj.id, { nodeId: val })}
+                    onChange={(val) => { updateObjective(obj.id, { nodeId: val }); commitBlueprint(); }}
                     options={blueprint.nodes.map(n => ({ value: n.id, label: `${n.name} (${n.id})` }))}
                 />
                  <div className={inputGroup}>
                     <label className={labelBase}>{t('map_editor.obj_detail')}</label>
-                    <textarea value={obj.detail || ''} onChange={e => updateObjective(obj.id, { detail: e.target.value })} className={`${textareaBase} h-20`} />
+                    <textarea value={obj.detail || ''} onChange={e => updateObjective(obj.id, { detail: e.target.value })} onBlur={commitBlueprint} className={`${textareaBase} h-20`} />
                 </div>
                 
                 <div className="space-y-2 border-t border-[var(--scp-border)] pt-2 mt-2">
@@ -389,6 +412,7 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                              const current = obj.reward?.accessTokens || [];
                              if (!current.includes(val)) {
                                  updateObjective(obj.id, { reward: { ...obj.reward, accessTokens: [...current, val] } });
+                                 commitBlueprint();
                              }
                         }}
                         options={[{ value: '', label: t('map_editor.select_token') }, ...getAllRequiredTokens()]}
@@ -400,6 +424,7 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                                 {token}
                                 <button onClick={() => {
                                      updateObjective(obj.id, { reward: { ...obj.reward, accessTokens: obj.reward?.accessTokens?.filter(t => t !== token) } });
+                                     commitBlueprint();
                                 }} className="hover:text-white font-bold px-1">×</button>
                             </span>
                         ))}
@@ -411,13 +436,14 @@ const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                             type="number" 
                             value={obj.reward?.stabilityDelta || 0} 
                             onChange={(e) => updateObjective(obj.id, { reward: { ...obj.reward, stabilityDelta: parseInt(e.target.value) || 0 } })}
+                            onBlur={commitBlueprint}
                             className={numberInputBase}
                         />
                     </div>
                 </div>
 
                 <div className="pt-4 border-t border-[var(--scp-border)]">
-                     <button onClick={() => { setBlueprint(prev => ({ ...prev, objectives: prev.objectives.filter(o => o.id !== obj.id) })); }} className={deleteButton}>{t('common.delete')}</button>
+                     <button onClick={() => { setBlueprint(prev => ({ ...prev, objectives: prev.objectives.filter(o => o.id !== obj.id) }), 'immediate'); }} className={deleteButton}>{t('common.delete')}</button>
                 </div>
             </div>
         );

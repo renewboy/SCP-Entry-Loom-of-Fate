@@ -4,7 +4,8 @@ import { SCPData } from '../../types';
 interface StoryFormPanelProps {
     t: (key: string, params?: Record<string, string | number>) => any;
     scpData: SCPData;
-    setScpData: React.Dispatch<React.SetStateAction<SCPData>>;
+    setScpData: (newState: SCPData | ((prev: SCPData) => SCPData), commitMode?: 'immediate' | 'deferred') => void;
+    commitScpData: () => void;
     showValidationErrors: boolean;
     bgImagePrompt: string;
     setBgImagePrompt: (value: string) => void;
@@ -21,6 +22,7 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
     t,
     scpData,
     setScpData,
+    commitScpData,
     showValidationErrors,
     bgImagePrompt,
     setBgImagePrompt,
@@ -50,7 +52,8 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
                     <input 
                         type="text"
                         value={scpData.designation}
-                        onChange={e => setScpData({...scpData, designation: e.target.value})}
+                        onChange={e => setScpData({...scpData, designation: e.target.value}, 'deferred')}
+                        onBlur={commitScpData}
                         className={getInputClass(scpData.designation)}
                         placeholder="SCP-XXX"
                         required
@@ -61,7 +64,8 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
                     <input 
                         type="text"
                         value={scpData.containmentClass || ''}
-                        onChange={e => setScpData({...scpData, containmentClass: e.target.value})}
+                        onChange={e => setScpData({...scpData, containmentClass: e.target.value}, 'deferred')}
+                        onBlur={commitScpData}
                         className="w-full bg-black/50 border border-gray-700 p-1 text-xs text-scp-text focus:border-scp-accent focus:outline-none"
                         placeholder="Euclid"
                     />
@@ -73,7 +77,8 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
                     <input 
                         type="text"
                         value={scpData.role || ''}
-                        onChange={e => setScpData({...scpData, role: e.target.value})}
+                        onChange={e => setScpData({...scpData, role: e.target.value}, 'deferred')}
+                        onBlur={commitScpData}
                         className={getInputClass(scpData.role)}
                         placeholder="Researcher"
                         required
@@ -86,7 +91,8 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
                     <input 
                         type="text"
                         value={scpData.name}
-                        onChange={e => setScpData({...scpData, name: e.target.value})}
+                        onChange={e => setScpData({...scpData, name: e.target.value}, 'deferred')}
+                        onBlur={commitScpData}
                         className={getInputClass(scpData.name)}
                         placeholder="The ..."
                         required
@@ -98,7 +104,8 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
                 <label className="text-xs text-scp-text-dim font-bold uppercase block">{t('story_editor.role_details')}</label>
                 <textarea 
                     value={scpData.storyDraft?.roleDetails || ''}
-                    onChange={e => setScpData({...scpData, storyDraft: {...scpData.storyDraft, roleDetails: e.target.value}})}
+                    onChange={e => setScpData({...scpData, storyDraft: {...scpData.storyDraft, roleDetails: e.target.value}}, 'deferred')}
+                    onBlur={commitScpData}
                     className="w-full h-20 bg-black/50 border border-gray-700 p-2 text-xs text-scp-text focus:border-scp-accent focus:outline-none"
                     placeholder={t('story_editor.placeholder_role')}
                 />
@@ -107,7 +114,8 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
                 <label className="text-xs text-scp-text-dim font-bold uppercase block">{t('story_editor.story_background')}</label>
                 <textarea 
                     value={scpData.storyDraft?.storyBackground || ''}
-                    onChange={e => setScpData({...scpData, storyDraft: {...scpData.storyDraft, storyBackground: e.target.value}})}
+                    onChange={e => setScpData({...scpData, storyDraft: {...scpData.storyDraft, storyBackground: e.target.value}}, 'deferred')}
+                    onBlur={commitScpData}
                     className="w-full h-24 bg-black/50 border border-gray-700 p-2 text-xs text-scp-text focus:border-scp-accent focus:outline-none"
                     placeholder={t('story_editor.placeholder_background')}
                 />
@@ -116,7 +124,8 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
                 <label className="text-xs text-scp-text-dim font-bold uppercase block">{t('story_editor.narrative_constraints')}</label>
                 <textarea 
                     value={scpData.storyDraft?.narrativeConstraints || ''}
-                    onChange={e => setScpData({...scpData, storyDraft: {...scpData.storyDraft, narrativeConstraints: e.target.value}})}
+                    onChange={e => setScpData({...scpData, storyDraft: {...scpData.storyDraft, narrativeConstraints: e.target.value}}, 'deferred')}
+                    onBlur={commitScpData}
                     className="w-full h-16 bg-black/50 border border-gray-700 p-2 text-xs text-scp-text focus:border-scp-accent focus:outline-none"
                     placeholder={t('story_editor.placeholder_constraints')}
                 />
@@ -125,7 +134,8 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
                 <label className="text-xs text-scp-text-dim font-bold uppercase block">{t('story_editor.opening_prompt')}</label>
                 <textarea 
                     value={scpData.storyDraft?.openingPrompt || ''}
-                    onChange={e => setScpData({...scpData, storyDraft: {...scpData.storyDraft, openingPrompt: e.target.value}})}
+                    onChange={e => setScpData({...scpData, storyDraft: {...scpData.storyDraft, openingPrompt: e.target.value}}, 'deferred')}
+                    onBlur={commitScpData}
                     className="w-full h-20 bg-black/50 border border-gray-700 p-2 text-xs text-scp-text focus:border-scp-accent focus:outline-none"
                     placeholder={t('story_editor.placeholder_opening')}
                 />

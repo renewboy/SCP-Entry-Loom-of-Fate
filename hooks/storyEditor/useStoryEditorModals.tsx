@@ -16,8 +16,8 @@ export const useStoryEditorModals = ({
     t: (key: string, params?: Record<string, string | number>) => any;
     blueprint: MapBlueprint;
     scpData: SCPData;
-    setScpData: Dispatch<SetStateAction<SCPData>>;
-    setBlueprint: (next: MapBlueprint | ((prev: MapBlueprint) => MapBlueprint)) => void;
+    setScpData: (newState: SCPData | ((prev: SCPData) => SCPData), commitMode?: 'immediate' | 'deferred') => void;
+    setBlueprint: (next: MapBlueprint | ((prev: MapBlueprint) => MapBlueprint), commitMode?: 'immediate' | 'deferred') => void;
     setPromptsFromData: (data: SCPData) => void;
     defaultBlueprint: MapBlueprint;
     templateData: SCPData;
@@ -35,13 +35,13 @@ export const useStoryEditorModals = ({
         try {
             const json = JSON.parse(text);
             if (json.nodes && json.edges) {
-                setBlueprint(applyLayoutToBlueprint(json, { width: 720, height: 420, paddingX: 60, paddingY: 50 }));
+                setBlueprint(applyLayoutToBlueprint(json, { width: 720, height: 420, paddingX: 60, paddingY: 50 }), 'immediate');
                 setScpData(prev => ({
                     ...prev,
                     storyDraft: json.storyDraft || prev.storyDraft,
                     designation: json.designation || prev.designation,
                     name: json.name || prev.name
-                }));
+                }), 'immediate');
                 setImportError('');
                 closeModal();
             } else {
@@ -78,13 +78,13 @@ export const useStoryEditorModals = ({
     };
 
     const confirmNewMap = () => {
-        setBlueprint(defaultBlueprint);
+        setBlueprint(defaultBlueprint, 'immediate');
         setShowNewMapConfirm(false);
     };
 
     const confirmReset = () => {
-        setScpData(templateData);
-        setBlueprint(defaultBlueprint);
+        setScpData(templateData, 'immediate');
+        setBlueprint(defaultBlueprint, 'immediate');
         setPromptsFromData(templateData);
         setShowResetConfirm(false);
     };

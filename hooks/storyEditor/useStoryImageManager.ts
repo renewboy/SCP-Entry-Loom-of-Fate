@@ -8,7 +8,7 @@ export const useStoryImageManager = ({
     setScpData
 }: {
     scpData: SCPData;
-    setScpData: React.Dispatch<React.SetStateAction<SCPData>>;
+    setScpData: (newState: SCPData | ((prev: SCPData) => SCPData), commitMode?: 'immediate' | 'deferred') => void;
 }) => {
     const [generatingState, setGeneratingState] = useState<{ bg: boolean; entity: boolean; npc: Record<string, boolean> }>({ bg: false, entity: false, npc: {} });
     const [bgImagePrompt, setBgImagePrompt] = useState('');
@@ -39,7 +39,7 @@ export const useStoryImageManager = ({
                 ...(prev.npcVisuals || {}),
                 [npcId]: value
             }
-        }));
+        }), 'deferred');
     };
 
     const handleImageUpload = (type: 'bg' | 'entity', e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,7 +53,7 @@ export const useStoryImageManager = ({
                         ...(prev.storyDraft || {}),
                         [type === 'bg' ? 'backgroundImage' : 'entityImage']: reader.result as string
                     }
-                }));
+                }), 'immediate');
             };
             reader.readAsDataURL(file);
         }
@@ -71,7 +71,7 @@ export const useStoryImageManager = ({
                         ...(prev.storyDraft || {}),
                         [type === 'bg' ? 'backgroundImage' : 'entityImage']: url
                     }
-                }));
+                }), 'immediate');
             }
         } catch (e) {
             alert("Image generation failed");
@@ -100,7 +100,7 @@ export const useStoryImageManager = ({
                         ...(prev.npcImages || {}),
                         [npcId]: url
                     }
-                }));
+                }), 'immediate');
             }
         } catch (e) {
             alert("NPC Image generation failed");
@@ -123,7 +123,7 @@ export const useStoryImageManager = ({
                         ...(prev.npcImages || {}),
                         [npcId]: reader.result as string
                     }
-                }));
+                }), 'immediate');
             };
             reader.readAsDataURL(file);
         }
@@ -137,7 +137,7 @@ export const useStoryImageManager = ({
                 ...prev,
                 npcImages: newImages
             };
-        });
+        }, 'immediate');
     };
 
     const handleDeleteImage = (type: 'bg' | 'entity') => {
@@ -147,7 +147,7 @@ export const useStoryImageManager = ({
                 ...(prev.storyDraft || {}),
                 [type === 'bg' ? 'backgroundImage' : 'entityImage']: undefined
             }
-        }));
+        }), 'immediate');
     };
 
     return {

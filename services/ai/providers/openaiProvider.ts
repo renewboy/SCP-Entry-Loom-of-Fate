@@ -401,7 +401,7 @@ export class OpenAIProvider implements AIService {
 
             const toolCalls: Record<number, { name: string; arguments: string; id: string }> = {};
             let hasToolCalls = false;
-
+            console.log(`[EditorAssistant] streamEditorAssistant loop ${loopCount}`);
             for await (const chunk of streamSse<any>("/api/ai/openai/chat-completion-stream", {
                 apiKey: config.apiKey,
                 baseUrl: config.baseUrl,
@@ -429,7 +429,6 @@ export class OpenAIProvider implements AIService {
                     }
                 }
             }
-
             if (!hasToolCalls) {
                 break;
             }
@@ -438,11 +437,9 @@ export class OpenAIProvider implements AIService {
             for (const call of Object.values(toolCalls)) {
                 try {
                     const args = JSON.parse(call.arguments);
-                    console.log(`[EditorAssistant] Executing tool: ${call.name}`, args);
                     yield `\n\n[Executing: ${call.name}]...\n`;
-                    
                     const result = await onToolCall(call.name, args);
-                    
+                    console.log(`[EditorAssistant] Tool call ${call.name} result: ${JSON.stringify(result)}`);
                     toolOutputs.push({
                         role: "tool",
                         tool_call_id: call.id,

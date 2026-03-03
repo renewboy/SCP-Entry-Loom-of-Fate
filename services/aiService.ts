@@ -1,4 +1,4 @@
-import { Content } from "@google/genai";
+import type { Content } from "@google/genai";
 import { AIService } from "./ai/types";
 import { GeminiProvider } from "./ai/providers/geminiProvider";
 import { OpenAIProvider } from "./ai/providers/openaiProvider";

@@ -454,11 +454,11 @@ export class GeminiProvider implements AIService {
         let currentContents: any[] = [...baseContents];
         let loopCount = 0;
         const MAX_LOOPS = 5;
-
+        console.log(`[GeminiProvider] streamEditorAssistant called. Input: ${JSON.stringify(messages)}`);
         while (loopCount < MAX_LOOPS) {
             loopCount += 1;
             const toolCalls: { name: string; args: any }[] = [];
-
+            console.log(`[GeminiProvider] streamEditorAssistant loop ${loopCount}`);
             for await (const chunk of streamSse<any>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
                 model: config.chatModel,
@@ -481,7 +481,6 @@ export class GeminiProvider implements AIService {
                     }
                 }
             }
-
             if (toolCalls.length === 0) {
                 break;
             }
@@ -499,7 +498,9 @@ export class GeminiProvider implements AIService {
 
             const toolResponseParts = [];
             for (const call of toolCalls) {
+                yield `\n\n[Executing: ${call.name}]...\n`;
                 const result = await onToolCall(call.name, call.args);
+                console.log(`[GeminiProvider] streamEditorAssistant toolCall result: ${JSON.stringify(result)}`);
                 const response = typeof result === "string" ? { result } : result;
                 toolResponseParts.push({
                     functionResponse: {

@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { MapBlueprint, MapBlueprintNode, MapBlueprintEdge, MapBlueprintNPC, MapBlueprintObjective } from '../../types';
 import { useHistory } from './useHistory';
 
-export const useBlueprintEditor = (initialBlueprint: MapBlueprint) => {
-    const { state: blueprintState, setState: setBlueprint, undo, redo, canUndo, canRedo } = useHistory<MapBlueprint>(initialBlueprint);
+export const useBlueprintEditor = (initialBlueprint: MapBlueprint, options?: { onCommit?: () => void; mergeDelayMs?: number }) => {
+    const { state: blueprintState, setState: setBlueprint, undo, redo, canUndo, canRedo, commit, beginTransaction, commitTransaction, hasPending } = useHistory<MapBlueprint>(initialBlueprint, options);
     const blueprint = blueprintState || initialBlueprint;
     const [selection, setSelection] = useState<{ type: 'node' | 'edge' | 'npc' | 'objective', id: string } | null>(null);
 
@@ -37,14 +37,14 @@ export const useBlueprintEditor = (initialBlueprint: MapBlueprint) => {
                 ...prev,
                 nodes: prev.nodes.map(n => n.id === id ? { ...n, ...updates } : n)
             };
-        });
+        }, 'deferred');
     };
 
     const updateEdge = (from: string, to: string, updates: Partial<MapBlueprintEdge>) => {
         setBlueprint(prev => ({
             ...prev,
             edges: prev.edges.map(e => (e.from === from && e.to === to) ? { ...e, ...updates } : e)
-        }));
+        }), 'immediate');
     };
 
     const updateNPC = (id: string, updates: Partial<MapBlueprintNPC>) => {
@@ -58,7 +58,7 @@ export const useBlueprintEditor = (initialBlueprint: MapBlueprint) => {
                 ...prev,
                 npcs: prev.npcs.map(n => n.id === id ? { ...n, ...updates } : n)
             };
-        });
+        }, 'deferred');
     };
 
     const updateObjective = (id: string, updates: Partial<MapBlueprintObjective>) => {
@@ -72,7 +72,7 @@ export const useBlueprintEditor = (initialBlueprint: MapBlueprint) => {
                 ...prev,
                 objectives: prev.objectives.map(o => o.id === id ? { ...o, ...updates } : o)
             };
-        });
+        }, 'deferred');
     };
 
     const addNode = () => {
@@ -83,7 +83,7 @@ export const useBlueprintEditor = (initialBlueprint: MapBlueprint) => {
             danger: 0,
             layout: { x: 100, y: 100 }
         };
-        setBlueprint(prev => ({ ...prev, nodes: [...prev.nodes, newNode] }));
+        setBlueprint(prev => ({ ...prev, nodes: [...prev.nodes, newNode] }), 'immediate');
         setSelection({ type: 'node', id });
     };
 
@@ -96,7 +96,7 @@ export const useBlueprintEditor = (initialBlueprint: MapBlueprint) => {
         setBlueprint(prev => ({
             ...prev,
             edges: [...prev.edges, { from, to, bidirectional: true }]
-        }));
+        }), 'immediate');
     };
 
     const addNPC = () => {
@@ -108,7 +108,7 @@ export const useBlueprintEditor = (initialBlueprint: MapBlueprint) => {
             archetype: 'Researcher',
             initialNodeId: targetNodeId
         };
-        setBlueprint(prev => ({ ...prev, npcs: [...prev.npcs, newNPC] }));
+        setBlueprint(prev => ({ ...prev, npcs: [...prev.npcs, newNPC] }), 'immediate');
         setSelection({ type: 'npc', id });
     };
 
@@ -121,7 +121,7 @@ export const useBlueprintEditor = (initialBlueprint: MapBlueprint) => {
             type: 'MAIN',
             nodeId: targetNodeId
         };
-        setBlueprint(prev => ({ ...prev, objectives: [...prev.objectives, newObj] }));
+        setBlueprint(prev => ({ ...prev, objectives: [...prev.objectives, newObj] }), 'immediate');
         setSelection({ type: 'objective', id });
     };
 
@@ -135,17 +135,17 @@ export const useBlueprintEditor = (initialBlueprint: MapBlueprint) => {
                 edges: prev.edges.filter(e => e.from !== selection.id && e.to !== selection.id),
                 npcs: prev.npcs.filter(n => n.initialNodeId !== selection.id),
                 objectives: prev.objectives.filter(o => o.nodeId !== selection.id)
-            }));
+            }), 'immediate');
         } else if (selection.type === 'edge') {
             const [from, to] = selection.id.split('-');
             setBlueprint(prev => ({
                 ...prev,
                 edges: prev.edges.filter(e => !(e.from === from && e.to === to))
-            }));
+            }), 'immediate');
         } else if (selection.type === 'npc') {
-            setBlueprint(prev => ({ ...prev, npcs: prev.npcs.filter(n => n.id !== selection.id) }));
+            setBlueprint(prev => ({ ...prev, npcs: prev.npcs.filter(n => n.id !== selection.id) }), 'immediate');
         } else if (selection.type === 'objective') {
-            setBlueprint(prev => ({ ...prev, objectives: prev.objectives.filter(o => o.id !== selection.id) }));
+            setBlueprint(prev => ({ ...prev, objectives: prev.objectives.filter(o => o.id !== selection.id) }), 'immediate');
         }
         setSelection(null);
     };
@@ -167,6 +167,10 @@ export const useBlueprintEditor = (initialBlueprint: MapBlueprint) => {
         addEdge,
         addNPC,
         addObjective,
-        handleDeleteSelection
+        handleDeleteSelection,
+        commit,
+        beginTransaction,
+        commitTransaction,
+        hasPending
     };
 };

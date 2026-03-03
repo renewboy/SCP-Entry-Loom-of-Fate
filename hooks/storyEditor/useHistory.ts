@@ -1,28 +1,86 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
-export function useHistory<T>(initialState: T) {
-    // Combine history and index into a single state object to ensure atomicity
+interface HistoryOptions {
+    onCommit?: () => void;
+    mergeDelayMs?: number;
+}
+
+export function useHistory<T>(initialState: T, options?: HistoryOptions) {
     const [historyState, setHistoryState] = useState<{
         history: T[];
         index: number;
+        present: T;
     }>({
         history: [initialState],
-        index: 0
+        index: 0,
+        present: initialState
     });
 
-    const { history, index } = historyState;
-    
-    // Ensure state is never undefined, fallback to initialState or the first item if index is wonky
-    const state = history[index] !== undefined ? history[index] : initialState;
+    const { history, index, present } = historyState;
+    const onCommit = options?.onCommit;
+    const mergeDelayMs = options?.mergeDelayMs ?? 0;
+    const pendingTimerRef = useRef<number | null>(null);
+    const transactionDepthRef = useRef(0);
 
-    const setState = useCallback((newState: T | ((prev: T) => T)) => {
+    const clearPendingTimer = useCallback(() => {
+        if (pendingTimerRef.current !== null) {
+            window.clearTimeout(pendingTimerRef.current);
+            pendingTimerRef.current = null;
+        }
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            clearPendingTimer();
+        };
+    }, [clearPendingTimer]);
+
+    const isSame = useCallback((a: T, b: T) => {
+        try {
+            return JSON.stringify(a) === JSON.stringify(b);
+        } catch (e) {
+            return a === b;
+        }
+    }, []);
+
+    const commitNow = useCallback(() => {
+        clearPendingTimer();
         setHistoryState(prevState => {
-            const { history: prevHistory, index: prevIndex } = prevState;
-            const current = prevHistory[prevIndex];
-
-            // Defensive check: if current is somehow undefined, abort update to prevent crash
+            const current = prevState.history[prevState.index];
             if (current === undefined) {
-                console.error("[useHistory] Current state is undefined, aborting update.", { prevHistory, prevIndex });
+                return prevState;
+            }
+            if (isSame(current, prevState.present)) {
+                return prevState;
+            }
+            const newHistory = prevState.history.slice(0, prevState.index + 1);
+            onCommit?.();
+            return {
+                history: [...newHistory, prevState.present],
+                index: prevState.index + 1,
+                present: prevState.present
+            };
+        });
+    }, [clearPendingTimer, isSame, onCommit]);
+
+    const beginTransaction = useCallback(() => {
+        clearPendingTimer();
+        transactionDepthRef.current += 1;
+    }, [clearPendingTimer]);
+
+    const commitTransaction = useCallback(() => {
+        if (transactionDepthRef.current === 0) return;
+        transactionDepthRef.current -= 1;
+        if (transactionDepthRef.current === 0) {
+            commitNow();
+        }
+    }, [commitNow]);
+
+    const setState = useCallback((newState: T | ((prev: T) => T), commitMode?: 'immediate' | 'deferred') => {
+        setHistoryState(prevState => {
+            const current = prevState.present;
+
+            if (current === undefined) {
                 return prevState;
             }
 
@@ -30,42 +88,86 @@ export function useHistory<T>(initialState: T) {
                 ? (newState as (prev: T) => T)(current) 
                 : newState;
             
-            // If state hasn't changed (deep comparison via JSON), don't add to history
-            try {
-                if (JSON.stringify(current) === JSON.stringify(next)) return prevState;
-            } catch (e) {
-                // Fallback for circular structures or other JSON errors
-                if (current === next) return prevState;
+            if (isSame(current, next)) return prevState;
+
+            const nextState = {
+                ...prevState,
+                present: next
+            };
+
+            if (transactionDepthRef.current > 0) {
+                return nextState;
             }
 
-            const newHistory = prevHistory.slice(0, prevIndex + 1);
+            const mode = commitMode ?? (mergeDelayMs > 0 ? 'deferred' : 'immediate');
+            if (mode === 'deferred' && mergeDelayMs > 0) {
+                clearPendingTimer();
+                pendingTimerRef.current = window.setTimeout(() => {
+                    commitNow();
+                }, mergeDelayMs);
+                return nextState;
+            }
+
+            const newHistory = prevState.history.slice(0, prevState.index + 1);
+            onCommit?.();
             return {
                 history: [...newHistory, next],
-                index: prevIndex + 1
+                index: prevState.index + 1,
+                present: next
             };
         });
-    }, []);
+    }, [commitNow, clearPendingTimer, isSame, mergeDelayMs, onCommit]);
 
     const undo = useCallback(() => {
-        setHistoryState(prev => ({
-            ...prev,
-            index: Math.max(0, prev.index - 1)
-        }));
-    }, []);
+        clearPendingTimer();
+        setHistoryState(prev => {
+            let historyNext = prev.history;
+            let indexNext = prev.index;
+            if (!isSame(prev.present, prev.history[prev.index])) {
+                historyNext = [...prev.history.slice(0, prev.index + 1), prev.present];
+                indexNext = prev.index + 1;
+                onCommit?.();
+            }
+            const nextIndex = Math.max(0, indexNext - 1);
+            return {
+                history: historyNext,
+                index: nextIndex,
+                present: historyNext[nextIndex] ?? prev.present
+            };
+        });
+    }, [clearPendingTimer, isSame, onCommit]);
 
     const redo = useCallback(() => {
-        setHistoryState(prev => ({
-            ...prev,
-            index: Math.min(prev.history.length - 1, prev.index + 1)
-        }));
-    }, []);
+        clearPendingTimer();
+        setHistoryState(prev => {
+            let historyNext = prev.history;
+            let indexNext = prev.index;
+            if (!isSame(prev.present, prev.history[prev.index])) {
+                historyNext = [...prev.history.slice(0, prev.index + 1), prev.present];
+                indexNext = prev.index + 1;
+                onCommit?.();
+            }
+            const nextIndex = Math.min(historyNext.length - 1, indexNext + 1);
+            return {
+                history: historyNext,
+                index: nextIndex,
+                present: historyNext[nextIndex] ?? prev.present
+            };
+        });
+    }, [clearPendingTimer, isSame, onCommit]);
+
+    const hasPending = !isSame(present, history[index]);
 
     return {
-        state,
+        state: present,
         setState,
         undo,
         redo,
+        commit: commitNow,
+        beginTransaction,
+        commitTransaction,
         canUndo: index > 0,
-        canRedo: index < history.length - 1
+        canRedo: index < history.length - 1,
+        hasPending
     };
 }

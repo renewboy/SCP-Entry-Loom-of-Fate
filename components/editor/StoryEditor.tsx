@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GameState, GameStatus, SCPData } from '../../types';
 import { useTranslation } from '../../utils/i18n';
 import EditorCanvas, { EditorCanvasRef } from './EditorCanvas';
@@ -34,6 +34,7 @@ import { useBlueprintEditor } from '../../hooks/storyEditor/useBlueprintEditor';
 import { useStoryEditorModals } from '../../hooks/storyEditor/useStoryEditorModals';
 import { useStoryImageManager } from '../../hooks/storyEditor/useStoryImageManager';
 import { DEFAULT_BLUEPRINT, SCP173_TEMPLATE } from '../../constants/storyTemplates';
+import { useHistory } from '../../hooks/storyEditor/useHistory';
 
 import EditorAssistantPanel from './EditorAssistantPanel';
 
@@ -45,6 +46,16 @@ interface StoryEditorProps {
 const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) => {
     const { t } = useTranslation();
     const [showAssistant, setShowAssistant] = useState(false);
+    const actionStackRef = useRef<Array<'map' | 'story'>>([]);
+    const redoStackRef = useRef<Array<'map' | 'story'>>([]);
+    const isHydratingRef = useRef(true);
+    const [, forceHistoryRender] = useState(0);
+    const recordAction = useCallback((type: 'map' | 'story') => {
+        if (isHydratingRef.current) return;
+        actionStackRef.current.push(type);
+        redoStackRef.current = [];
+        forceHistoryRender(v => v + 1);
+    }, []);
     const {
         blueprint,
         setBlueprint,
@@ -62,22 +73,33 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         addEdge,
         addNPC,
         addObjective,
-        handleDeleteSelection
-    } = useBlueprintEditor(DEFAULT_BLUEPRINT);
+        handleDeleteSelection,
+        commit: commitBlueprint,
+        hasPending: hasPendingMap
+    } = useBlueprintEditor(DEFAULT_BLUEPRINT, { onCommit: () => recordAction('map'), mergeDelayMs: 600 });
 
     const hasLoadedRef = useRef(false);
     const canvasRef = useRef<EditorCanvasRef>(null);
 
     // Story Editor Specific State
     const [activeTab, setActiveTab] = useState<'MAP' | 'STORY'>('STORY');
-    const [scpData, setScpData] = useState<SCPData>({
+    const {
+        state: scpData,
+        setState: setScpData,
+        undo: undoStory,
+        redo: redoStory,
+        canUndo: canUndoStory,
+        canRedo: canRedoStory,
+        commit: commitScpData,
+        hasPending: hasPendingStory
+    } = useHistory<SCPData>({
         designation: '',
         name: '',
         containmentClass: '',
         role: '',
         storyDraft: {},
         mapBlueprint: DEFAULT_BLUEPRINT
-    });
+    }, { onCommit: () => recordAction('story'), mergeDelayMs: 700 });
 
     const [isStarting, setIsStarting] = useState(false);
     const [showValidationErrors, setShowValidationErrors] = useState(false);
@@ -135,6 +157,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         if (hasLoadedRef.current) return;
         hasLoadedRef.current = true;
         const loadInitial = async () => {
+            isHydratingRef.current = true;
             let loadedData: SCPData | null = null;
 
             // 1. Try Memory Cache
@@ -147,11 +170,11 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
             }
 
             if (loadedData) {
-                setBlueprint(loadedData.mapBlueprint || DEFAULT_BLUEPRINT);
-                setScpData(loadedData);
+                setBlueprint(loadedData.mapBlueprint || DEFAULT_BLUEPRINT, 'immediate');
+                setScpData(loadedData, 'immediate');
             } else if (gameState.scpData) {
                 // 3. Fallback to GameState (Tactical Preview)
-                setBlueprint(gameState.scpData.mapBlueprint || DEFAULT_BLUEPRINT);
+                setBlueprint(gameState.scpData.mapBlueprint || DEFAULT_BLUEPRINT, 'immediate');
                 
                 const initialStoryDraft = gameState.scpData.storyDraft || {
                     roleDetails: gameState.role !== 'CUSTOM' ? gameState.role : '',
@@ -164,14 +187,15 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                     ...gameState.scpData,
                     storyDraft: initialStoryDraft,
                     role: gameState.scpData.role || gameState.role || SCP173_TEMPLATE.role
-                });
+                }, 'immediate');
             } else {
                  // No data, initialize with template
-                 setScpData(SCP173_TEMPLATE);
+                 setScpData(SCP173_TEMPLATE, 'immediate');
             }
 
             const sourceData = loadedData || gameState.scpData || SCP173_TEMPLATE;
             setPromptsFromData(sourceData);
+            isHydratingRef.current = false;
         };
         loadInitial();
     }, [gameState.scpData, setBlueprint, gameState.role, gameState.backgroundImage, gameState.mainImage, setPromptsFromData]);
@@ -184,6 +208,62 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         setEditingStoryCache(currentData);
     }, [blueprint, scpData]);
 
+    const handleUndo = useCallback(() => {
+        if (actionStackRef.current.length === 0) {
+            if (activeTab === 'MAP' && hasPendingMap) {
+                actionStackRef.current.push('map');
+            } else if (activeTab === 'STORY' && hasPendingStory) {
+                actionStackRef.current.push('story');
+            } else if (hasPendingMap) {
+                actionStackRef.current.push('map');
+            } else if (hasPendingStory) {
+                actionStackRef.current.push('story');
+            }
+        }
+        const last = actionStackRef.current.pop();
+        if (!last) return;
+        if (last === 'map') {
+            if (!canUndo) {
+                actionStackRef.current.push(last);
+                return;
+            }
+            undo();
+            redoStackRef.current.push('map');
+        } else {
+            if (!canUndoStory) {
+                actionStackRef.current.push(last);
+                return;
+            }
+            undoStory();
+            redoStackRef.current.push('story');
+        }
+        forceHistoryRender(v => v + 1);
+    }, [undo, undoStory, canUndo, canUndoStory, activeTab, hasPendingMap, hasPendingStory]);
+
+    const handleRedo = useCallback(() => {
+        const last = redoStackRef.current.pop();
+        if (!last) return;
+        if (last === 'map') {
+            if (!canRedo) {
+                redoStackRef.current.push(last);
+                return;
+            }
+            redo();
+            actionStackRef.current.push('map');
+        } else {
+            if (!canRedoStory) {
+                redoStackRef.current.push(last);
+                return;
+            }
+            redoStory();
+            actionStackRef.current.push('story');
+        }
+        forceHistoryRender(v => v + 1);
+    }, [redo, redoStory, canRedo, canRedoStory]);
+
+    const canUndoCombined = actionStackRef.current.length > 0;
+    const canRedoCombined = redoStackRef.current.length > 0;
+
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
@@ -191,17 +271,17 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
             if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
                 if (e.shiftKey) {
                     e.preventDefault();
-                    if (canRedo) redo();
+                    handleRedo();
                 } else {
                     e.preventDefault();
-                    if (canUndo) undo();
+                    handleUndo();
                 }
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [undo, redo, canUndo, canRedo]);
+    }, [handleUndo, handleRedo]);
 
     const validateInputs = () => {
         const isValid = !!(scpData.designation && scpData.name && scpData.role);
@@ -388,63 +468,63 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                         </button>
                     </div>
 
-                    {activeTab === 'MAP' && (
-                        <>
-                            {/* Undo/Redo Controls */}
-                            <div className="flex items-center gap-1 ml-4 pl-4 border-l border-[var(--scp-border)]">
-                                <button 
-                                    onClick={undo} 
-                                    disabled={!canUndo}
-                                    className={toolbarHistoryButton(canUndo)}
-                                    title="Undo (Ctrl+Z)"
-                                >
-                                    <Undo size={16} strokeWidth={1} /> {t('common.undo')}
-                                </button>
-                                <button 
-                                    onClick={redo} 
-                                    disabled={!canRedo}
-                                    className={toolbarHistoryButton(canRedo)}
-                                    title="Redo (Ctrl+Shift+Z)"
-                                >
-                                    <Redo size={16} strokeWidth={1} /> {t('common.redo')}
-                                </button>
-                            </div>
-                            <div className="flex items-center gap-1 ml-4 pl-4 border-l border-[var(--scp-border)]">
-                                <button
-                                    onClick={() => canvasRef.current?.zoomIn()}
-                                    className={toolbarHistoryButton(true)}
-                                    title="Zoom In"
-                                >
-                                    <ZoomIn size={16} strokeWidth={1} />
-                                </button>
-                                <button
-                                    onClick={() => canvasRef.current?.zoomOut()}
-                                    className={toolbarHistoryButton(true)}
-                                    title="Zoom Out"
-                                >
-                                    <ZoomOut size={16} strokeWidth={1} />
-                                </button>
-                            </div>
-                            
-                            {/* Add Entity Buttons */}
-                            <div className="flex items-center gap-2 ml-4">
-                                <button 
-                                    onClick={addNPC}
-                                    className={addEntityButtonNpc}
-                                    title={t('map_editor.add_npc')}
-                                >
-                                    + NPC
-                                </button>
-                                <button 
-                                    onClick={addObjective}
-                                    className={addEntityButtonObj}
-                                    title={t('map_editor.add_objective')}
-                                >
-                                    + OBJ
-                                </button>
-                            </div>
-                        </>
-                    )}
+                    <>
+                        <div className="flex items-center gap-1 ml-4 pl-4 border-l border-[var(--scp-border)]">
+                            <button 
+                                onClick={handleUndo} 
+                                disabled={!canUndoCombined}
+                                className={toolbarHistoryButton(canUndoCombined)}
+                                title="Undo (Ctrl+Z)"
+                            >
+                                <Undo size={16} strokeWidth={1} /> {t('common.undo')}
+                            </button>
+                            <button 
+                                onClick={handleRedo} 
+                                disabled={!canRedoCombined}
+                                className={toolbarHistoryButton(canRedoCombined)}
+                                title="Redo (Ctrl+Shift+Z)"
+                            >
+                                <Redo size={16} strokeWidth={1} /> {t('common.redo')}
+                            </button>
+                        </div>
+                        {activeTab === 'MAP' && (
+                            <>
+                                <div className="flex items-center gap-1 ml-4 pl-4 border-l border-[var(--scp-border)]">
+                                    <button
+                                        onClick={() => canvasRef.current?.zoomIn()}
+                                        className={toolbarHistoryButton(true)}
+                                        title="Zoom In"
+                                    >
+                                        <ZoomIn size={16} strokeWidth={1} />
+                                    </button>
+                                    <button
+                                        onClick={() => canvasRef.current?.zoomOut()}
+                                        className={toolbarHistoryButton(true)}
+                                        title="Zoom Out"
+                                    >
+                                        <ZoomOut size={16} strokeWidth={1} />
+                                    </button>
+                                </div>
+                                
+                                <div className="flex items-center gap-2 ml-4">
+                                    <button 
+                                        onClick={addNPC}
+                                        className={addEntityButtonNpc}
+                                        title={t('map_editor.add_npc')}
+                                    >
+                                        + NPC
+                                    </button>
+                                    <button 
+                                        onClick={addObjective}
+                                        className={addEntityButtonObj}
+                                        title={t('map_editor.add_objective')}
+                                    >
+                                        + OBJ
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </>
                 </div>
                 <div className="flex gap-2 pr-32">
                     <button onClick={() => setShowNewMapConfirm(true)} className={toolbarButtonGhost}>{t('map_editor.new_map')}</button>
@@ -484,19 +564,22 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                             updateNode={updateNode}
                             addNode={addNode}
                             addEdge={addEdge}
+                            commitBlueprint={commitBlueprint}
                             onDeleteSelection={handleDeleteSelection}
                         />
                     </div>
                 </div>
 
-                <EditorAssistantPanel
-                    blueprint={blueprint}
-                    setBlueprint={setBlueprint}
-                    scpData={scpData}
-                    setScpData={setScpData}
-                    onClose={() => setShowAssistant(false)}
-                    isOpen={showAssistant}
-                />
+                {showAssistant && (
+                    <EditorAssistantPanel
+                        blueprint={blueprint}
+                        setBlueprint={setBlueprint}
+                        scpData={scpData}
+                        setScpData={setScpData}
+                        onClose={() => setShowAssistant(false)}
+                        isOpen={showAssistant}
+                    />
+                )}
 
                 <SidePanel side="left" className={`absolute top-0 bottom-0 w-56 ${panelContainerBase}`}>
                     <div className={editorPanelHeader}>
@@ -576,12 +659,15 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                                 npcImages={scpData.npcImages}
                                 generatingState={generatingState}
                                 setLightboxImage={setLightboxImage}
+                                commitBlueprint={commitBlueprint}
+                                commitScpData={commitScpData}
                             />
                         ) : (
                             <StoryFormPanel
                                 t={t}
                                 scpData={scpData}
                                 setScpData={setScpData}
+                                commitScpData={commitScpData}
                                 showValidationErrors={showValidationErrors}
                                 bgImagePrompt={bgImagePrompt}
                                 setBgImagePrompt={setBgImagePrompt}

@@ -29,10 +29,11 @@ interface EditorCanvasProps {
     updateNode: (id: string, updates: Partial<MapBlueprintNode>) => void;
     addNode?: () => void;
     addEdge: (from: string, to: string) => void;
+    commitBlueprint?: () => void;
     onDeleteSelection: () => void;
 }
 
-const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(({ blueprint, selection, setSelection, updateNode, addNode, addEdge, onDeleteSelection }, ref) => {
+const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(({ blueprint, selection, setSelection, updateNode, addNode, addEdge, commitBlueprint, onDeleteSelection }, ref) => {
     const { t } = useTranslation();
     const svgRef = useRef<SVGSVGElement>(null);
     const [viewTransform, setViewTransform] = useState({ scale: 2.0, x: 0, y: 0 });
@@ -138,6 +139,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(({ blueprint
     const handleMouseUp = () => {
         if (draggingNodeId && dragPosition) {
             updateNode(draggingNodeId, { layout: dragPosition });
+            commitBlueprint?.();
         }
         
         if (isConnecting && connectionStartId && hoveredNodeId && connectionStartId !== hoveredNodeId) {
