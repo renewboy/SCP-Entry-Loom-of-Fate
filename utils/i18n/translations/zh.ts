@@ -76,6 +76,7 @@ export const zh = {
     map_start: "起点",
     map_main_hint: "主线任务",
     map_side_hint: "支线任务",
+    summarizing_memory: "正在整理记忆回响...",
     map_status_active: "进行中",
     map_status_completed: "已完成",
     map_status_failed: "失败",

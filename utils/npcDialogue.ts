@@ -9,7 +9,7 @@ export interface NpcDialogueMatch {
 export const extractNpcDialogue = (children: React.ReactNode, npcs?: RuntimeNPCState[]): NpcDialogueMatch | null => {
   const childrenArray = React.Children.toArray(children);
   const startChildIndex = childrenArray.findIndex(
-    (child) => typeof child === 'string' && child.match(/^\[@([\w_]+):\s*/)
+    (child) => typeof child === 'string' && child.match(/^\[@([^\]:：]+)[:：]\s*/)
   );
 
   if (startChildIndex === -1) return null;
@@ -17,13 +17,10 @@ export const extractNpcDialogue = (children: React.ReactNode, npcs?: RuntimeNPCS
   const startChild = childrenArray[startChildIndex];
   if (typeof startChild !== 'string') return null;
 
-  const match = startChild.match(/^\[@([\w_]+):\s*(.*)/);
+  const match = startChild.match(/^\[@([^\]:：]+)[:：]\s*(.*)/);
   if (!match) return null;
 
   const npcId = match[1];
-  const isValidNPC = !npcs || npcs.some((n) => n.id === npcId);
-  if (!isValidNPC) return null;
-
   const newChildrenArray = childrenArray.slice(startChildIndex);
   newChildrenArray[0] = match[2];
 

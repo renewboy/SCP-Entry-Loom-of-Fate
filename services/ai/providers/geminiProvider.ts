@@ -2,9 +2,9 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import { AIService } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
 import { aiConfig } from "../../../config/aiConfig";
-import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt } from "../prompts";
+import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt, getCompressionPrompt } from "../prompts";
 import { getEditorAssistantPrompt, getEditorAssistantContext, editorTools } from "../editorPrompts";
-import { normalizeGameReviewData, safeParseJson } from "../utils";
+import { normalizeGameReviewData, safeParseJson, cleanHistoryText } from "../utils";
 import { AudioDramaSchema } from "../schemas";
 import { postJson, streamSse } from "./backendClient";
 import { getEffectiveAIConfig } from "../../aiConfigService";
@@ -18,12 +18,15 @@ const getGeminiText = (response: any): string => {
 
 export class GeminiProvider implements AIService {
     private history: any[] = [];
+    private summaryContext: string = "";
+    private currentTokenCount: number = 0;
     private systemInstruction: string = "";
     private temperature: number = aiConfig.generation.temperature;
     private cachedContentName: string | null = null;
     private gameReviewHistory: any[] = [];
     private qaHistory: any[] = [];
-    private cachedConfig: { apiKey: string; chatModel: string; imageModel: string; embeddingModel: string } | null = null;
+    private cachedConfig: { apiKey: string; chatModel: string; imageModel: string; embeddingModel: string; contextConfig: { tokenLimit: number; compressionCount: number } } | null = null;
+    private callbacks: { onTokenUpdate?: (count: number) => void; onStatusUpdate?: (status: 'idle' | 'generating' | 'summarizing') => void } = {};
 
     private async getConfig() {
         if (this.cachedConfig) return this.cachedConfig;
@@ -33,16 +36,26 @@ export class GeminiProvider implements AIService {
             chatModel: effective.gemini.chatModel,
             imageModel: effective.gemini.imageModel,
             embeddingModel: effective.gemini.embeddingModel,
+            contextConfig: aiConfig.context,
         };
         return this.cachedConfig;
+    }
+
+    setCallbacks(callbacks: { onTokenUpdate?: (count: number) => void; onStatusUpdate?: (status: 'idle' | 'generating' | 'summarizing') => void }): void {
+        this.callbacks = callbacks || {};
+    }
+
+    getSummaryContext(): string {
+        return this.summaryContext;
     }
 
     constructor() {
     }
 
-    public async generateImage(prompt: string, aspectRatio: "1:1" | "16:9" | "3:4" = "1:1"): Promise<string | null> {
+    public async generateImage(prompt: string, aspectRatio: "1:1" | "16:9" | "3:4" = "1:1", responseFormat: "url" | "b64_json" = "url"): Promise<string | null> {
         try {
             const config = await this.getConfig();
+            console.log(`[GeminiProvider] Generating image for prompt: ${prompt}`);
             const response = await postJson<any>("/api/ai/gemini/generate-image", {
                 apiKey: config.apiKey,
                 model: config.imageModel,
@@ -58,6 +71,7 @@ export class GeminiProvider implements AIService {
                     break;
                 }
             }
+            console.log(`[GeminiProvider] Generated image: ${imageDataUrl.slice(0, 300)}`);
             return imageDataUrl;
         } catch (error) {
             return null;
@@ -131,6 +145,54 @@ export class GeminiProvider implements AIService {
         }
     }
 
+    private async compressHistory(language: Language): Promise<void> {
+        const config = await this.getConfig();
+        const { compressionCount } = config.contextConfig;
+        
+        if (this.history.length <= compressionCount + 2) return;
+
+        const firstMsg = this.history[0];
+        const firstResponse = this.history[1];
+        
+        // Extract messages to compress (e.g., from index 2 to 2 + COUNT)
+        const toCompress = this.history.slice(2, 2 + compressionCount);
+        const remaining = this.history.slice(2 + compressionCount);
+
+        const historyText = toCompress.map(msg => {
+            const role = msg.role === 'user' ? 'User' : 'Narrator';
+            const text = msg.parts?.[0]?.text || '';
+            return `${role}: ${text}`;
+        }).join('\n\n');
+
+        // Extract first message content for better context
+        const firstMsgContent = [
+            firstMsg?.parts?.[0]?.text ? `User: ${firstMsg.parts[0].text}` : "",
+            firstResponse?.parts?.[0]?.text ? `Narrator: ${firstResponse.parts[0].text}` : ""
+        ].filter(Boolean).join('\n');
+        const prompt = getCompressionPrompt(historyText, language, firstMsgContent);
+        
+        try {
+            const response = await postJson<any>("/api/ai/gemini/generate-content", {
+                apiKey: config.apiKey,
+                model: config.chatModel,
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+            });
+            const summary = getGeminiText(response);
+            if (summary) {
+                this.summaryContext += `\n[Summary Segment]: ${summary}`;
+                this.history = [firstMsg, firstResponse, ...remaining];
+                console.log(`[GeminiProvider] Compressed history. New length: ${this.history.length}\nSummaryContext:\n${this.summaryContext}`);
+                
+                // Recalculate token count (rough estimate or call API)
+                // For now, reset to 0 to force update on next turn, or just subtract estimate?
+                // Safest is to let the next turn update it.
+                this.currentTokenCount = 0; 
+            }
+        } catch (e) {
+            console.error("Failed to compress history", e);
+        }
+    }
+
     private async ensureCachedContentName(): Promise<string | null> {
         if (!this.systemInstruction) return null;
         if (this.cachedContentName) return this.cachedContentName;
@@ -150,14 +212,37 @@ export class GeminiProvider implements AIService {
     }
 
     private buildContents(prompt: string, extraHistory: any[] = []): any[] {
+        if (!this.summaryContext) {
+             return [
+                ...this.history,
+                ...extraHistory,
+                { role: "user", parts: [{ text: prompt }] }
+            ];
+        }
+        
+        const firstTurn = this.history.slice(0, 2);
+        const recentHistory = this.history.slice(2);
+        
+        const summaryMsg = {
+            role: "user",
+            parts: [{ text: `[SYSTEM: STORY SUMMARY]\n${this.summaryContext}` }]
+        };
+        const summaryAck = {
+             role: "model",
+             parts: [{ text: "Acknowledged. I retain these memories." }]
+        };
+        
         return [
-            ...this.history,
+            ...firstTurn,
+            summaryMsg,
+            summaryAck,
+            ...recentHistory,
             ...extraHistory,
             { role: "user", parts: [{ text: prompt }] }
         ];
     }
 
-    private async logTokenCount(contents: any[]): Promise<void> {
+    private async logTokenCount(contents: any[], onTokenUpdate?: (count: number) => void): Promise<void> {
         try {
             const config = await this.getConfig();
             const { totalTokens, cachedContentTokenCount } = await postJson<{ totalTokens: number; cachedContentTokenCount: number }>("/api/ai/gemini/count-tokens", {
@@ -165,7 +250,9 @@ export class GeminiProvider implements AIService {
                 model: config.chatModel,
                 contents,
             });
+            this.currentTokenCount = totalTokens;
             console.log(`[GeminiProvider] tokens total=${totalTokens} cached=${cachedContentTokenCount}`);
+            if (onTokenUpdate) onTokenUpdate(totalTokens);
         } catch (error) {
         }
     }
@@ -200,6 +287,7 @@ export class GeminiProvider implements AIService {
         const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyData, scp.mapBlueprint, scp.storyDraft);
         console.log(`[GeminiProvider] Sending start message...`);
 
+        if (this.callbacks.onStatusUpdate) this.callbacks.onStatusUpdate('generating');
         this.history = [];
         const cachedContent = await this.ensureCachedContentName();
         console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
@@ -233,15 +321,32 @@ export class GeminiProvider implements AIService {
 
             this.history.push({ role: "user", parts: [{ text: startPrompt }] });
             this.history.push({ role: "model", parts: [{ text: fullResponse }] });
-            await this.logTokenCount(this.history);
+            await this.logTokenCount(this.history, this.callbacks.onTokenUpdate);
             return;
         }
     }
 
-    async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh', ragContext?: string, mapContext?: string): AsyncGenerator<string> {
+    async *sendAction(
+        action: string, 
+        currentStability: number, 
+        turnCount: number, 
+        language: Language = 'zh', 
+        ragContext?: string, 
+        mapContext?: ((enhanced?: boolean) => string),
+    ): AsyncGenerator<string> {
         console.log(`[GeminiProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}, Language: ${language}`);
         const config = await this.getConfig();
-        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, mapContext);
+        const { tokenLimit } = config.contextConfig;
+        
+        if (this.currentTokenCount > tokenLimit) {
+             console.log(`[GeminiProvider] Token limit exceeded (${this.currentTokenCount} > ${tokenLimit}). Compressing...`);
+             if (this.callbacks.onStatusUpdate) this.callbacks.onStatusUpdate('summarizing');
+             await this.compressHistory(language);
+             if (this.callbacks.onStatusUpdate) this.callbacks.onStatusUpdate('generating');
+        }
+
+        const resolvedMapContext = mapContext ? mapContext(this.currentTokenCount > tokenLimit) : undefined;
+        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, resolvedMapContext);
 
         try {
             const cachedContent = await this.ensureCachedContentName();
@@ -262,11 +367,28 @@ export class GeminiProvider implements AIService {
                 const delta = getGeminiText(chunk);
                 fullResponse += delta;
                 yield delta;
+
+                const usage = chunk.usageMetadata || chunk.usage_metadata;
+                if (usage) {
+                    const total = usage.totalTokenCount || usage.total_token_count;
+                    if (total) {
+                        this.currentTokenCount = total;
+                        if (this.callbacks.onTokenUpdate) this.callbacks.onTokenUpdate(total);
+                    }
+                }
             }
             console.log(`[GeminiProvider] SendAction Full response: "${fullResponse}"`);
-            this.history.push({ role: "user", parts: [{ text: contextPrompt }] });
-            this.history.push({ role: "model", parts: [{ text: fullResponse }] });
-            await this.logTokenCount(this.history);
+            
+            // Clean visual tags to save tokens
+            const cleanResponse = cleanHistoryText(fullResponse);
+            const cleanPrompt = cleanHistoryText(contextPrompt);
+
+            this.history.push({ role: "user", parts: [{ text: cleanPrompt }] });
+            this.history.push({ role: "model", parts: [{ text: cleanResponse }] });
+            
+            if (this.currentTokenCount === 0 || !this.callbacks.onTokenUpdate) {
+                await this.logTokenCount(this.history, this.callbacks.onTokenUpdate);
+            }
         } catch (err) {
             console.error("[GeminiProvider] Error in sendAction: ", err);
             throw err;
@@ -277,13 +399,16 @@ export class GeminiProvider implements AIService {
         return this.history;
     }
 
-    async restoreChatSession(history: any[], role: string, language: Language = 'zh'): Promise<void> {
+    async restoreChatSession(options: { history: any[]; role: string; language?: Language; tokenCount?: number; summaryContext?: string }): Promise<void> {
+        const { history, role, language = 'zh', tokenCount, summaryContext } = options;
         this.systemInstruction = getSystemInstruction(role, language);
         this.temperature = aiConfig.generation.temperature;
         this.cachedContentName = null;
         this.gameReviewHistory = [];
         this.qaHistory = [];
         this.history = Array.isArray(history) ? history : [];
+        this.currentTokenCount = typeof tokenCount === 'number' ? tokenCount : 0;
+        this.summaryContext = summaryContext || "";
     }
 
     async generateAudioDramaScript(

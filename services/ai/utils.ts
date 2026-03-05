@@ -203,3 +203,11 @@ export const normalizeGameReviewData = (value: any): GameReviewData => {
     achievements: Array.isArray(value.achievements) ? value.achievements : []
   };
 };
+
+export const cleanHistoryText = (text: string): string => {
+    return text
+        .replace(/\[VISUAL:.*?\]/g, '')
+        .replace(/\[地图状态\][\s\S]*?\[地图状态结束\]/g, '')
+        .replace(/【常规回合任务说明】[\s\S]*?【常规回合任务说明结束】/g, '')
+        .trim();
+};

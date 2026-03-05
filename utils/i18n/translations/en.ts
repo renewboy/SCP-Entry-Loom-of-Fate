@@ -76,6 +76,7 @@ export const en = {
     map_start: "Start",
     map_main_hint: "Main mission",
     map_side_hint: "Side mission",
+    summarizing_memory: "Summarizing Memory Echoes...",
     map_status_active: "Active",
     map_status_completed: "Completed",
     map_status_failed: "Failed",

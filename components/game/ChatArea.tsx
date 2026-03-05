@@ -58,6 +58,13 @@ const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollR
           {isProcessing && gameState.messages[gameState.messages.length-1]?.sender === 'user' && (
              <div className="text-scp-term/70 text-xs font-mono animate-pulse pl-4 bg-black/40 inline-block p-1 rounded">{t('game.generating')}</div>
           )}
+          
+          {gameState.aiState === 'summarizing' && (
+            <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-black/80 border border-scp-term p-4 backdrop-blur shadow-[0_0_20px_rgba(0,255,0,0.2)] flex items-center gap-3 animate-pulse">
+                <div className="w-3 h-3 bg-scp-term rounded-full animate-ping"></div>
+                <span className="text-scp-term font-mono text-sm tracking-widest uppercase">{t('game.summarizing_memory')}</span>
+            </div>
+          )}
         </div>
         {lightboxImage && (
           <div 

@@ -29,6 +29,7 @@ export const clearMemoryCache = (timelineId?: string) => {
 
 let aiProvider: AIService | null = null;
 let cachedProviderType: string | null = null;
+let mapContextProvider: ((enhanced?: boolean) => string) | null = null;
 
 const getProvider = async (): Promise<AIService> => {
     const effectiveConfig = await getEffectiveAIConfig();
@@ -54,6 +55,10 @@ export const resetProvider = () => {
     cachedProviderType = null;
 };
 
+export const setProviderCallbacks = async (callbacks: { onTokenUpdate?: (count: number) => void; onStatusUpdate?: (status: 'idle' | 'generating' | 'summarizing') => void }) => {
+    (await getProvider()).setCallbacks(callbacks);
+};
+
 export const analyzeSCPUrl = async (input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData> => {
     return (await getProvider()).analyzeSCPUrl(input, language, role, difficulty, legacyData, profile);
 };
@@ -64,6 +69,10 @@ export const generateProfileCandidates = async (role: string, scpDesignation: st
 
 export const initializeGameChatStream = async (scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData, difficulty: GameDifficulty = 'normal'): Promise<AsyncGenerator<string>> => {
     return (await getProvider()).initializeGameChatStream(scp, role, language, legacyData, difficulty);
+};
+
+export const getSummaryContext = async (): Promise<string> => {
+    return (await getProvider()).getSummaryContext();
 };
 
 export const retrieveRelevantMemories = async (
@@ -114,7 +123,17 @@ export const retrieveRelevantMemories = async (
     }
 };
 
-export const sendAction = async function* (action: string, currentStability: number, turnCount: number, language: Language = 'zh', timelineId?: string, mapContext?: string): AsyncGenerator<string> {
+export const setMapContextProvider = (provider: ((enhanced?: boolean) => string) | null) => {
+    mapContextProvider = provider;
+};
+
+export const sendAction = async function* (
+    action: string, 
+    currentStability: number, 
+    turnCount: number, 
+    language: Language = 'zh', 
+    timelineId?: string, 
+): AsyncGenerator<string> {
     let ragContext = "";
     if (timelineId) {
         ragContext = await retrieveRelevantMemories(action, timelineId, turnCount);
@@ -133,7 +152,14 @@ export const sendAction = async function* (action: string, currentStability: num
     }
 
     const provider = await getProvider();
-    const generator = provider.sendAction(action, currentStability, turnCount, language, ragContext, mapContext);
+    const generator = provider.sendAction(
+        action, 
+        currentStability, 
+        turnCount, 
+        language, 
+        ragContext, 
+        mapContextProvider || undefined
+    );
     for await (const chunk of generator) {
         yield chunk;
     }
@@ -144,8 +170,8 @@ export const getChatHistory = async (): Promise<Content[]> => {
     return (await getProvider()).getChatHistory();
 };
 
-export const restoreChatSession = async (history: Content[], role: string, language: Language = 'zh'): Promise<void> => {
-    return (await getProvider()).restoreChatSession(history, role, language);
+export const restoreChatSession = async (options: { history: Content[]; role: string; language?: Language; tokenCount?: number; summaryContext?: string }): Promise<void> => {
+    return (await getProvider()).restoreChatSession(options);
 };
 
 export const generateAudioDramaScript = async (messages: Message[], role: string, scpDesignation: string, language: Language = 'zh'): Promise<AudioDramaScript | null> => {
@@ -171,8 +197,8 @@ export const generateLegacyData = async (
     return (await getProvider()).generateLegacyData(ending, role, language);
 };
 
-export const generateImage = async (prompt: string, aspectRatio: "1:1" | "16:9" | "3:4" = "1:1"): Promise<string | null> => {
-    return (await getProvider()).generateImage(prompt, aspectRatio);
+export const generateImage = async (prompt: string, aspectRatio: "1:1" | "16:9" | "3:4" = "1:1", responseFormat: "url" | "b64_json" = "url"): Promise<string | null> => {
+    return (await getProvider()).generateImage(prompt, aspectRatio, responseFormat);
 };
 
 export { getEmbeddings };

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GameState, GameStatus, EndingType, GameReviewData, QAPair, LegacyData } from '../types';
-import { getChatHistory, restoreChatSession, clearMemoryCache } from '../services/aiService';
+import { getChatHistory, getSummaryContext, restoreChatSession, clearMemoryCache } from '../services/aiService';
 import ConfirmationModal from './ConfirmationModal';
 import SaveLoadModal from './SaveLoadModal';
 import WorldLineTree from './WorldLineTree';
@@ -111,7 +111,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   const handleOpenSaveModal = async () => {
     try {
       const history = await getChatHistory();
-      setGameState(prev => ({ ...prev, chatHistory: history, language }));
+      const summaryContext = await getSummaryContext();
+      setGameState(prev => ({ ...prev, chatHistory: history, summaryContext, language }));
       setSaveLoadMode('save');
       setSaveLoadModalOpen(true);
     } catch (e) {
@@ -130,7 +131,13 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
     }
 
     if (newGameState.chatHistory) {
-      await restoreChatSession(newGameState.chatHistory, newGameState.role, newGameState.language || language);
+      await restoreChatSession({
+        history: newGameState.chatHistory,
+        role: newGameState.role,
+        language: newGameState.language || language,
+        tokenCount: newGameState.tokenCount,
+        summaryContext: newGameState.summaryContext
+      });
     }
     
     const restoredMessages = newGameState.messages.map(msg => ({

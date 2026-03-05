@@ -230,19 +230,19 @@ Output Format: JSON Array ONLY. NO markdown, NO extra text.
 };
 
 const getNormalTurnRequirements = (langInstruction: string) => `
-【常规回合任务】
+【常规回合任务说明】
 1. 分析用户操作，并生成${langInstruction}叙事回应 (200字以内，必须遵守)。你生成的叙事回应必须逐步向某个结局收敛。
 2. NPC说话时，必须使用[@npc_id: 对话内容]格式，不要在叙事中直接转述。对话内容为第一人称。不得夹杂其他内容。
  - 每个NPC只能出现一次对白内容块。
  - NPC对白必须独占一行。
  - 示例：[@guard_01: 站住！这里是禁区。]
 3. 判定是否达成结局 (CONTAINED/DEATH/COLLAPSE/ESCAPED)，如达成必须生成[ENDING: TYPE]。
-4. 如果未达成结局，给玩家2-3个互动选项，并加上“其他（请输入）”，选项用数字编号。
+4. 如果未达成结局，给玩家2-3个互动选项，选项用数字编号。
 5. 如果 Stability <= 0，必须强制生成 [ENDING: COLLAPSE]。
 6. 地图机制：如果用户行动涉及前往地点，你必须根据[地图状态]判断可行性：一般只能移动到“可达邻接地点”；若被门禁阻挡，保持位置不变。
 7. 若本回合位置发生变化，你必须在末尾添加 [LOC: <node_id>]（node_id必须是地图节点ID）。
 8. 若发生地图状态变化，你可以在末尾添加 [MAP_UPDATE: <JSON>]。仅在有变化时填写对应字段，JSON字段说明如下：
-   - addAccessTokens: ["token_id"],
+   - addAccessTokens: ["token_id"], -->必须是已存在的token_id
    - moveNPCs: [{ "id": "npc_id", "nodeId": "node_id", "alive": true }],
    - updateObjectives: [{ "id": "obj_id", "status": "ACTIVE|COMPLETED|FAILED", "progress": 0-100 }]
    - addObjectives: [{ "id": "obj_id", "title": "string", "type": "MAIN|SIDE", "nodeId": "node_id", "status": "ACTIVE", "progress": 0-100, "detail": "string", "reward": { "accessTokens": ["token_id"], "stabilityDelta": -20..20 } }]
@@ -250,7 +250,8 @@ const getNormalTurnRequirements = (langInstruction: string) => `
   示例：[MAP_UPDATE: {"addAccessTokens": ["key_lvl2"], "moveNPCs": [{"id": "npc_1", "nodeId": "node_xxx"}],"updateObjectives": [{"id": "obj_xxx", "progress": 60, "detail": "string"}]]
 9. 在末尾添加 [STABILITY: <new_value>]。
 10. 若场景视觉发生重大变化，添加 [VISUAL: <prompt>]，如果变化不大则不要添加。
-11. 所有System Tags必须在**最末尾**添加。`;
+11. 所有System Tags必须在**最末尾**添加。
+【常规回合任务说明结束】`;
 
 export const getStartGamePrompt = (role: string, scpDesignation: string, containmentClass: string, language: Language, difficulty: GameDifficulty, legacyData?: LegacyData, mapBlueprint?: MapBlueprint, storyDraft?: StoryDraft) => {
     const langInstruction = language === 'zh' ? '中文' : '英文';
@@ -311,7 +312,7 @@ ${mapInjection}
 (如果存在继承特质，请将其融入此处)
 
 - "${role}"的初始遭遇场景, 主线任务等, 200-300字, ${langInstruction}。 ${legacyData ? '（如果存在继承物品，请提及角色已持有它们）' : ''}
-- 2-3个初始互动选项, 并加上额外选项：“其他（请输入）”。
+- 2-3个初始互动选项。
 - [STABILITY: 100]
 - [VISUAL: prompt] (可选)
 
@@ -371,6 +372,42 @@ Format: RETURN ONLY RAW JSON. No markdown.
 `;
 };
 
+export const getCompressionPrompt = (historyText: string, language: Language, firstMessageContent?: string) => {
+    const lang = language === 'zh' ? 'Chinese' : 'English';
+    const firstMsgContext = firstMessageContent ? `
+[Initial Context]
+${firstMessageContent}
+` : '';
+
+    return `
+[SYSTEM COMMAND: MEMORY COMPRESSION]
+You are the AI Narrator of "SCP Entry: Loom of Fate", a high-stakes text adventure game.
+Your task is to compress the following story segment into a structured summary.
+
+${firstMsgContext}
+
+[Compression Goals]
+1. **Preserve Continuity**: Maintain the flow of events from the beginning.
+2. **Retain Key Information**: Keep track of acquired items, discovered clues, NPC statuses (alive/dead/met), and critical decisions made by the player.
+3. **Current Status**: Clearly state where the player is and what their immediate objective is.
+4. **Tone**: Maintain the clinical yet atmospheric tone of the SCP Foundation.
+5. **Exclusion Rule**: Do NOT include or restate the first-turn opening in the summary. It is provided only as background context.
+
+[Output Format]
+[Overall Summary]
+- ~300 words, cohesive paragraph form, third-person perspective.
+
+[Turn Summaries]
+- Turn X: 1-2 sentences, third-person, end with [STABILITY: <number>].
+- Turn Y: 1-2 sentences, third-person, end with [STABILITY: <number>].
+
+[Input Segment to Compress]
+${historyText}
+
+Output Language: ${lang}
+`;
+}
+
 export const getContextPrompt = (action: string, currentStability: number, turnCount: number, language: Language, ragContext?: string, mapContext?: string) => {
     const langInstruction = language === 'zh' ? '中文' : '英文';
     const ragSection = ragContext ? `
@@ -385,7 +422,7 @@ ${ragContext}
 ${mapContext}
 [地图状态结束]
 ` : '';
-    const normalTurnReminder = turnCount % 5 === 1 ? getNormalTurnRequirements(langInstruction) : '';
+    const normalTurnReminder = getNormalTurnRequirements(langInstruction);
 
     const finalContextPrompt = `
 [系统状态]

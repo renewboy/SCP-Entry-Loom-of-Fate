@@ -1,9 +1,9 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { AIService } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
-import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt } from "../prompts";
+import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt, getCompressionPrompt } from "../prompts";
 import { getEditorAssistantPrompt, getEditorAssistantContext, editorTools } from "../editorPrompts";
-import { normalizeGameReviewData, safeParseJson } from "../utils";
+import { normalizeGameReviewData, safeParseJson, cleanHistoryText } from "../utils";
 import { AudioDramaSchema } from "../schemas";
 import { postJson, streamSse } from "./backendClient";
 import { aiConfig } from "../../../config/aiConfig";
@@ -25,10 +25,13 @@ const getOpenAIResponseDelta = (chunk: any): string => {
 
 export class OpenAIProvider implements AIService {
     private messages: ChatMessage[] = [];
+    private summaryContext: string = "";
+    private currentTokenCount: number = 0;
     private systemInstruction: string = "";
     private gameReviewHistory: ChatMessage[] = [];
     private qaHistory: ChatMessage[] = [];
-    private cachedConfig: { apiKey: string; baseUrl: string; chatModel: string; imageModel: string } | null = null;
+    private cachedConfig: { apiKey: string; baseUrl: string; chatModel: string; imageModel: string; contextConfig: { tokenLimit: number; compressionCount: number } } | null = null;
+    private callbacks: { onTokenUpdate?: (count: number) => void; onStatusUpdate?: (status: 'idle' | 'generating' | 'summarizing') => void } = {};
 
     private async getConfig() {
         if (this.cachedConfig) return this.cachedConfig;
@@ -38,14 +41,40 @@ export class OpenAIProvider implements AIService {
             baseUrl: effective.openai.baseUrl,
             chatModel: effective.openai.chatModel,
             imageModel: effective.openai.imageModel,
+            contextConfig: aiConfig.context,
         };
         return this.cachedConfig;
+    }
+
+    setCallbacks(callbacks: { onTokenUpdate?: (count: number) => void; onStatusUpdate?: (status: 'idle' | 'generating' | 'summarizing') => void }): void {
+        this.callbacks = callbacks || {};
+    }
+
+    getSummaryContext(): string {
+        return this.summaryContext;
+    }
+
+    private buildMessages(prompt: string, extraHistory: ChatMessage[] = []): ChatMessage[] {
+        let baseMessages = [...this.messages, ...extraHistory];
+        if (this.summaryContext) {
+            const prefix = baseMessages.slice(0, 3);
+            const suffix = baseMessages.slice(3);
+            baseMessages = [
+                ...prefix,
+                { role: "system", content: `[PREVIOUS STORY SUMMARY]\n${this.summaryContext}` },
+                ...suffix
+            ];
+        }
+        return [
+            ...baseMessages,
+            { role: "user", content: prompt }
+        ];
     }
 
     constructor() {
     }
 
-    public async generateImage(prompt: string, aspectRatio: "1:1" | "16:9" | "3:4" = "1:1"): Promise<string | null> {
+    public async generateImage(prompt: string, aspectRatio: "1:1" | "16:9" | "3:4" = "1:1", responseFormat: "url" | "b64_json" = "url"): Promise<string | null> {
         try {
             const config = await this.getConfig();
             const response = await postJson<any>("/api/ai/openai/generate-image", {
@@ -54,6 +83,7 @@ export class OpenAIProvider implements AIService {
                 model: config.imageModel,
                 size: imageSizeFromAspectRatio(aspectRatio),
                 prompt: prompt,
+                response_format: responseFormat,
                 extra_body: {
                     watermark: false,
                 }
@@ -153,6 +183,7 @@ export class OpenAIProvider implements AIService {
         this.gameReviewHistory = [];
         this.qaHistory = [];
 
+        if (this.callbacks.onStatusUpdate) this.callbacks.onStatusUpdate('generating');
         let fullResponse = "";
         for await (const chunk of streamSse<any>("/api/ai/openai/response-stream", {
             apiKey: config.apiKey,
@@ -164,21 +195,47 @@ export class OpenAIProvider implements AIService {
             const delta = getOpenAIResponseDelta(chunk);
             fullResponse += delta;
             yield delta;
+            if (chunk.type === "response.completed") {
+                const usage = chunk.response?.usage;
+                if (usage) {
+                    this.currentTokenCount = usage.total_tokens;
+                    if (this.callbacks.onTokenUpdate) this.callbacks.onTokenUpdate(this.currentTokenCount);
+                }
+            }
         }
         console.log("[OpenAIProvider] Initialization complete. Response: ", fullResponse);
         this.messages.push({ role: "assistant", content: fullResponse });
     }
 
-    async *sendAction(action: string, currentStability: number, turnCount: number, language: Language = 'zh', ragContext?: string, mapContext?: string): AsyncGenerator<string> {
+    async *sendAction(
+        action: string, 
+        currentStability: number, 
+        turnCount: number, 
+        language: Language = 'zh', 
+        ragContext?: string, 
+        mapContext?: ((enhanced?: boolean) => string),
+    ): AsyncGenerator<string> {
         console.log(`[OpenAIProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}`);
         const config = await this.getConfig();
+        const { tokenLimit } = config.contextConfig;
 
         if (this.messages.length === 0) {
             console.error("[OpenAIProvider] CRITICAL: messages empty. Game state may have been reset.");
             throw new Error("Game not initialized - session missing");
         }
 
-        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, mapContext);
+        if (this.currentTokenCount > tokenLimit) {
+             console.log(`[OpenAIProvider] Token limit exceeded (${this.currentTokenCount} > ${tokenLimit}). Compressing...`);
+             if (this.callbacks.onStatusUpdate) this.callbacks.onStatusUpdate('summarizing');
+             await this.compressHistory(language);
+             if (this.callbacks.onStatusUpdate) this.callbacks.onStatusUpdate('generating');
+        }
+
+        const resolvedMapContext = mapContext ? mapContext(this.currentTokenCount > tokenLimit) : undefined;
+        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, resolvedMapContext);
+
+        // Inject summary if exists
+        const messagesToSend = this.buildMessages(contextPrompt);
 
         try {
             let fullResponse = "";
@@ -186,20 +243,75 @@ export class OpenAIProvider implements AIService {
                 apiKey: config.apiKey,
                 baseUrl: config.baseUrl,
                 chatModel: config.chatModel,
-                input: [...this.messages, { role: "user", content: contextPrompt }],
+                input: messagesToSend,
                 tools: [],
             })) {
                 const delta = getOpenAIResponseDelta(chunk);
                 fullResponse += delta;
                 yield delta;
+                if (chunk.type === "response.completed") {
+                    const usage = chunk.response?.usage;
+                    if (usage) {
+                        this.currentTokenCount = usage.total_tokens;
+                        if (this.callbacks.onTokenUpdate) this.callbacks.onTokenUpdate(this.currentTokenCount);
+                    }
+                }
             }
             console.log("[OpenAIProvider] sendAction complete. Response: ", fullResponse);
-            this.messages.push({ role: "user", content: contextPrompt });
-            this.messages.push({ role: "assistant", content: fullResponse });
+            
+            const cleanResponse = cleanHistoryText(fullResponse);
+            const cleanPrompt = cleanHistoryText(contextPrompt);
+            
+            this.messages.push({ role: "user", content: cleanPrompt });
+            this.messages.push({ role: "assistant", content: cleanResponse });
 
         } catch (err) {
             console.error("[OpenAIProvider] Error in sendAction: ", err);
             throw err;
+        }
+    }
+
+    private async compressHistory(language: Language): Promise<void> {
+        const config = await this.getConfig();
+        const { compressionCount } = config.contextConfig;
+
+        if (this.messages.length <= compressionCount + 3) return;
+
+        const systemMsg = this.messages[0];
+        const firstMsg = this.messages[1];
+        const firstResponse = this.messages[2];
+        
+        const toCompress = this.messages.slice(3, 3 + compressionCount);
+        const remaining = this.messages.slice(3 + compressionCount);
+        
+        const historyText = toCompress.map(msg => {
+             const role = msg.role === 'user' ? 'User' : 'Narrator';
+             return `${role}: ${msg.content}`;
+        }).join('\n\n');
+
+        const firstMsgContent = [
+            firstMsg?.content ? `User: ${firstMsg.content}` : "",
+            firstResponse?.content ? `Narrator: ${firstResponse.content}` : ""
+        ].filter(Boolean).join('\n');
+        const prompt = getCompressionPrompt(historyText, language, firstMsgContent);
+        
+        try {
+            const response = await postJson<any>("/api/ai/openai/response", {
+                apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
+                chatModel: config.chatModel,
+                input: prompt,
+            });
+            const summary = getOpenAIText(response);
+            if (summary) {
+                this.summaryContext += `\n[Summary Segment]: ${summary}`;
+                console.log(`[OpenAIProvider] Compressed history. summaryContext: ${this.summaryContext}`);
+                this.messages = [systemMsg, firstMsg, firstResponse, ...remaining];
+                console.log(`[OpenAIProvider] Compressed history. New length: ${this.messages.length}`);
+                this.currentTokenCount = 0;
+            }
+        } catch (e) {
+             console.error("Failed to compress history", e);
         }
     }
 
@@ -220,12 +332,14 @@ export class OpenAIProvider implements AIService {
         return googleMessages;
     }
 
-    async restoreChatSession(history: any[], role: string, language: Language = 'zh'): Promise<void> {
+    async restoreChatSession(options: { history: any[]; role: string; language?: Language; tokenCount?: number; summaryContext?: string }): Promise<void> {
+        const { history, role, language = 'zh', tokenCount, summaryContext } = options;
         this.systemInstruction = getSystemInstruction(role, language);
         
         this.messages = [{ role: "system", content: this.systemInstruction }];
         this.gameReviewHistory = [];
         this.qaHistory = [];
+        this.summaryContext = summaryContext || "";
 
         const restoredMessages: ChatMessage[] = history.map(msg => {
             const role = msg.role === 'model' ? 'assistant' : 'user';
@@ -234,6 +348,7 @@ export class OpenAIProvider implements AIService {
         });
 
         this.messages = [...this.messages, ...restoredMessages];
+        this.currentTokenCount = typeof tokenCount === 'number' ? tokenCount : 0;
     }
 
     async generateAudioDramaScript(
@@ -294,7 +409,7 @@ export class OpenAIProvider implements AIService {
                 apiKey: config.apiKey,
                 baseUrl: config.baseUrl,
                 chatModel: config.chatModel,
-                input: [...this.messages, { role: "user", content: prompt }],
+                input: this.buildMessages(prompt),
             });
             const text = output_text || "";
             if (!text) throw new Error("Empty response for review");
@@ -318,12 +433,10 @@ export class OpenAIProvider implements AIService {
         const config = await this.getConfig();
 
         const prompt = getQAPrompt(question, language);
-        const qaMessages: ChatMessage[] = [
-            ...this.messages,
+        const qaMessages: ChatMessage[] = this.buildMessages(prompt, [
             ...this.gameReviewHistory,
-            ...this.qaHistory,
-            { role: "user", content: prompt }
-        ];
+            ...this.qaHistory
+        ]);
 
         try {
             let fullResponse = "";
@@ -356,7 +469,7 @@ export class OpenAIProvider implements AIService {
                 apiKey: config.apiKey,
                 baseUrl: config.baseUrl,
                 chatModel: config.chatModel,
-                input: [...this.messages, { role: "user", content: prompt }],
+                input: this.buildMessages(prompt),
             });
             const text = output_text || "";
             if (!text) throw new Error("Empty response for legacy data");

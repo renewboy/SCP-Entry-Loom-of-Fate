@@ -15,7 +15,12 @@ const InputArea: React.FC<InputAreaProps> = ({
     input, setInput, handleSend, isProcessing, gameState, t, inputRef 
 }) => {
   return (
-      <div className="p-4 bg-black/50 border-t border-scp-gray/30 scp-ui" id="input-area">
+      <div className="p-4 bg-black/50 border-t border-scp-gray/30 scp-ui relative" id="input-area">
+        {gameState.tokenCount !== undefined && (
+            <div className="absolute right-4 -top-6 text-xs text-scp-term font-mono opacity-70">
+                Tokens: {gameState.tokenCount}
+            </div>
+        )}
         <div className="flex gap-2 relative">
           <span className="absolute left-3 top-3 text-scp-term font-mono pointer-events-none"></span>
           <input

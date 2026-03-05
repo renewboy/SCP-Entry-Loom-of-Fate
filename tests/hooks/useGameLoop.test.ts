@@ -6,12 +6,16 @@ import { GameStatus, type GameState } from '../../types';
 import type { MapUpdate } from '../../hooks/useMapUpdate';
 
 const sendActionMock = vi.hoisted(() => vi.fn());
+const setMapContextProviderMock = vi.hoisted(() => vi.fn());
+const setProviderCallbacksMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../../services/aiService', async () => {
   const utils = await import('../../services/ai/utils');
   return {
     ...utils,
     sendAction: sendActionMock,
+    setMapContextProvider: setMapContextProviderMock,
+    setProviderCallbacks: setProviderCallbacksMock,
     generateImage: vi.fn()
   };
 });

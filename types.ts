@@ -325,12 +325,15 @@ export interface GameState {
   objectives?: ObjectiveState[];
   inventory?: ItemState[];
   chatHistory?: any[]; // Raw chat history from Gemini model
+  summaryContext?: string; // Compressed summary context
   language?: Language; // Language setting at the time of save
   gameReview?: GameReviewData | null; // Persisted game review
   qaHistory?: QAPair[]; // Persisted Q&A history
   legacy?: LegacyData; // New Game+ Legacy Data
   saveId?: string; // The UUID of the save slot this game belongs to (for RAG context)
   returnFromEditor?: boolean; // Transient flag to indicate return from Story Editor
+  tokenCount?: number; // Current context token count
+  aiState?: 'idle' | 'generating' | 'summarizing'; // Current AI state
 }
 
 export interface SaveGameMetadata {

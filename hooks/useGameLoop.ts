@@ -7,13 +7,16 @@ import {
     extractEnding,
     extractLoc,
     extractMapUpdate,
-    generateImage
+    generateImage,
+    setMapContextProvider,
+    setProviderCallbacks
 } from '../services/aiService';
 import { loadGlobalSettings } from '../services/indexedDBService';
 import { enhanceScenePrompt } from '../services/ai/promptUtils';
 import { MapUpdate } from './useMapUpdate';
 
 const IDLE_TIMEOUT_MS = 30000;
+const SUMMARIZING_TIMEOUT_MS = 60000;
 
 interface UseGameLoopOptions {
     gameState: GameState;
@@ -95,14 +98,42 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
             console.log("[GameLoop] Invoking sendAction stream...");
             let fullResponse = '';
 
-            const mapContext = buildMapContext();
-            const stream = sendAction(userMsg.content, currentStability, newTurnCount, language, gameState.saveId, mapContext);
+            const onTokenUpdate = (count: number) => {
+                 setGameState(prev => ({ ...prev, tokenCount: count }));
+            };
+            
+            let timeoutReject: ((error: Error) => void) | null = null;
+            const startTimeout = (ms: number) => {
+                if (idleTimeoutId) clearTimeout(idleTimeoutId);
+                if (!timeoutReject) return;
+                idleTimeoutId = setTimeout(() => timeoutReject?.(new Error('TIMEOUT')), ms);
+            };
+
+            const onStatusUpdate = (status: 'idle' | 'generating' | 'summarizing') => {
+                 setGameState(prev => ({ ...prev, aiState: status }));
+                 if (status === 'summarizing') {
+                    startTimeout(SUMMARIZING_TIMEOUT_MS);
+                 } else {
+                    startTimeout(IDLE_TIMEOUT_MS);
+                 }
+            };
+
+            setMapContextProvider(buildMapContext);
+            setProviderCallbacks({ onTokenUpdate, onStatusUpdate });
+            const stream = sendAction(
+                userMsg.content, 
+                currentStability, 
+                newTurnCount, 
+                language, 
+                gameState.saveId
+            );
             const iterator = stream[Symbol.asyncIterator]();
 
             let idleTimeoutId: NodeJS.Timeout;
 
             const createTimeoutPromise = () => new Promise<never>((_, reject) => {
-                idleTimeoutId = setTimeout(() => reject(new Error('TIMEOUT')), IDLE_TIMEOUT_MS);
+                timeoutReject = reject;
+                startTimeout(IDLE_TIMEOUT_MS);
             });
 
             try {
@@ -113,6 +144,7 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
                     ]);
 
                     clearTimeout(idleTimeoutId!);
+                    timeoutReject = null;
 
                     if (result.done) break;
 

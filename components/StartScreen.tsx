@@ -416,7 +416,13 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
         mode="load"
         onLoadGame={async (gameState) => {
             if (gameState.chatHistory) {
-                await restoreChatSession(gameState.chatHistory, gameState.role, language);
+                await restoreChatSession({
+                    history: gameState.chatHistory,
+                    role: gameState.role,
+                    language,
+                    tokenCount: gameState.tokenCount,
+                    summaryContext: gameState.summaryContext
+                });
             }
             setGameState(gameState);
             setSaveLoadModalOpen(false);

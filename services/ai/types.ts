@@ -5,11 +5,20 @@ import { AgentStreamEvent } from './streamProtocol';
 export interface AIService {
     analyzeSCPUrl(input: string, language: Language, role: string, difficulty: GameDifficulty, legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData>;
     generateProfileCandidates(role: string, scpDesignation: string, language: Language): Promise<EntityProfile[]>;
-    generateImage(prompt: string, aspectRatio?: "1:1" | "16:9" | "3:4"): Promise<string | null>;
+    generateImage(prompt: string, aspectRatio?: "1:1" | "16:9" | "3:4", responseFormat?: "url" | "b64_json"): Promise<string | null>;
     initializeGameChatStream(scp: SCPData, role: string, language: Language, legacyData: LegacyData | undefined, difficulty: GameDifficulty): AsyncGenerator<string>;
-    sendAction(action: string, currentStability: number, turnCount: number, language: Language, ragContext?: string, mapContext?: string): AsyncGenerator<string>;
+    setCallbacks(callbacks: { onTokenUpdate?: (count: number) => void; onStatusUpdate?: (status: 'idle' | 'generating' | 'summarizing') => void }): void;
+    getSummaryContext(): string;
+    sendAction(
+        action: string, 
+        currentStability: number, 
+        turnCount: number, 
+        language: Language, 
+        ragContext?: string, 
+        mapContext?: ((enhanced?: boolean) => string)
+    ): AsyncGenerator<string>;
     getChatHistory(): Promise<any[]>;
-    restoreChatSession(history: any[], role: string, language: Language): Promise<void>;
+    restoreChatSession(options: { history: any[]; role: string; language?: Language; tokenCount?: number; summaryContext?: string }): Promise<void>;
     generateAudioDramaScript(messages: Message[], role: string, scpDesignation: string, language: Language): Promise<AudioDramaScript | null>;
     generateGameReview(role: string, ending: EndingType, language: Language): Promise<GameReviewData>;
     askNarratorQuestion(question: string, language: Language): AsyncGenerator<string>;

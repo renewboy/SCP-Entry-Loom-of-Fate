@@ -5,7 +5,6 @@ import { createClient } from "npm:@supabase/supabase-js";
 
 const getCorsHeaders = (origin: string | null) => {
   const raw = Deno.env.get("ALLOWED_ORIGINS") || "";
-  console.log(`getCorsHeaders ALLOWED_ORIGINS: ${raw}`);
   const allowed = raw
     .split(",")
     .map((value) => value.trim())
@@ -27,7 +26,6 @@ const jsonResponse = (data: unknown, status = 200, headers: HeadersInit = {}) =>
 
 const getAllowedOrigins = () => {
   const raw = Deno.env.get("ALLOWED_ORIGINS") || "";
-  console.log(`getAllowedOrigins ALLOWED_ORIGINS: ${raw}`);
   return raw
     .split(",")
     .map((value) => value.trim())

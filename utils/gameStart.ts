@@ -1,5 +1,5 @@
 import { GameState, GameStatus } from '../types';
-import { initializeGameChatStream, extractStability, extractVisualPrompt, generateImage, extractLoc, extractMapUpdate } from '../services/aiService';
+import { initializeGameChatStream, extractStability, extractVisualPrompt, generateImage, extractLoc, extractMapUpdate, setProviderCallbacks } from '../services/aiService';
 import { loadGlobalSettings } from '../services/indexedDBService';
 import { enhanceBackgroundPrompt, enhanceEntityPrompt, enhanceNpcPrompt } from '../services/ai/promptUtils';
 
@@ -25,13 +25,15 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
             mapBlueprint: finalBlueprint
         };
 
-        setGameState(prev => ({
-            ...prev,
-            scpData: finalScpData
-        }));
-
         const draftBg = finalScpData.storyDraft?.backgroundImage;
         const draftEntity = finalScpData.storyDraft?.entityImage;
+
+        setGameState(prev => ({
+            ...prev,
+            scpData: finalScpData,
+            backgroundImage: draftBg || prev.backgroundImage,
+            mainImage: draftEntity || prev.mainImage
+        }));
 
         // --- Start Async Image Generation (Non-blocking) ---
         // 1. Background Image
@@ -39,7 +41,8 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
         if (!hasBg && settings.enableBackgroundImages) {
              const bgDesc = finalScpData.visualDescription || `texture and atmosphere of ${finalScpData.name}`;
              const bgPrompt = enhanceBackgroundPrompt(bgDesc);
-             generateImage(bgPrompt, "16:9").then(bgUrl => {
+             // use b64_json to get base64 image data for bypassing CORS issue when creating thumbnail
+             generateImage(bgPrompt, "16:9", "b64_json").then(bgUrl => {
                  if(bgUrl) setGameState(prev => ({...prev, backgroundImage: bgUrl}));
              });
         }
@@ -80,6 +83,10 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
             });
         }
 
+        setProviderCallbacks({
+            onTokenUpdate: (count: number) => setGameState(prev => ({ ...prev, tokenCount: count })),
+            onStatusUpdate: (status: 'idle' | 'generating' | 'summarizing') => setGameState(prev => ({ ...prev, aiState: status }))
+        });
         const stream = await initializeGameChatStream(finalScpData, gameState.role, language, gameState.legacy, difficulty);
         const msgId = 'intro';
         let fullText = "";
@@ -121,15 +128,12 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
                 setGameState(prev => ({
                     ...prev,
                     status: GameStatus.PLAYING,
-                    scpData: finalScpData,
                     stability: 100,
                     turnCount: 0,
                     map: initialMap,
                     npcs: initialNpcs,
                     objectives: initialObjectives,
                     inventory: [],
-                    backgroundImage: draftBg || prev.backgroundImage,
-                    mainImage: draftEntity || prev.mainImage,
                     messages: [{
                         id: msgId,
                         sender: 'narrator',
