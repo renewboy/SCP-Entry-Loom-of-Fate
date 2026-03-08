@@ -5,15 +5,16 @@ class EmbeddingProvider {
   constructor() {
   }
 
-  async getEmbeddings(texts: string[]): Promise<number[][]> {
-    if (!texts || texts.length === 0) return [];
+  async getEmbeddings(contents: string[]): Promise<number[][]> {
+    if (!contents || contents.length === 0) return [];
     try {
       const config = await getEffectiveAIConfig();
-      const { embeddings } = await postJson<{ embeddings: number[][] }>("/api/ai/gemini/embeddings", {
+      const response = await postJson<any>("/api/ai/gemini/embeddings", {
         apiKey: config.gemini.apiKey,
         model: config.gemini.embeddingModel,
-        texts,
+        contents,
       });
+      const embeddings = response.embeddings?.map((e) => e.values) || [];
       return embeddings;
     } catch (error) {
       console.error("Failed to generate embeddings:", error);
@@ -24,6 +25,6 @@ class EmbeddingProvider {
 
 const embeddingProvider = new EmbeddingProvider();
 
-export const getEmbeddings = async (texts: string[]): Promise<number[][]> => {
-  return embeddingProvider.getEmbeddings(texts);
+export const getEmbeddings = async (contents: string[]): Promise<number[][]> => {
+  return embeddingProvider.getEmbeddings(contents);
 };

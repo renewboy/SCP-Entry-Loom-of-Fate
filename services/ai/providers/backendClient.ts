@@ -81,7 +81,7 @@ export const postJson = async <T>(path: string, body: unknown): Promise<T> => {
   return response.json() as Promise<T>;
 };
 
-export async function* streamSse<T>(path: string, body: unknown): AsyncGenerator<T> {
+export async function* streamSse<T>(path: string, body: unknown, options?: { signal?: AbortSignal }): AsyncGenerator<T> {
   const headers = {
     ...(await getRequestHeaders()),
     ...(await signPayload(body)),
@@ -93,6 +93,7 @@ export async function* streamSse<T>(path: string, body: unknown): AsyncGenerator
       ...headers,
     },
     body: JSON.stringify(body),
+    signal: options?.signal,
   });
   if (!response.ok || !response.body) {
     throw await parseErrorResponse(response);

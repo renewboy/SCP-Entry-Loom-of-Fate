@@ -55,7 +55,7 @@ export const getSystemInstruction = (role: string, language: Language) => `
 3. 风格：慢热的恐怖感，冷静客观的科学记录风格与直观的危险感相结合。
 4. **所有回复必须严格遵循以下结构**：
   1. 约200字中文沉浸式叙事，使用第二人称（“你”）。
-  2. 提供3个符合逻辑的玩家后续行动选项，并加上第四个选项：“其他（请输入）”，所有选项以数字编号。
+  2. 如果未达结局，提供3个符合逻辑的玩家后续行动选项，所有选项以数字编号，触发结局时严禁生成选项。
   3. System Tags（位于末尾）：
     - [VISUAL: <English Image Prompt>]：（可选）仅当视觉场景发生显著变化时插入。描述格式要求："cinematic, scp foundation style, horror, dark, <scene details>"。
     - [STABILITY: <Integer>]：（必填）当前计算得出的稳定性数值。
@@ -233,11 +233,10 @@ const getNormalTurnRequirements = (langInstruction: string) => `
 【常规回合任务说明】
 1. 分析用户操作，并生成${langInstruction}叙事回应 (200字以内，必须遵守)。你生成的叙事回应必须逐步向某个结局收敛。
 2. NPC说话时，必须使用[@npc_id: 对话内容]格式，不要在叙事中直接转述。对话内容为第一人称。不得夹杂其他内容。
- - 每个NPC只能出现一次对白内容块。
  - NPC对白必须独占一行。
  - 示例：[@guard_01: 站住！这里是禁区。]
 3. 判定是否达成结局 (CONTAINED/DEATH/COLLAPSE/ESCAPED)，如达成必须生成[ENDING: TYPE]。
-4. 如果未达成结局，给玩家2-3个互动选项，选项用数字编号。
+4. 如果未达成结局，给玩家3个互动选项，选项用数字编号，达成结局时严禁生成选项。
 5. 如果 Stability <= 0，必须强制生成 [ENDING: COLLAPSE]。
 6. 地图机制：如果用户行动涉及前往地点，你必须根据[地图状态]判断可行性：一般只能移动到“可达邻接地点”；若被门禁阻挡，保持位置不变。
 7. 若本回合位置发生变化，你必须在末尾添加 [LOC: <node_id>]（node_id必须是地图节点ID）。
@@ -251,6 +250,8 @@ const getNormalTurnRequirements = (langInstruction: string) => `
 9. 在末尾添加 [STABILITY: <new_value>]。
 10. 若场景视觉发生重大变化，添加 [VISUAL: <prompt>]，如果变化不大则不要添加。
 11. 所有System Tags必须在**最末尾**添加。
+
+请严格按照上述要求生成回复，并严格根据游戏难度判定结果。请注意你生成的叙事和选项不要包含node_id,npc_id等不可读信息，要面向玩家。
 【常规回合任务说明结束】`;
 
 export const getStartGamePrompt = (role: string, scpDesignation: string, containmentClass: string, language: Language, difficulty: GameDifficulty, legacyData?: LegacyData, mapBlueprint?: MapBlueprint, storyDraft?: StoryDraft) => {
@@ -312,7 +313,7 @@ ${mapInjection}
 (如果存在继承特质，请将其融入此处)
 
 - "${role}"的初始遭遇场景, 主线任务等, 200-300字, ${langInstruction}。 ${legacyData ? '（如果存在继承物品，请提及角色已持有它们）' : ''}
-- 2-3个初始互动选项。
+- 3个初始互动选项。
 - [STABILITY: 100]
 - [VISUAL: prompt] (可选)
 
@@ -394,12 +395,12 @@ ${firstMsgContext}
 5. **Exclusion Rule**: Do NOT include or restate the first-turn opening in the summary. It is provided only as background context.
 
 [Output Format]
-[Overall Summary]
+**Overall Summary**
 - ~300 words, cohesive paragraph form, third-person perspective.
 
-[Turn Summaries]
-- Turn X: 1-2 sentences, third-person, end with [STABILITY: <number>].
-- Turn Y: 1-2 sentences, third-person, end with [STABILITY: <number>].
+**Each Turn Summaries**
+- Turn X: 1-2 sentences, third-person, end with [STABILITY: <number>], and [MAP_UPDATE: <JSON>] if exists.
+- Turn Y: same format as Turn X.
 
 [Input Segment to Compress]
 ${historyText}
@@ -436,8 +437,7 @@ ${ragSection}
 ${mapSection}
 
 ${normalTurnReminder}
-
-请严格按照【常规回合任务】的要求生成回复，并严格根据游戏难度判定结果。请注意你生成的叙事和选项不要包含node_id,npc_id等不可读信息，要面向玩家。`
+`
     return finalContextPrompt;
 };
 

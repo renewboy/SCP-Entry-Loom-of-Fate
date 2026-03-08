@@ -15,7 +15,8 @@ export interface AIService {
         turnCount: number, 
         language: Language, 
         ragContext?: string, 
-        mapContext?: ((enhanced?: boolean) => string)
+        mapContext?: ((enhanced?: boolean) => string),
+        signal?: AbortSignal
     ): AsyncGenerator<string>;
     getChatHistory(): Promise<any[]>;
     restoreChatSession(options: { history: any[]; role: string; language?: Language; tokenCount?: number; summaryContext?: string }): Promise<void>;

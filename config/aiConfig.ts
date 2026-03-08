@@ -18,7 +18,7 @@ export const aiConfig = {
     temperature: 0.9
   },
   context: {
-    tokenLimit: Number(import.meta.env.VITE_AI_TOKEN_LIMIT) || 13000,
-    compressionCount: Number(import.meta.env.VITE_AI_COMPRESSION_COUNT) || 30,
+    tokenLimit: Number(import.meta.env.VITE_AI_TOKEN_LIMIT) || 18000,
+    compressionCount: Number(import.meta.env.VITE_AI_COMPRESSION_COUNT) || 44,
   }
 };

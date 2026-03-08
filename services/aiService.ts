@@ -5,8 +5,8 @@ import { OpenAIProvider } from "./ai/providers/openaiProvider";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../types";
 import { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate } from "./ai/utils";
 import { getEmbeddings } from "./ai/providers/embeddingProvider";
-import { searchLocalMemories } from "./indexedDBService";
-import { searchStagedRagMemories } from "./ragStaging";
+import { hasLocalMemories, searchLocalMemories } from "./indexedDBService";
+import { hasStagedRagMemories, searchStagedRagMemories } from "./ragStaging";
 import { getEffectiveAIConfig } from "./aiConfigService";
 
 export { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate };
@@ -90,6 +90,10 @@ export const retrieveRelevantMemories = async (
     console.log(`[Turn ${turnCount}] valid memories:`, validRecentMemories);
 
     try {
+        const hasStaged = hasStagedRagMemories(timelineId);
+        const hasLocal = await hasLocalMemories(timelineId);
+        if (!hasStaged && !hasLocal) return "";
+
         const embeddings = await getEmbeddings([action]);
         if (!embeddings || embeddings.length === 0) return "";
         
@@ -132,9 +136,11 @@ export const sendAction = async function* (
     currentStability: number, 
     turnCount: number, 
     language: Language = 'zh', 
-    timelineId?: string, 
+    timelineId?: string,
+    signal?: AbortSignal
 ): AsyncGenerator<string> {
     let ragContext = "";
+    console.log("timelineId:", timelineId);
     if (timelineId) {
         ragContext = await retrieveRelevantMemories(action, timelineId, turnCount);
         if (ragContext) {
@@ -158,7 +164,8 @@ export const sendAction = async function* (
         turnCount, 
         language, 
         ragContext, 
-        mapContextProvider || undefined
+        mapContextProvider || undefined,
+        signal
     );
     for await (const chunk of generator) {
         yield chunk;

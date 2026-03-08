@@ -333,6 +333,7 @@ export class GeminiProvider implements AIService {
         language: Language = 'zh', 
         ragContext?: string, 
         mapContext?: ((enhanced?: boolean) => string),
+        signal?: AbortSignal
     ): AsyncGenerator<string> {
         console.log(`[GeminiProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}, Language: ${language}`);
         const config = await this.getConfig();
@@ -363,7 +364,7 @@ export class GeminiProvider implements AIService {
                     tools: [],
                     cachedContent: cachedContent || undefined,
                 },
-            })) {
+            }, { signal })) {
                 const delta = getGeminiText(chunk);
                 fullResponse += delta;
                 yield delta;

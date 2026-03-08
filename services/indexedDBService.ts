@@ -443,6 +443,17 @@ const readAllByIndex = async <T>(db: IDBDatabase, storeName: string, indexName: 
     });
 };
 
+const countByIndex = async (db: IDBDatabase, storeName: string, indexName: string, key: IDBValidKey | IDBKeyRange) => {
+    return new Promise<number>((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
+        const index = store.index(indexName);
+        const req = index.count(key);
+        req.onsuccess = () => resolve(typeof req.result === 'number' ? req.result : 0);
+        req.onerror = () => reject(req.error);
+    });
+};
+
 const deleteByIndex = async (db: IDBDatabase, storeName: string, indexName: string, key: IDBValidKey | IDBKeyRange) => {
     return new Promise<void>((resolve, reject) => {
         const tx = db.transaction(storeName, 'readwrite');
@@ -566,5 +577,16 @@ export const searchLocalMemories = async (
         return { data: filtered, error: null };
     } catch (error) {
         return { data: null, error };
+    }
+};
+
+export const hasLocalMemories = async (timelineId: string): Promise<boolean> => {
+    try {
+        if (!timelineId) return false;
+        const db = await openDB();
+        const count = await countByIndex(db, RAG_STORE_NAME, 'by_timeline', timelineId);
+        return count > 0;
+    } catch {
+        return false;
     }
 };

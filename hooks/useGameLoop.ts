@@ -15,8 +15,8 @@ import { loadGlobalSettings } from '../services/indexedDBService';
 import { enhanceScenePrompt } from '../services/ai/promptUtils';
 import { MapUpdate } from './useMapUpdate';
 
-const IDLE_TIMEOUT_MS = 30000;
-const SUMMARIZING_TIMEOUT_MS = 60000;
+const IDLE_TIMEOUT_MS = 45000;
+const SUMMARIZING_TIMEOUT_MS = IDLE_TIMEOUT_MS * 3;
 
 interface UseGameLoopOptions {
     gameState: GameState;
@@ -102,11 +102,25 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
                  setGameState(prev => ({ ...prev, tokenCount: count }));
             };
             
+            const abortController = new AbortController();
+            let iterator: AsyncIterator<string> | null = null;
+            const cancelStream = () => {
+                if (!abortController.signal.aborted) {
+                    abortController.abort();
+                }
+                if (iterator?.return) {
+                    iterator.return(undefined as any).catch(() => {});
+                }
+            };
+
             let timeoutReject: ((error: Error) => void) | null = null;
             const startTimeout = (ms: number) => {
                 if (idleTimeoutId) clearTimeout(idleTimeoutId);
                 if (!timeoutReject) return;
-                idleTimeoutId = setTimeout(() => timeoutReject?.(new Error('TIMEOUT')), ms);
+                idleTimeoutId = setTimeout(() => {
+                    cancelStream();
+                    timeoutReject?.(new Error('TIMEOUT'));
+                }, ms);
             };
 
             const onStatusUpdate = (status: 'idle' | 'generating' | 'summarizing') => {
@@ -125,9 +139,10 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
                 currentStability, 
                 newTurnCount, 
                 language, 
-                gameState.saveId
+                gameState.saveId,
+                abortController.signal
             );
-            const iterator = stream[Symbol.asyncIterator]();
+            iterator = stream[Symbol.asyncIterator]();
 
             let idleTimeoutId: NodeJS.Timeout;
 

@@ -366,8 +366,12 @@ export const zh = {
     difficulty_insane: "疯狂",
     tab_game: "游戏设置",
     tab_ai: "AI 配置",
-    section_images: "图像设置",
     section_audio: "音频设置",
+    section_images: "视觉设置",
+    section_gameplay: "玩法设置",
+    skip_tactical: "跳过战术预览",
+    skip_profile: "跳过档案生成",
+    skip_boot: "跳过启动动画",
     bgm_volume: "背景音乐音量",
     sfx_volume: "音效音量",
     ai_attention: "检测到 AI 配置未完成。请先在此补全并保存，然后返回继续游戏。",
@@ -452,4 +456,22 @@ export const zh = {
     transition_analyzing: "正在解析角色参数：{role}...",
     backup_accessing: "正在访问备用数据库..."
   },
+  boot: {
+    scp_id: "项目编号",
+    scp_class: "项目等级",
+    scp_procedures: "特殊收容措施",
+    scp_desc: "描述",
+    scp_warning: "警告",
+    features_title: "异常特性详述",
+    feature_prefix: "特性",
+    skip_hint: "按回车键跳过",
+    phase_bios: "BIOS 自检",
+    phase_connect: "建立安全连接",
+    phase_archive: "档案解密中",
+    phase_ready: "神经连接就绪",
+    access_granted: "访问已批准",
+    decrypting: "解密中...",
+    press_any_key: "按任意键继续",
+    loading_archive: "正在加载档案数据..."
+  }
 };

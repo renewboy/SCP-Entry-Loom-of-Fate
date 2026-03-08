@@ -214,6 +214,7 @@ export class OpenAIProvider implements AIService {
         language: Language = 'zh', 
         ragContext?: string, 
         mapContext?: ((enhanced?: boolean) => string),
+        signal?: AbortSignal
     ): AsyncGenerator<string> {
         console.log(`[OpenAIProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}`);
         const config = await this.getConfig();
@@ -236,7 +237,6 @@ export class OpenAIProvider implements AIService {
 
         // Inject summary if exists
         const messagesToSend = this.buildMessages(contextPrompt);
-
         try {
             let fullResponse = "";
             for await (const chunk of streamSse<any>("/api/ai/openai/response-stream", {
@@ -245,7 +245,7 @@ export class OpenAIProvider implements AIService {
                 chatModel: config.chatModel,
                 input: messagesToSend,
                 tools: [],
-            })) {
+            }, { signal })) {
                 const delta = getOpenAIResponseDelta(chunk);
                 fullResponse += delta;
                 yield delta;
@@ -257,11 +257,11 @@ export class OpenAIProvider implements AIService {
                     }
                 }
             }
-            console.log("[OpenAIProvider] sendAction complete. Response: ", fullResponse);
-            
+            if(fullResponse.trim().length === 0) {
+                return;
+            }
             const cleanResponse = cleanHistoryText(fullResponse);
             const cleanPrompt = cleanHistoryText(contextPrompt);
-            
             this.messages.push({ role: "user", content: cleanPrompt });
             this.messages.push({ role: "assistant", content: cleanResponse });
 
@@ -345,7 +345,7 @@ export class OpenAIProvider implements AIService {
             const role = msg.role === 'model' ? 'assistant' : 'user';
             const content = msg.parts?.map(p => p.text).join('') || '';
             return { role, content } as ChatMessage;
-        });
+        }).filter(msg => msg.content.trim() !== '');
 
         this.messages = [...this.messages, ...restoredMessages];
         this.currentTokenCount = typeof tokenCount === 'number' ? tokenCount : 0;
@@ -440,12 +440,13 @@ export class OpenAIProvider implements AIService {
 
         try {
             let fullResponse = "";
-            for await (const delta of streamSse<string>("/api/ai/openai/response-stream", {
+            for await (const chunk of streamSse<any>("/api/ai/openai/response-stream", {
                 apiKey: config.apiKey,
                 baseUrl: config.baseUrl,
                 chatModel: config.chatModel,
                 input: qaMessages,
             })) {
+                const delta = getOpenAIResponseDelta(chunk);
                 fullResponse += delta;
                 yield delta;
             }

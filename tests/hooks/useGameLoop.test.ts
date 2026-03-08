@@ -151,7 +151,7 @@ describe('useGameLoop', () => {
 
     await act(async () => {
       const promise = result.current.api.handleSend('wait');
-      await vi.advanceTimersByTimeAsync(30000);
+      await vi.advanceTimersByTimeAsync(45000);
       await promise;
     });
 
