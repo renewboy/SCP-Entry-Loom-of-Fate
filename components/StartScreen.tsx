@@ -52,7 +52,11 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
   const [entityProfile, setEntityProfile] = useState<EntityProfile | undefined>(undefined);
 
   useEffect(() => {
-    setShowBoot(!bootShownInSession);
+    loadGlobalSettings().then(settings => {
+      if (!bootShownInSession && !settings.skipBootSequence) {
+        setShowBoot(true);
+      }
+    });
   }, []);
 
   useEffect(() => {

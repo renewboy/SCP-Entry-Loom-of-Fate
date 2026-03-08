@@ -411,6 +411,7 @@ export interface GlobalSettings {
   sfxVolume: number;
   skipTacticalPrep?: boolean;
   skipEntityProfile?: boolean;
+  skipBootSequence?: boolean; // Skip the boot sequence animation
   aiSettings?: AISettings;
 }
 

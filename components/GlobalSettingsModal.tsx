@@ -62,7 +62,7 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
         }
     }, [isOpen, initialTab, attention]);
 
-    const handleToggle = (key: 'enableSceneImages' | 'enableBackgroundImages' | 'enableEntityImages' | 'enableNpcImages') => {
+    const handleToggle = (key: 'enableSceneImages' | 'enableBackgroundImages' | 'enableEntityImages' | 'enableNpcImages' | 'skipBootSequence') => {
         if (!settings) return;
         const newSettings = { ...settings, [key]: !settings[key] };
         setSettings(newSettings);
@@ -168,12 +168,13 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
 
     if (!isOpen || !settings || !aiSettings) return null;
 
-    const getLabel = (key: 'enableSceneImages' | 'enableBackgroundImages' | 'enableEntityImages' | 'enableNpcImages') => {
-        const keyMap: Record<'enableSceneImages' | 'enableBackgroundImages' | 'enableEntityImages' | 'enableNpcImages', string> = {
+    const getLabel = (key: 'enableSceneImages' | 'enableBackgroundImages' | 'enableEntityImages' | 'enableNpcImages' | 'skipBootSequence') => {
+        const keyMap: Record<'enableSceneImages' | 'enableBackgroundImages' | 'enableEntityImages' | 'enableNpcImages' | 'skipBootSequence', string> = {
             enableSceneImages: 'settings.scene_images',
             enableBackgroundImages: 'settings.bg_images',
             enableEntityImages: 'settings.entity_images',
-            enableNpcImages: 'settings.npc_images'
+            enableNpcImages: 'settings.npc_images',
+            skipBootSequence: 'settings.skip_boot'
         };
         return t(keyMap[key]);
     };
@@ -266,6 +267,26 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
                                         </button>
                                     </div>
                                 ))}
+                            </div>
+                            <div className="p-4 border border-scp-gray/30 bg-scp-gray/10 space-y-3">
+                                <div className="text-xs text-gray-400 font-mono uppercase tracking-wider">
+                                    {t('settings.section_gameplay')}
+                                </div>
+                                <div className="flex items-center justify-between px-3 py-2 border border-transparent hover:border-scp-accent/30 transition-colors">
+                                    <span className="text-[13px] text-scp-text font-mono tracking-wider">
+                                        {getLabel('skipBootSequence')}
+                                    </span>
+                                    <button
+                                        onClick={() => handleToggle('skipBootSequence')}
+                                        className={`w-11 h-5 rounded-full p-0.5 transition-colors duration-300 ease-in-out relative ${
+                                            settings.skipBootSequence ? 'bg-scp-accent' : 'bg-gray-700'
+                                        }`}
+                                    >
+                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
+                                            settings.skipBootSequence ? 'translate-x-6' : 'translate-x-0'
+                                        }`}></div>
+                                    </button>
+                                </div>
                             </div>
                             <div className="p-4 border border-scp-gray/30 bg-scp-gray/10 space-y-4">
                                 <div className="text-xs text-gray-400 font-mono uppercase tracking-wider">
