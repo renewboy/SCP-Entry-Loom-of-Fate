@@ -3,12 +3,17 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "electron/main.mjs",
   "scripts": {
     "dev": "npm run dev:client",
     "dev:client": "vite",
     "dev:server": "node server/index.js",
     "dev:legacy": "concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:electron": "wait-on http://127.0.0.1:3000 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:3000 electron .",
+    "dev:desktop": "concurrently -k \"npm:dev:client\" \"npm:dev:electron\"",
     "build": "vite build",
+    "build:desktop": "cross-env DESKTOP_BUILD=1 vite build",
+    "pack:dir": "npm run build:desktop && electron-builder --dir",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run"
@@ -41,10 +46,43 @@
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "concurrently": "^9.2.0",
+    "cross-env": "^7.0.3",
+    "electron": "39.6.1",
+    "electron-builder": "^26.8.1",
     "jsdom": "^25.0.1",
     "terser": "^5.46.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
-    "vitest": "^2.1.9"
+    "vitest": "^2.1.9",
+    "wait-on": "^9.0.4"
+  },
+  "build": {
+    "appId": "scp.entry.loom.of.fate",
+    "productName": "SCP Entry Loom of Fate",
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "asar": true,
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        "dir"
+      ],
+      "identity": null
+    },
+    "win": {
+      "target": [
+        "dir"
+      ]
+    },
+    "linux": {
+      "target": [
+        "dir"
+      ]
+    }
   }
 }
