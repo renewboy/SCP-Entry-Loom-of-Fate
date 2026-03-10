@@ -128,8 +128,8 @@ The anomalous effects of SCP-10042-LOF are not limited to virtual narrative. Pro
   ],
 
   warning: {
-    zh: "警告：SCP-10042-LOF 相关文档可能具有模因危害。阅读后若出现记忆混淆、情绪异常或“世界回响”体验，请立即向 RAISA 报告。",
-    en: "WARNING: Documents related to SCP-10042-LOF may contain memetic hazards. If memory confusion, emotional anomalies, or 'World Echo' experiences occur after reading, immediately report to RAISA."
+    zh: "SCP-10042-LOF 相关文档可能具有模因危害。阅读后若出现记忆混淆、情绪异常或“世界回响”体验，请立即向 RAISA 报告。",
+    en: "Documents related to SCP-10042-LOF may contain memetic hazards. If memory confusion, emotional anomalies, or 'World Echo' experiences occur after reading, immediately report to RAISA."
   }
 };
 

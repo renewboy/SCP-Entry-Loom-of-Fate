@@ -29,3 +29,10 @@ pnpm-lock.yaml
 .trae/
 .vercel
 .env*.local
+.codex
+.github
+
+# Debug files
+.dbg
+test.json
+cleanup-i18n-unused.mjs

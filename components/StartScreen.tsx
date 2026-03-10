@@ -47,13 +47,15 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
   const [settingsInitialTab, setSettingsInitialTab] = useState<'game' | 'ai'>('game');
   const [settingsAttention, setSettingsAttention] = useState(false);
   const [showBoot, setShowBoot] = useState(false);
+  const [skipBootSequence, setSkipBootSequence] = useState(false);
   
   const [showProfileAugmentation, setShowProfileAugmentation] = useState(false);
   const [entityProfile, setEntityProfile] = useState<EntityProfile | undefined>(undefined);
 
   useEffect(() => {
     loadGlobalSettings().then(settings => {
-      if (!bootShownInSession && !settings.skipBootSequence) {
+      setSkipBootSequence(Boolean(settings.skipBootSequence));
+      if (!bootShownInSession) {
         setShowBoot(true);
       }
     });
@@ -247,6 +249,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
     <>
     {showBoot && (
       <BootSequenceOverlay
+        skipToReady={skipBootSequence}
         onComplete={() => {
           bootShownInSession = true;
           setShowBoot(false);
