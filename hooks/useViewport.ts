@@ -19,12 +19,35 @@ interface ViewportInfo {
   };
 }
 
-const getSafeAreaInset = (side: 'top' | 'bottom' | 'left' | 'right') => {
-  if (typeof window === 'undefined') return 0;
-  const prop = `env(safe-area-inset-${side})`;
-  const value = getComputedStyle(document.documentElement).getPropertyValue(prop);
-  const parsed = parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : 0;
+/**
+ * Reads safe-area-inset-* values via a probe element.
+ * `env()` values are not exposed through getComputedStyle on arbitrary
+ * properties — we must read them from a property that the browser
+ * actually resolves (e.g. padding applied via CSS).
+ */
+const readSafeAreaInsets = (): ViewportInfo['safeAreaInsets'] => {
+  if (typeof document === 'undefined') return { top: 0, bottom: 0, left: 0, right: 0 };
+
+  const probe = document.createElement('div');
+  probe.style.cssText = [
+    'position:fixed',
+    'top:0', 'left:0',
+    'visibility:hidden', 'pointer-events:none',
+    'padding-top:env(safe-area-inset-top)',
+    'padding-bottom:env(safe-area-inset-bottom)',
+    'padding-left:env(safe-area-inset-left)',
+    'padding-right:env(safe-area-inset-right)',
+  ].join(';');
+  document.body.appendChild(probe);
+  const cs = getComputedStyle(probe);
+  const result = {
+    top: parseFloat(cs.paddingTop) || 0,
+    bottom: parseFloat(cs.paddingBottom) || 0,
+    left: parseFloat(cs.paddingLeft) || 0,
+    right: parseFloat(cs.paddingRight) || 0,
+  };
+  document.body.removeChild(probe);
+  return result;
 };
 
 export function useViewport(): ViewportInfo {
@@ -35,27 +58,48 @@ export function useViewport(): ViewportInfo {
     return { width: window.innerWidth, height: window.innerHeight };
   });
 
+  const [safeArea, setSafeArea] = useState<ViewportInfo['safeAreaInsets']>(
+    { top: 0, bottom: 0, left: 0, right: 0 }
+  );
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Read safe area once on mount and on orientation change
+    const updateSafeArea = () => setSafeArea(readSafeAreaInsets());
+    updateSafeArea();
+
     const handleResize = () => {
-      setSize({ width: window.innerWidth, height: window.innerHeight });
+      const vv = window.visualViewport;
+      setSize({
+        width: vv ? vv.width : window.innerWidth,
+        height: vv ? vv.height : window.innerHeight,
+      });
+    };
+
+    const handleOrientationChange = () => {
+      // Delay to let the browser settle after rotation
+      setTimeout(() => {
+        handleResize();
+        updateSafeArea();
+      }, 150);
     };
 
     const vv = window.visualViewport;
     if (vv) {
       vv.addEventListener('resize', handleResize);
-      vv.addEventListener('scroll', handleResize);
     } else {
       window.addEventListener('resize', handleResize);
     }
+    window.addEventListener('orientationchange', handleOrientationChange);
 
     return () => {
       if (vv) {
         vv.removeEventListener('resize', handleResize);
-        vv.removeEventListener('scroll', handleResize);
       } else {
         window.removeEventListener('resize', handleResize);
       }
+      window.removeEventListener('orientationchange', handleOrientationChange);
     };
   }, []);
 
@@ -79,12 +123,7 @@ export function useViewport(): ViewportInfo {
       isDesktop: width >= 1024,
       isTouchDevice,
       isLandscape: width > height,
-      safeAreaInsets: {
-        top: getSafeAreaInset('top'),
-        bottom: getSafeAreaInset('bottom'),
-        left: getSafeAreaInset('left'),
-        right: getSafeAreaInset('right')
-      }
+      safeAreaInsets: safeArea,
     };
-  }, [size]);
+  }, [size, safeArea]);
 }

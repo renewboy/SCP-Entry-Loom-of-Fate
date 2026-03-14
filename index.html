@@ -100,6 +100,7 @@
         .h-screen-safe { height: 100vh; }
       }
       * { touch-action: manipulation; }
+      .touch-action-none { touch-action: none !important; }
       * { -webkit-tap-highlight-color: transparent; }
       body {
         background-color: var(--scp-bg);
@@ -258,8 +259,6 @@
           background: rgba(255, 255, 255, 0.02);
           border-color: transparent;
         }
-      }
-      @media (hover: none) and (pointer: coarse) {
         .scp-btn-action:active {
           background: rgba(255, 255, 255, 0.08);
           border-color: var(--scp-text-dim);

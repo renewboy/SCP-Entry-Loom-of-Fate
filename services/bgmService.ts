@@ -4,6 +4,8 @@ let resumeTimer: number | null = null;
 let listenersAttached = false;
 let fadeRaf: number | null = null;
 let targetVolume = 0.6;
+/** When true, pausing/resuming is controlled externally (App.tsx visibility handler). */
+let externalPauseActive = false;
 const resumeDelayMs = 300;
 const retryDelayMs = 1000;
 const fadeInDurationMs = 800;
@@ -67,6 +69,8 @@ const safePlay = () => {
 
 const handleResumeAttempt = () => {
   if (!shouldPlay) return;
+  // Skip internal auto-resume while externally paused (App.tsx controls lifecycle)
+  if (externalPauseActive) return;
   if (document.visibilityState === 'hidden') return;
   if (resumeTimer) window.clearTimeout(resumeTimer);
   resumeTimer = window.setTimeout(() => {
@@ -81,12 +85,14 @@ const attachListeners = () => {
   const player = getAudio();
   player.addEventListener('pause', handleResumeAttempt);
   player.addEventListener('ended', handleResumeAttempt);
-  window.addEventListener('visibilitychange', handleResumeAttempt);
   window.addEventListener('focus', handleResumeAttempt);
+  // Note: visibilitychange is handled by App.tsx via pauseBgm/resumeBgm.
+  // Removed from here to avoid dual-control conflicts.
 };
 
 export const playBgm = () => {
   shouldPlay = true;
+  externalPauseActive = false;
   attachListeners();
   const player = getAudio();
   if (player.paused) player.volume = 0;
@@ -107,6 +113,7 @@ export const setBgmVolume = (volume: number) => {
 export const stopBgm = () => {
   if (!audio) return;
   shouldPlay = false;
+  externalPauseActive = false;
   if (resumeTimer) window.clearTimeout(resumeTimer);
   clearFade();
   fadeTo(0, fadeOutDurationMs, () => {
@@ -117,9 +124,13 @@ export const stopBgm = () => {
   });
 };
 
+/**
+ * Externally-driven pause (e.g. App.tsx visibilitychange handler).
+ * Sets `externalPauseActive` so internal listeners don't fight back.
+ */
 export const pauseBgm = () => {
   if (!audio) return;
-  shouldPlay = false;
+  externalPauseActive = true;
   if (resumeTimer) window.clearTimeout(resumeTimer);
   clearFade();
   fadeTo(0, fadeOutDurationMs, () => {
@@ -128,8 +139,13 @@ export const pauseBgm = () => {
   });
 };
 
+/**
+ * Externally-driven resume (counterpart to pauseBgm).
+ * Clears the externalPauseActive guard and restores playback.
+ */
 export const resumeBgm = () => {
-  shouldPlay = true;
+  if (!shouldPlay) return;  // Don't resume if playback was stopped, not just paused
+  externalPauseActive = false;
   attachListeners();
   const player = getAudio();
   if (player.paused) player.volume = 0;
