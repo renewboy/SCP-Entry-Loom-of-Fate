@@ -470,7 +470,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
   const endConfig = getEndingDisplay();
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-black/80 backdrop-blur-md text-scp-text overflow-y-auto crt border-t border-scp-gray/50 scp-ui">
+    <div className="absolute inset-0 z-[200] flex flex-col bg-black/80 backdrop-blur-md text-scp-text overflow-y-auto crt border-t border-scp-gray/50 scp-ui">
 
       <div className="sticky top-0 z-20 bg-scp-dark/80 border-b border-scp-gray p-4 flex justify-between items-center backdrop-blur-md shadow-lg shrink-0 scp-window-header">
         <div>
@@ -697,7 +697,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
 
       {/* Legacy Selection Modal - Using Portal to render at body level */}
       {showLegacyModal && newLegacyData && createPortal(
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 scp-ui">
+          <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 scp-ui">
               <div className="scp-window border-2 border-scp-term/50 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow flex flex-col">
                   <div className="p-6 border-b border-scp-term/30 sticky top-0 bg-scp-dark z-10">
                       <h2 className="text-2xl font-report text-scp-term mb-2">

@@ -4,12 +4,13 @@ import { GameState, GameStatus } from './types';
 import StartScreen from './components/StartScreen';
 import GameScreen from './components/GameScreen';
 import { LanguageProvider, useTranslation } from './utils/i18n';
-import { playBgm, stopBgm, setBgmVolume } from './services/bgmService';
+import { pauseBgm, playBgm, resumeBgm, stopBgm, setBgmVolume } from './services/bgmService';
 import { subscribeAIConfigMissing } from './services/events';
 import GlobalSettingsModal from './components/GlobalSettingsModal';
 import AuthorLinks from './components/AuthorLinks';
 import { loadGlobalSettings } from './services/indexedDBService';
 import { setSfxVolume } from './services/sfxService';
+import { unlockAudio } from './services/audioUnlock';
 
 import StoryEditor from './components/editor/StoryEditor';
 import TacticalPreview from './components/TacticalPreview';
@@ -67,8 +68,32 @@ const AppContent: React.FC = () => {
     stopBgm();
   }, [gameState.status]);
 
+  useEffect(() => {
+    const handleUnlock = () => {
+      unlockAudio().catch(() => {});
+    };
+    document.addEventListener('touchstart', handleUnlock, { once: true });
+    document.addEventListener('click', handleUnlock, { once: true });
+    return () => {
+      document.removeEventListener('touchstart', handleUnlock);
+      document.removeEventListener('click', handleUnlock);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        pauseBgm();
+      } else if (gameState.status === GameStatus.PLAYING) {
+        resumeBgm();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [gameState.status]);
+
   return (
-    <div className="relative w-screen h-screen flex flex-col items-center justify-center overflow-hidden bg-[#0a0a0a] text-scp-text">
+    <div className="relative w-screen h-screen-safe flex flex-col items-center justify-center overflow-hidden bg-[#0a0a0a] text-scp-text" style={{ paddingTop: 'var(--safe-top)', paddingBottom: 'var(--safe-bottom)' }}>
       <LanguageToggle />
       <FeedbackOverlay gameState={gameState} />
       
@@ -144,7 +169,7 @@ const AppContent: React.FC = () => {
       )}
 
       {/* Global CRT Scanline Overlay */}
-       <div className="pointer-events-none absolute inset-0 z-50 mix-blend-overlay opacity-10 bg-[url('https://www.transparenttextures.com/patterns/black-linen.png')]"></div>
+       <div className="pointer-events-none absolute inset-0 z-[500] mix-blend-overlay opacity-10 bg-[url('https://www.transparenttextures.com/patterns/black-linen.png')]"></div>
 
       <GlobalSettingsModal 
         isOpen={settingsModalOpen} 

@@ -116,3 +116,23 @@ export const stopBgm = () => {
     audio.volume = clamp01(targetVolume);
   });
 };
+
+export const pauseBgm = () => {
+  if (!audio) return;
+  shouldPlay = false;
+  if (resumeTimer) window.clearTimeout(resumeTimer);
+  clearFade();
+  fadeTo(0, fadeOutDurationMs, () => {
+    if (!audio) return;
+    audio.pause();
+  });
+};
+
+export const resumeBgm = () => {
+  shouldPlay = true;
+  attachListeners();
+  const player = getAudio();
+  if (player.paused) player.volume = 0;
+  safePlay();
+  fadeTo(targetVolume, resumeFadeDurationMs);
+};

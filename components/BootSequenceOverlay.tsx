@@ -457,7 +457,7 @@ const BootSequenceOverlay: React.FC<BootSequenceOverlayProps> = ({ onComplete, s
   return (
     <div
       onClick={handleInteraction}
-      className={`fixed inset-0 z-[70] bg-black text-scp-text font-mono overflow-hidden transition-opacity duration-1000 ${
+      className={`fixed inset-0 z-[200] bg-black text-scp-text font-mono overflow-hidden transition-opacity duration-1000 ${
         isFading ? 'opacity-0 pointer-events-none' : 'opacity-100'
       } ${isShaking ? 'animate-shake' : ''}`}
     >
@@ -578,7 +578,7 @@ const BootSequenceOverlay: React.FC<BootSequenceOverlayProps> = ({ onComplete, s
 
           {/* CONFIDENTIAL stamp */}
           {phase === 'archive' && isPaused && (
-            <div className="pointer-events-none absolute z-[100] mix-blend-screen border-4 border-red-800 p-2 rounded stamp-seal">
+            <div className="pointer-events-none absolute z-[300] mix-blend-screen border-4 border-red-800 p-2 rounded stamp-seal">
               <div className="border border-red-800 px-4 py-2">
                 <span className="text-2xl font-report text-red-800 font-bold uppercase tracking-widest">
                   CONFIDENTIAL

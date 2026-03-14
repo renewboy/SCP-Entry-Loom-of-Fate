@@ -10,18 +10,20 @@ export const THEME_CSS = `
   .bg-scp-term { background-color: var(--theme-accent) !important; }
   .bg-scp-term\\/20 { background-color: var(--theme-accent-soft) !important; }
   .bg-scp-term\\/40 { background-color: var(--theme-accent-soft) !important; }
-  .hover\\:bg-scp-term\\/20:hover { background-color: var(--theme-accent-soft) !important; }
-  .hover\\:bg-scp-term\\/10:hover { background-color: var(--theme-accent-soft) !important; }
-  .hover\\:bg-scp-term:hover { background-color: var(--theme-accent) !important; }
-  .hover\\:text-scp-term:hover { color: var(--theme-accent) !important; }
-  .group:hover .group-hover\\:text-scp-term { color: var(--theme-accent) !important; }
-  .group\\/btn:hover .group-hover\\/btn\\:text-scp-term { color: var(--theme-accent) !important; }
   .decoration-scp-term { text-decoration-color: var(--theme-accent) !important; }
   .decoration-scp-term\\/50 { text-decoration-color: var(--theme-accent-underline) !important; }
-  .hover\\:decoration-scp-term:hover { text-decoration-color: var(--theme-accent) !important; }
   .focus\\:border-scp-term:focus { border-color: var(--theme-accent) !important; }
   .focus\\:ring-scp-term\\/50:focus { --tw-ring-color: var(--theme-accent-soft) !important; }
-  .hover\\:border-scp-term:hover { border-color: var(--theme-accent) !important; }
-  .hover\\:border-scp-term\\/60:hover { border-color: var(--theme-accent-underline) !important; }
+  @media (hover: hover) {
+    .hover\\:bg-scp-term\\/20:hover { background-color: var(--theme-accent-soft) !important; }
+    .hover\\:bg-scp-term\\/10:hover { background-color: var(--theme-accent-soft) !important; }
+    .hover\\:bg-scp-term:hover { background-color: var(--theme-accent) !important; }
+    .hover\\:text-scp-term:hover { color: var(--theme-accent) !important; }
+    .group:hover .group-hover\\:text-scp-term { color: var(--theme-accent) !important; }
+    .group\\/btn:hover .group-hover\\/btn\\:text-scp-term { color: var(--theme-accent) !important; }
+    .hover\\:decoration-scp-term:hover { text-decoration-color: var(--theme-accent) !important; }
+    .hover\\:border-scp-term:hover { border-color: var(--theme-accent) !important; }
+    .hover\\:border-scp-term\\/60:hover { border-color: var(--theme-accent-underline) !important; }
+  }
   .text-shadow-green { text-shadow: 0 0 8px var(--theme-accent-glow) !important; }
 `;

@@ -180,7 +180,7 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
     };
 
     const content = (
-        <div className="fixed inset-0 z-[50] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-mono scp-ui">
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-mono scp-ui">
             <CrtSurface className={`scp-window border w-full max-w-lg shadow-2xl flex flex-col relative overflow-hidden z-10 ${
                 highlightActive ? 'border-scp-text shadow-[0_0_25px_rgba(224,224,224,0.35)] animate-pulse' : 'border-scp-accent/50'
             }`}>

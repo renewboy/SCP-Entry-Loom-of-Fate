@@ -575,7 +575,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
 
   const content = (
     <>
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-mono scp-ui">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-mono scp-ui">
       <CrtSurface className={`scp-window border-y sm:border ${accentClasses.borderSoft} w-full max-w-3xl shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[85vh] relative overflow-hidden group/modal z-10`}>
         
         {/* Header with Login */}
