@@ -137,10 +137,10 @@ const VisualEffects: React.FC<VisualEffectsProps> = ({
            <div className="absolute inset-0 animate-glitch-color mix-blend-hard-light opacity-80"></div>
            
            {/* Layer 2: RGB Split / Chromatic Aberration */}
-           <div className="absolute inset-0 bg-red-600 mix-blend-screen opacity-30 translate-x-2 animate-pulse"></div>
-           <div className="absolute inset-0 bg-blue-600 mix-blend-screen opacity-30 -translate-x-2 animate-pulse"></div>
+           <div className={"absolute inset-0 bg-red-600 mix-blend-screen opacity-30 translate-x-2 animate-pulse"}></div>
+           <div className={"absolute inset-0 bg-blue-600 mix-blend-screen opacity-30 -translate-x-2 animate-pulse"}></div>
 
-           {/* Layer 3: Digital Artifacts (Blocks) */}
+           {/* Layer 3: Digital Artifacts */}
            <div className="w-full h-[15vh] bg-green-400 mix-blend-exclusion opacity-70 translate-y-[10vh] skew-x-12"></div>
            <div className="w-full h-[5vh] bg-purple-500 mix-blend-exclusion opacity-70 translate-y-[40vh] -skew-x-12"></div>
            <div className="w-full h-[25vh] bg-yellow-300 mix-blend-exclusion opacity-50 translate-y-[70vh] skew-x-6"></div>

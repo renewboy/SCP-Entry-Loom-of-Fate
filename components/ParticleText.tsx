@@ -200,11 +200,32 @@ const ParticleText: React.FC<ParticleTextProps> = ({
        // Removed global scatter impulse to prevent unintended jumping
     };
 
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const cvs = canvasRef.current;
+      if (cvs && e.touches.length > 0) {
+        const touch = e.touches[0];
+        const rect = cvs.getBoundingClientRect();
+        const scaleX = cvs.width / rect.width;
+        const scaleY = cvs.height / rect.height;
+        mouse.current.x = (touch.clientX - rect.left) * scaleX;
+        mouse.current.y = (touch.clientY - rect.top) * scaleY;
+        mouse.current.isActive = true;
+      }
+    };
+
+    const handleTouchEnd = () => {
+      mouse.current.isActive = false;
+    };
+
     // Bind events directly to the canvas to ensure interaction only happens within bounds
     const canvasEl = canvasRef.current;
     if (canvasEl) {
       canvasEl.addEventListener('mousemove', handleMouseMove);
       canvasEl.addEventListener('mouseleave', handleMouseLeave);
+      canvasEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+      canvasEl.addEventListener('touchend', handleTouchEnd);
+      canvasEl.addEventListener('touchcancel', handleTouchEnd);
     }
 
     return () => {
@@ -212,6 +233,9 @@ const ParticleText: React.FC<ParticleTextProps> = ({
       if (canvasEl) {
         canvasEl.removeEventListener('mousemove', handleMouseMove);
         canvasEl.removeEventListener('mouseleave', handleMouseLeave);
+        canvasEl.removeEventListener('touchmove', handleTouchMove);
+        canvasEl.removeEventListener('touchend', handleTouchEnd);
+        canvasEl.removeEventListener('touchcancel', handleTouchEnd);
       }
     };
   }, [text, fontSize, fontFamily, color, gap, dimensions]);
@@ -226,7 +250,7 @@ const ParticleText: React.FC<ParticleTextProps> = ({
         ref={canvasRef} 
         width={dimensions.width} 
         height={dimensions.height}
-        className="cursor-crosshair touch-none"
+        className="cursor-crosshair"
       />
     </div>
   );

@@ -72,7 +72,7 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
         return (
             <li 
                 {...props} 
-                className={isClickable ? "cursor-pointer hover:text-scp-term hover:bg-scp-gray/20 transition-all duration-200 rounded px-2 -ml-2 group relative" : ""}
+                className={isClickable ? "cursor-pointer hover:text-scp-term hover:bg-scp-gray/20 transition-all duration-200 rounded px-2 py-2 -ml-2 group relative min-h-[44px]" : ""}
                 onClick={(e) => {
                     const selection = window.getSelection();
                     // If text is selected, do not trigger the click action
@@ -103,7 +103,7 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
             
             return (
                 <span 
-                    className={`text-scp-term underline decoration-scp-term/50 decoration-1 underline-offset-4 transition-all select-text ${isClickable ? 'cursor-pointer hover:decoration-scp-term hover:text-white hover:bg-scp-term/10 rounded px-1 -mx-1' : ''}`}
+                    className={`text-scp-term underline decoration-scp-term/50 decoration-1 underline-offset-4 transition-all select-text ${isClickable ? 'cursor-pointer hover:decoration-scp-term hover:text-white hover:bg-scp-term/10 rounded px-1 py-1 -mx-1' : ''}`}
                     onClick={(e) => {
                         // Allow text selection without triggering click
                         const selection = window.getSelection();

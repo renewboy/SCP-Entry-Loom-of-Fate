@@ -1,5 +1,6 @@
 import React from 'react';
 import { GameState } from '../../types';
+import { useViewport } from '../../hooks/useViewport';
 
 interface InputAreaProps {
   input: string;
@@ -14,8 +15,11 @@ interface InputAreaProps {
 const InputArea: React.FC<InputAreaProps> = ({ 
     input, setInput, handleSend, isProcessing, gameState, t, inputRef 
 }) => {
+  const { safeAreaInsets } = useViewport();
+
   return (
-      <div className="p-4 bg-black/50 border-t border-scp-gray/30 scp-ui relative" id="input-area">
+      <div className="p-4 bg-black/50 border-t border-scp-gray/30 scp-ui relative" id="input-area"
+        style={{ paddingBottom: safeAreaInsets.bottom > 0 ? `calc(1rem + ${safeAreaInsets.bottom}px)` : undefined }}>
         {gameState.tokenCount !== undefined && (
             <div className="absolute right-4 -top-6 text-xs text-scp-term font-mono opacity-70">
                 Tokens: {gameState.tokenCount}
@@ -31,7 +35,7 @@ const InputArea: React.FC<InputAreaProps> = ({
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             disabled={isProcessing || !!gameState.endingType}
             placeholder={!!gameState.endingType ? t('game.input_placeholder_ended') : t('game.input_placeholder')}
-            className="w-full bg-scp-gray/30 border border-scp-gray/40 text-scp-text pl-8 pr-4 py-3 font-mono focus:outline-none focus:border-scp-term focus:ring-1 focus:ring-scp-term/50 transition-all disabled:opacity-50 placeholder-gray-500 backdrop-blur-sm"
+            className="w-full bg-scp-gray/30 border border-scp-gray/40 text-scp-text pl-8 pr-4 py-3 font-mono text-base focus:outline-none focus:border-scp-term focus:ring-1 focus:ring-scp-term/50 transition-all disabled:opacity-50 placeholder-gray-500 backdrop-blur-sm"
             autoFocus
           />
           <button

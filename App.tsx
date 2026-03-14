@@ -15,14 +15,16 @@ import { unlockAudio } from './services/audioUnlock';
 import StoryEditor from './components/editor/StoryEditor';
 import TacticalPreview from './components/TacticalPreview';
 import FeedbackOverlay from './components/game/FeedbackOverlay';
+import { useViewport } from './hooks/useViewport';
 
 const LanguageToggle = () => {
     const { language, setLanguage, t } = useTranslation();
+    const { isMobile } = useViewport();
     
     return (
         <button 
             onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
-            className="absolute top-4 right-8 z-[60] px-4 py-2 bg-black/80 border-2 border-scp-gray text-scp-text font-bold font-mono text-lg hover:border-scp-term hover:text-scp-term hover:shadow-[0_0_10px_rgba(51,255,0,0.4)] transition-all backdrop-blur-md active:scale-95"
+            className={`fixed top-2 right-4 z-[60] px-2 py-1 bg-black/80 border border-scp-gray/60 text-scp-text/80 font-mono text-xs hover:border-scp-term hover:text-scp-term hover:shadow-[0_0_10px_rgba(51,255,0,0.4)] transition-all backdrop-blur-md active:scale-95 ${isMobile ? "hidden" : ""}`}
         >
             {t('app.switch_lang')}
         </button>

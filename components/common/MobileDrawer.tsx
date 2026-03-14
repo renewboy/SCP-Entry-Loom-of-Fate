@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 
 interface MobileDrawerProps {
+  isOpen?: boolean;
   onClose: () => void;
   title: string;
   side?: 'left' | 'right';
@@ -9,15 +10,18 @@ interface MobileDrawerProps {
 
 const ANIMATION_MS = 250;
 
-const MobileDrawer: React.FC<MobileDrawerProps> = ({ onClose, title, side = 'right', children }) => {
+const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen: isOpenProp = true, onClose, title, side = 'right', children }) => {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Animate in on mount
+  // Sync internal open state with isOpenProp
   useEffect(() => {
-    // Force a layout read before toggling to trigger transition
-    requestAnimationFrame(() => setOpen(true));
-  }, []);
+    if (isOpenProp) {
+      requestAnimationFrame(() => setOpen(true));
+    } else {
+      setOpen(false);
+    }
+  }, [isOpenProp]);
 
   // Close with animation
   const animateClose = useCallback(() => {
@@ -36,6 +40,8 @@ const MobileDrawer: React.FC<MobileDrawerProps> = ({ onClose, title, side = 'rig
 
   const translateFrom = side === 'right' ? 'translate-x-full' : '-translate-x-full';
   const translateTo = 'translate-x-0';
+
+  if (!isOpenProp) return null;
 
   return (
     <div className="fixed inset-0 z-[300]">
@@ -60,22 +66,26 @@ const MobileDrawer: React.FC<MobileDrawerProps> = ({ onClose, title, side = 'rig
           overscrollBehavior: 'contain',
         }}
       >
-        {/* Header — respects safe area */}
-        <div
-          className="flex items-center justify-between px-4 border-b border-scp-border shrink-0"
-          style={{ paddingTop: 'max(0.75rem, var(--safe-top))', minHeight: '3rem' }}
-        >
-          <span className="text-sm font-mono uppercase tracking-wider" style={{ color: 'var(--scp-text-dim)' }}>
-            {title}
-          </span>
-          <button
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-scp-text/60 hover:text-scp-text"
-            onClick={animateClose}
-            aria-label="Close"
+        {/* Header — only when title is provided */}
+        {title ? (
+          <div
+            className="flex items-center justify-between px-4 border-b border-scp-border shrink-0"
+            style={{ paddingTop: 'max(0.75rem, var(--safe-top))', minHeight: '3rem' }}
           >
-            <span className="material-icons text-xl">close</span>
-          </button>
-        </div>
+            <span className="text-sm font-mono uppercase tracking-wider" style={{ color: 'var(--scp-text-dim)' }}>
+              {title}
+            </span>
+            <button
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-scp-text/60 hover:text-scp-text"
+              onClick={animateClose}
+              aria-label="Close"
+            >
+              <span className="material-icons text-xl">close</span>
+            </button>
+          </div>
+        ) : (
+          <div style={{ paddingTop: 'var(--safe-top)' }} />
+        )}
 
         {/* Scrollable content — respects bottom safe area */}
         <div

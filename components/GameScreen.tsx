@@ -19,6 +19,8 @@ import { useMapUpdate } from '../hooks/useMapUpdate';
 import { useGameLoop } from '../hooks/useGameLoop';
 import { useGameOverCountdown } from '../hooks/useGameOverCountdown';
 import { useThemeColors } from '../hooks/useThemeColors';
+import { useViewport } from '../hooks/useViewport';
+import MobileDrawer from './common/MobileDrawer';
 import { useTutorial } from '../hooks/useTutorial';
 import { THEME_CSS } from '../styles/themeCss';
 
@@ -29,6 +31,8 @@ interface GameScreenProps {
 
 const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   const { t, language, setLanguage } = useTranslation();
+  const { isMobile } = useViewport();
+  const [mobileDrawer, setMobileDrawer] = useState<'none' | 'map' | 'legacy'>('none');
   const [input, setInput] = useState('');
   const [showAbortModal, setShowAbortModal] = useState(false);
   const [saveLoadModalOpen, setSaveLoadModalOpen] = useState(false);
@@ -201,10 +205,10 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
     <>
     <style>{THEME_CSS}</style>
     <div 
-        className={`relative z-10 w-full max-w-4xl h-[85vh] md:h-[90vh] flex flex-col bg-black/15 scp-ui shadow-2xl overflow-hidden crt transition-all duration-1000`}
+        className={`relative z-10 w-full max-w-4xl ${isMobile ? 'h-[100dvh]' : 'h-[85vh] md:h-[90vh]'} flex flex-col bg-black/15 scp-ui shadow-2xl overflow-hidden crt transition-all duration-1000`}
         style={isUnstable && !isViewingReport ? { filter: 'url(#signal-interference)' } : {}}
     >
-      {gameState.legacy && <LegacySidebar legacyData={gameState.legacy} />}
+      {gameState.legacy && <LegacySidebar legacyData={gameState.legacy} isDrawerOpen={mobileDrawer === 'legacy'} onDrawerClose={() => setMobileDrawer('none')} />}
 
       <div className={`absolute inset-0 border pointer-events-none z-40 transition-colors duration-1000 border-scp-gray/50`}></div>
       
@@ -244,6 +248,26 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         t={t}
         inputRef={inputRef}
       />
+
+      {/* Left-edge legacy tab (mobile only) */}
+      {isMobile && gameState.status === GameStatus.PLAYING && gameState.legacy && mobileDrawer !== 'legacy' && (
+        <button
+          onClick={() => setMobileDrawer('legacy')}
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-[90] w-6 min-h-[56px] flex items-center justify-center bg-black/80 border border-l-0 border-scp-term/40 rounded-r text-scp-term/70 active:bg-scp-term/20"
+        >
+          <span className="text-xs font-mono">›</span>
+        </button>
+      )}
+
+      {/* Right-edge map tab (mobile only) */}
+      {isMobile && gameState.status === GameStatus.PLAYING && mobileDrawer !== 'map' && (
+        <button
+          onClick={() => setMobileDrawer('map')}
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-[90] w-6 min-h-[56px] flex items-center justify-center bg-black/80 border border-r-0 border-scp-term/40 rounded-l text-scp-term/70 active:bg-scp-term/20"
+        >
+          <span className="text-xs font-mono">‹</span>
+        </button>
+      )}
 
       <EndingOverlay 
         gameState={gameState}
@@ -301,10 +325,25 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         onLoadGame={handleLoadGame}
         onSaveComplete={(id) => setGameState(prev => ({ ...prev, saveId: id }))}
     />
-    <MapPanel 
-      gameState={gameState}
-      onQuickAction={handleOptionClick}
-    />
+    {isMobile ? (
+      <MobileDrawer
+        isOpen={mobileDrawer === 'map'}
+        onClose={() => setMobileDrawer('none')}
+        title=""
+        side="right"
+      >
+        <MapPanel 
+          gameState={gameState}
+          onQuickAction={(text) => { setMobileDrawer('none'); handleOptionClick(text); }}
+          fullWidth
+        />
+      </MobileDrawer>
+    ) : (
+      <MapPanel 
+        gameState={gameState}
+        onQuickAction={handleOptionClick}
+      />
+    )}
     </>
   );
 };

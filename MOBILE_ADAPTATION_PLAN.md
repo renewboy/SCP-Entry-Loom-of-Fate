@@ -1,11 +1,11 @@
 # SCP Entry: Loom of Fate — UI 移动端适配技术方案
 
-> **文档版本**: v1.0  
-> **日期**: 2026-03-14  
-> **范围**: 全量 UI 组件移动端响应式适配（iOS Safari / Android Chrome）  
+> **文档版本**: v1.0\
+> **日期**: 2026-03-14\
+> **范围**: 全量 UI 组件移动端响应式适配（iOS Safari / Android Chrome）\
 > **前提**: 基于对项目全部 50+ 源文件的逐文件代码审查
 
----
+***
 
 ## 目录
 
@@ -22,44 +22,44 @@
 11. [实施路线图与优先级](#11-实施路线图与优先级)
 12. [附录：组件问题清单矩阵](#附录组件问题清单矩阵)
 
----
+***
 
 ## 1. 项目现状分析
 
 ### 1.1 技术栈概况
 
-| 维度 | 当前方案 |
-|------|----------|
-| **框架** | React 19.2 + TypeScript |
-| **构建** | Vite 6 + Terser 压缩 |
-| **样式** | Tailwind CSS (CDN) + CSS 自定义变量 + 内联 `<style>` |
-| **动画** | framer-motion (~150KB gzipped) + CSS keyframes |
-| **状态** | React useState + 全局 GameState 对象传递 |
-| **路由** | 无路由库，GameStatus 状态机驱动页面切换 |
-| **部署形态** | Web SPA / Electron 桌面端（无移动端原生包装） |
+| 维度       | 当前方案                                            |
+| -------- | ----------------------------------------------- |
+| **框架**   | React 19.2 + TypeScript                         |
+| **构建**   | Vite 6 + Terser 压缩                              |
+| **样式**   | Tailwind CSS (CDN) + CSS 自定义变量 + 内联 `<style>`   |
+| **动画**   | framer-motion (\~150KB gzipped) + CSS keyframes |
+| **状态**   | React useState + 全局 GameState 对象传递              |
+| **路由**   | 无路由库，GameStatus 状态机驱动页面切换                       |
+| **部署形态** | Web SPA / Electron 桌面端（无移动端原生包装）                |
 
 ### 1.2 现有响应式能力评估
 
 项目各组件的响应式适配程度差异极大，呈现明显的"冰火两重天"格局：
 
-| 适配等级 | 组件 | 说明 |
-|----------|------|------|
-| **优秀** ★★★★ | `SaveLoadModal` | 使用 `100dvh`、edge-to-edge 移动布局、响应式隐藏/显示 |
-| **良好** ★★★ | `BootSequenceOverlay`, `WorldLineTree`, `GameReviewReport` | 多断点字体/间距适配、touch 事件、网格响应式折叠 |
-| **一般** ★★ | `StartScreen`, `Typewriter`, `GameScreen` | 有部分 `sm:/md:` 前缀，但存在硬编码尺寸 |
-| **差** ★ | `GlobalSettingsModal`, `AuthorLinks`, `ConfirmationModal` | 极少响应式处理，触摸目标过小 |
-| **完全未适配** ☆ | `TacticalPreview`, `EntityProfileAugmentation`, `StoryEditor`, `EditorCanvas`, `EditorAssistantPanel`, `PropertyInspector`, `LegacySidebar`, `MapPanel` | 硬编码 `w-96` 面板、鼠标专属画布、固定多栏布局 |
+| 适配等级        | 组件                                                                                                                                                      | 说明                                     |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| **优秀** ★★★★ | `SaveLoadModal`                                                                                                                                         | 使用 `100dvh`、edge-to-edge 移动布局、响应式隐藏/显示 |
+| **良好** ★★★  | `BootSequenceOverlay`, `WorldLineTree`, `GameReviewReport`                                                                                              | 多断点字体/间距适配、touch 事件、网格响应式折叠            |
+| **一般** ★★   | `StartScreen`, `Typewriter`, `GameScreen`                                                                                                               | 有部分 `sm:/md:` 前缀，但存在硬编码尺寸              |
+| **差** ★     | `GlobalSettingsModal`, `AuthorLinks`, `ConfirmationModal`                                                                                               | 极少响应式处理，触摸目标过小                         |
+| **完全未适配** ☆ | `TacticalPreview`, `EntityProfileAugmentation`, `StoryEditor`, `EditorCanvas`, `EditorAssistantPanel`, `PropertyInspector`, `LegacySidebar`, `MapPanel` | 硬编码 `w-96` 面板、鼠标专属画布、固定多栏布局            |
 
 ### 1.3 关键发现
 
 1. **无移动端基础设施**：项目无 `useMediaQuery`、`isMobile` 检测、`useViewport` 等 Hook，类型系统中无任何移动相关类型定义
-2. **8 个组件硬编码 `w-96`（384px）**：在 375px 宽度的 iPhone 上直接溢出
+2. **8 个组件硬编码** **`w-96`（384px）**：在 375px 宽度的 iPhone 上直接溢出
 3. **画布系统仅支持鼠标**：`EditorCanvas` 全部交互基于 `onMouseDown/Move/Up`，无 touch/pointer 事件
 4. **音频无自动播放策略**：移动浏览器的 AudioContext 锁定未处理
 5. **无 PWA 支持**：无 Service Worker、无 manifest.json、无离线能力
 6. **z-index 混乱**：`GlobalSettingsModal(z-50)` 可被 `WorldLineTree(z-50)` 遮挡，`LegacySidebar(z-100)` 与 `WorldLineTree` 遗产弹窗 `(z-100)` 冲突
 
----
+***
 
 ## 2. 核心问题总览
 
@@ -67,49 +67,49 @@
 
 ### P0 — 致命问题（阻塞移动端使用）
 
-| 编号 | 问题 | 影响组件 | 根因 |
-|------|------|----------|------|
-| P0-1 | `w-96`（384px）固定宽度面板在 <384px 屏幕溢出 | TacticalPreview, EntityProfileAugmentation, LegacySidebar | 无 `w-full sm:w-96` 或响应式替代 |
-| P0-2 | StoryEditor 多面板布局最小宽度 ~1084px | StoryEditor, EditorCanvas, PropertyInspector, EditorAssistantPanel, StoryFormPanel | 固定多栏 flex 布局无断点折叠 |
-| P0-3 | EditorCanvas 画布仅鼠标交互 | EditorCanvas | `onMouseDown/Move/Up` 无 touch/pointer 对应 |
-| P0-4 | MapPanel 在 GameScreen 中移动端完全隐藏 | MapPanel, GameScreen | `hidden lg:block` 但无替代入口 |
-| P0-5 | 地图 Canvas/SVG 固定 720×420 尺寸 | TacticalPreview, MapPanel | 硬编码像素尺寸 |
+| 编号   | 问题                               | 影响组件                                                                               | 根因                                       |
+| ---- | -------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------- |
+| P0-1 | `w-96`（384px）固定宽度面板在 <384px 屏幕溢出 | TacticalPreview, EntityProfileAugmentation, LegacySidebar                          | 无 `w-full sm:w-96` 或响应式替代                |
+| P0-2 | StoryEditor 多面板布局最小宽度 \~1084px   | StoryEditor, EditorCanvas, PropertyInspector, EditorAssistantPanel, StoryFormPanel | 固定多栏 flex 布局无断点折叠                        |
+| P0-3 | EditorCanvas 画布仅鼠标交互             | EditorCanvas                                                                       | `onMouseDown/Move/Up` 无 touch/pointer 对应 |
+| P0-4 | MapPanel 在 GameScreen 中移动端完全隐藏   | MapPanel, GameScreen                                                               | `hidden lg:block` 但无替代入口                 |
+| P0-5 | 地图 Canvas/SVG 固定 720×420 尺寸      | TacticalPreview, MapPanel                                                          | 硬编码像素尺寸                                  |
 
 ### P1 — 严重问题（严重影响体验）
 
-| 编号 | 问题 | 影响组件 |
-|------|------|----------|
-| P1-1 | 触摸目标过小（<44px） | AuthorLinks(16px), LegacySidebar 切换(24px), SettingsGearIcon, 小按钮 |
-| P1-2 | ParticleText 无触摸交互 | ParticleText（`touch-none` + 仅 `mousemove`） |
-| P1-3 | hover 伪类在触摸设备上"粘滞" | themeCss.ts 全局 `:hover` 规则 |
-| P1-4 | AI 流式渲染每 token 触发 setState | useGameLoop（低端移动设备帧率掉帧） |
-| P1-5 | base64 图片存储在 React state 中 | useGameLoop（移动端内存溢出风险） |
-| P1-6 | 音频自动播放被移动浏览器拦截 | useGameAudio, useGlitchEffect, bgmService |
+| 编号   | 问题                         | 影响组件                                                             |
+| ---- | -------------------------- | ---------------------------------------------------------------- |
+| P1-1 | 触摸目标过小（<44px）              | AuthorLinks(16px), LegacySidebar 切换(24px), SettingsGearIcon, 小按钮 |
+| P1-2 | ParticleText 无触摸交互         | ParticleText（`touch-none` + 仅 `mousemove`）                       |
+| P1-3 | hover 伪类在触摸设备上"粘滞"         | themeCss.ts 全局 `:hover` 规则                                       |
+| P1-4 | AI 流式渲染每 token 触发 setState | useGameLoop（低端移动设备帧率掉帧）                                          |
+| P1-5 | base64 图片存储在 React state 中 | useGameLoop（移动端内存溢出风险）                                           |
+| P1-6 | 音频自动播放被移动浏览器拦截             | useGameAudio, useGlitchEffect, bgmService                        |
 
 ### P2 — 中等问题
 
-| 编号 | 问题 | 影响组件 |
-|------|------|----------|
-| P2-1 | 多数弹窗未使用 `100dvh` | GlobalSettingsModal, ConfirmationModal |
-| P2-2 | z-index 层级冲突 | GlobalSettingsModal(50) vs WorldLineTree(50)，LegacySidebar(100) vs 遗产弹窗(100) |
-| P2-3 | 下拉菜单被 `overflow-y-auto` 裁切 | GlobalSettingsModal 的 Provider 下拉 |
-| P2-4 | `@xenova/transformers` 的 WebGPU 在 iOS 不可用 | 本地 ML 推理功能 |
-| P2-5 | 无 `prefers-reduced-motion` 支持 | useGlitchEffect, VisualEffects, themeCss |
-| P2-6 | 全局 CRT 扫描线叠加层可能降低移动端渲染性能 | App.tsx 全局覆盖层 |
+| 编号   | 问题                                        | 影响组件                                                                         |
+| ---- | ----------------------------------------- | ---------------------------------------------------------------------------- |
+| P2-1 | 多数弹窗未使用 `100dvh`                          | GlobalSettingsModal, ConfirmationModal                                       |
+| P2-2 | z-index 层级冲突                              | GlobalSettingsModal(50) vs WorldLineTree(50)，LegacySidebar(100) vs 遗产弹窗(100) |
+| P2-3 | 下拉菜单被 `overflow-y-auto` 裁切                | GlobalSettingsModal 的 Provider 下拉                                            |
+| P2-4 | `@xenova/transformers` 的 WebGPU 在 iOS 不可用 | 本地 ML 推理功能                                                                   |
+| P2-5 | 无 `prefers-reduced-motion` 支持             | useGlitchEffect, VisualEffects, themeCss                                     |
+| P2-6 | 全局 CRT 扫描线叠加层可能降低移动端渲染性能                  | App.tsx 全局覆盖层                                                                |
 
----
+***
 
 ## 3. 适配目标与设计原则
 
 ### 3.1 目标设备矩阵
 
-| 层级 | 设备 | 屏幕宽度 | 优先级 |
-|------|------|----------|--------|
-| **核心支持** | iPhone 14/15/16 系列 | 390px | P0 |
-| **核心支持** | 主流 Android（Pixel, Samsung Galaxy） | 360-412px | P0 |
-| **扩展支持** | iPad Mini / 平板竖屏 | 744-810px | P1 |
-| **扩展支持** | iPad Pro / 平板横屏 | 1024-1366px | P1 |
-| **兼容保持** | 桌面端 | ≥1280px | 不退化 |
+| 层级       | 设备                                | 屏幕宽度        | 优先级 |
+| -------- | --------------------------------- | ----------- | --- |
+| **核心支持** | iPhone 14/15/16 系列                | 390px       | P0  |
+| **核心支持** | 主流 Android（Pixel, Samsung Galaxy） | 360-412px   | P0  |
+| **扩展支持** | iPad Mini / 平板竖屏                  | 744-810px   | P1  |
+| **扩展支持** | iPad Pro / 平板横屏                   | 1024-1366px | P1  |
+| **兼容保持** | 桌面端                               | ≥1280px     | 不退化 |
 
 ### 3.2 设计原则
 
@@ -131,7 +131,7 @@ xl:  1280px+           (桌面端，当前设计基准)
 
 这与 Tailwind 默认断点一致，无需自定义。
 
----
+***
 
 ## 4. 基础设施层改造
 
@@ -281,18 +281,18 @@ export function useViewport(): ViewportInfo {
 
 **需要更新的组件 z-index 映射**：
 
-| 组件 | 当前 z-index | 修改为 |
-|------|-------------|--------|
-| App.tsx 主内容 | z-10 | `var(--z-content)` → z-10（不变） |
-| AuthorLinks | z-20 | `var(--z-floating)` → z-20（不变） |
-| GlobalSettingsModal | z-[50] | `var(--z-modal)` → **z-[300]** |
-| WorldLineTree | z-50 | `var(--z-overlay)` → **z-[200]** |
-| BootSequenceOverlay | z-[70] | `var(--z-overlay)` → **z-[200]** |
-| LegacySidebar | z-[100] | `var(--z-sidebar)` → z-[100]（不变） |
-| WorldLineTree 遗产弹窗 | z-[100] | `var(--z-modal)` → **z-[300]** |
-| SaveLoadModal | z-[9999] | `var(--z-modal)` → **z-[300]** |
-| ConfirmationModal | z-[10000] | `var(--z-confirmation)` → **z-[400]** |
-| CRT 扫描线 | z-50 | `var(--z-system)` → **z-[500]** |
+| 组件                  | 当前 z-index | 修改为                                    |
+| ------------------- | ---------- | -------------------------------------- |
+| App.tsx 主内容         | z-10       | `var(--z-content)` → z-10（不变）          |
+| AuthorLinks         | z-20       | `var(--z-floating)` → z-20（不变）         |
+| GlobalSettingsModal | z-\[50]    | `var(--z-modal)` → **z-\[300]**        |
+| WorldLineTree       | z-50       | `var(--z-overlay)` → **z-\[200]**      |
+| BootSequenceOverlay | z-\[70]    | `var(--z-overlay)` → **z-\[200]**      |
+| LegacySidebar       | z-\[100]   | `var(--z-sidebar)` → z-\[100]（不变）      |
+| WorldLineTree 遗产弹窗  | z-\[100]   | `var(--z-modal)` → **z-\[300]**        |
+| SaveLoadModal       | z-\[9999]  | `var(--z-modal)` → **z-\[300]**        |
+| ConfirmationModal   | z-\[10000] | `var(--z-confirmation)` → **z-\[400]** |
+| CRT 扫描线             | z-50       | `var(--z-system)` → **z-\[500]**       |
 
 ### 4.4 全局触摸样式修复
 
@@ -354,13 +354,14 @@ export function useViewport(): ViewportInfo {
 }`
 ```
 
----
+***
 
 ## 5. 逐组件适配方案
 
 ### 5.1 App.tsx — 应用壳
 
 **现状问题**：
+
 - 根容器 `w-screen h-screen` 在移动端不处理 safe area
 - LanguageToggle 按钮 `absolute top-4 right-8` 在移动端可能与其他元素重叠
 - 全局 CRT 扫描线在低端移动设备上造成不必要的渲染层
@@ -394,6 +395,7 @@ export function useViewport(): ViewportInfo {
 ### 5.2 StartScreen.tsx — 开始界面
 
 **现状问题**：
+
 - `ParticleText fontSize={42}` 硬编码，在小屏溢出
 - 角色选择网格 `grid-cols-1 sm:grid-cols-2` 已有基础适配
 - 装饰性元素绝对定位可能与内容重叠
@@ -422,6 +424,7 @@ const { isMobile } = useViewport();
 ### 5.3 EntityProfileAugmentation.tsx — 实体档案
 
 **现状问题**：
+
 - 双面板布局 `w-96` + `flex-1` — 移动端溢出
 - 表单 `grid-cols-2` 无响应式回退
 
@@ -471,9 +474,10 @@ const [activeTab, setActiveTab] = useState<'candidates' | 'details'>('candidates
 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
 ```
 
-### 5.4 TacticalPreview.tsx — 战术预览
+### 5.4 TacticalPreview\.tsx — 战术预览
 
 **现状问题**：
+
 - 左侧面板 `w-96` 硬编码 — 移动端溢出
 - 右侧地图 Canvas 固定 720×420 — 移动端不可见
 - 几乎无响应式前缀
@@ -526,7 +530,8 @@ const canvasHeight = isMobile ? Math.round(canvasWidth * 420 / 720) : 420;
 ### 5.5 StoryEditor.tsx — 故事编辑器 ★★★ 最复杂
 
 **现状问题**：
-- 四面板固定布局最小需要 ~1084px 宽度：StoryFormPanel(300px) + EditorCanvas(flex-1) + PropertyInspector(320px) + EditorAssistantPanel(384px)
+
+- 四面板固定布局最小需要 \~1084px 宽度：StoryFormPanel(300px) + EditorCanvas(flex-1) + PropertyInspector(320px) + EditorAssistantPanel(384px)
 - EditorCanvas 画布完全基于鼠标事件，无 touch/pointer 支持
 - 节点拖拽、连线绘制、缩放平移全部基于 `onMouseDown/Move/Up`
 - PropertyInspector 的面板宽度 `w-80`（320px）硬编码
@@ -661,6 +666,7 @@ const handlePointerDown = (e: React.PointerEvent) => {
 ### 5.6 GameScreen.tsx — 游戏主屏
 
 **现状问题**：
+
 - 左侧面板区 LegacySidebar 使用 `w-96` — 溢出
 - MapPanel `hidden lg:block` — 移动端完全不可见，无替代入口
 - 右侧面板区 SidePanel 固定宽度
@@ -758,6 +764,7 @@ const MobileDrawer: React.FC<{
 ### 5.7 MapPanel.tsx — 地图面板
 
 **现状问题**：
+
 - 桌面端作为侧面板 `w-[28rem]`（448px）渲染
 - 移动端 `hidden lg:block` 完全隐藏
 - 内部 SVG 画布使用 `viewBox` 但依赖固定外部容器尺寸
@@ -807,6 +814,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ fullWidth }) => {
 ### 5.8 InputArea.tsx — 输入区域
 
 **现状问题**：
+
 - 使用 `<textarea>` + 发送按钮的简洁布局
 - 移动端软键盘弹出时可能遮挡输入框
 - 发送按钮在处理中被 disabled
@@ -854,6 +862,7 @@ useEffect(() => {
 ### 5.9 ChatArea.tsx — 聊天区域
 
 **现状问题**：
+
 - 消息列表 `overflow-y-auto` 基本正常
 - 流式消息中的图片使用 base64 Data URL，移动端内存消耗大
 
@@ -878,6 +887,7 @@ useEffect(() => {
 ### 5.10 LegacySidebar.tsx — 遗产侧栏
 
 **现状问题**：
+
 - 展开 `w-96`（384px）超出手机屏幕
 - 切换按钮 `w-6`（24px）触摸目标过小
 - 无背景遮罩，无法点击外部关闭
@@ -911,6 +921,7 @@ const { isMobile } = useViewport();
 ### 5.12 GlobalSettingsModal.tsx — 全局设置弹窗
 
 **现状问题**：
+
 - z-index `z-[50]` 过低，被其他覆盖层遮挡
 - `max-h-[60vh]` 无 `100dvh` 移动端处理
 - Provider 下拉菜单被 `overflow-y-auto` 容器裁切
@@ -940,6 +951,7 @@ const { isMobile } = useViewport();
 ### 5.13 ParticleText.tsx — 粒子标题
 
 **现状问题**：
+
 - 仅有 `mousemove` 事件 + `touch-none` CSS，移动端无交互
 - `fontSize` 硬编码，不响应视口宽度
 
@@ -974,18 +986,21 @@ const handleMouseMove = (e: React.MouseEvent) => {
 ### 5.14 BootSequenceOverlay.tsx ✓ 良好
 
 已有较好的响应式适配。补充建议：
+
 - 在 `prefers-reduced-motion` 下跳过启动动画
 - cipher 动画在低端移动设备上可考虑减少粒子数量
 
 ### 5.15 WorldLineTree.tsx ✓ 良好
 
 已有较好的响应式适配。补充建议：
+
 - 遗产弹窗 z-index 从 `z-[100]` 提升至 `z-[300]`
 - PDF 导出按钮在移动端使用 `navigator.share()` API 替代下载
 
 ### 5.16 GameReviewReport.tsx ✓ 良好
 
 网格布局已响应式折叠。补充建议：
+
 - 绝对定位的"印章"装饰 (`absolute bottom-8 right-8`) 在移动端可能超出可视区域，改为 `bottom-4 right-4 sm:bottom-8 sm:right-8`
 - SVG 图表在宽度 < 400px 时字体可能重叠，需测试确认
 
@@ -1003,6 +1018,7 @@ const handleMouseMove = (e: React.MouseEvent) => {
 ### 5.18 StabilityMonitor.tsx — 稳定性监控
 
 **现状问题**：
+
 - 波形 Canvas 使用固定布局
 - 在 GameScreen 的右上角绝对定位
 
@@ -1045,6 +1061,7 @@ const glitchInterval = isMobile ? baseInterval * 2 : baseInterval;
 ### 5.20 SidePanel.tsx — 侧面板容器
 
 **现状问题**：
+
 - 固定宽度 `w-80`（320px）或 `w-96`（384px）无响应式
 
 **适配方案**：
@@ -1065,7 +1082,7 @@ const panelClass = isMobile
 if (isMobile || process.env.NODE_ENV === 'production') return null;
 ```
 
----
+***
 
 ## 6. 交互与手势适配
 
@@ -1075,27 +1092,27 @@ if (isMobile || process.env.NODE_ENV === 'production') return null;
 
 **需要修改的组件清单**：
 
-| 组件 | 元素 | 当前尺寸 | 修改方案 |
-|------|------|----------|----------|
-| AuthorLinks | 图标链接 | 16×16 | 外层包裹 `min-w-[44px] min-h-[44px]` 按钮 |
-| LegacySidebar | 切换按钮 | 24×48 | 移动端使用 MobileDrawer 替代 |
-| SettingsGearIcon | 齿轮按钮 | ~32×32 | 增加 `min-w-[44px] min-h-[44px]` |
-| GlobalSettingsModal | 开关 | 44×20 | 增高至 `h-7`（28px） |
-| ConfirmationModal | 按钮文字 | 12px | 增大至 `text-sm`（14px） |
-| Typewriter | 列表选项 | 按文字长度 | 增加 `min-h-[44px] py-3` |
-| MapPanel | 地图节点 | 按 SVG 半径 | 移动端增大 `r` 值或增加透明扩大触摸区 |
+| 组件                  | 元素   | 当前尺寸     | 修改方案                                |
+| ------------------- | ---- | -------- | ----------------------------------- |
+| AuthorLinks         | 图标链接 | 16×16    | 外层包裹 `min-w-[44px] min-h-[44px]` 按钮 |
+| LegacySidebar       | 切换按钮 | 24×48    | 移动端使用 MobileDrawer 替代               |
+| SettingsGearIcon    | 齿轮按钮 | \~32×32  | 增加 `min-w-[44px] min-h-[44px]`      |
+| GlobalSettingsModal | 开关   | 44×20    | 增高至 `h-7`（28px）                     |
+| ConfirmationModal   | 按钮文字 | 12px     | 增大至 `text-sm`（14px）                 |
+| Typewriter          | 列表选项 | 按文字长度    | 增加 `min-h-[44px] py-3`              |
+| MapPanel            | 地图节点 | 按 SVG 半径 | 移动端增大 `r` 值或增加透明扩大触摸区               |
 
 ### 6.2 手势映射表
 
-| 桌面端操作 | 移动端手势 | 涉及组件 |
-|-----------|-----------|----------|
-| 鼠标拖拽节点 | 单指拖拽 | EditorCanvas |
-| 滚轮缩放画布 | 双指捏合 | EditorCanvas, MapPanel |
-| 鼠标平移画布 | 双指拖拽 | EditorCanvas, MapPanel |
-| 右键上下文菜单 | 长按(500ms) | EditorCanvas |
-| hover 查看 tooltip | 点击展开/收起 | MapPanel 节点, Typewriter SCP 链接 |
-| 鼠标悬停粒子散开 | 触摸移动粒子散开 | ParticleText |
-| 拖拽调整面板宽度 | 不支持，使用预设尺寸 | SidePanel |
+| 桌面端操作            | 移动端手势      | 涉及组件                           |
+| ---------------- | ---------- | ------------------------------ |
+| 鼠标拖拽节点           | 单指拖拽       | EditorCanvas                   |
+| 滚轮缩放画布           | 双指捏合       | EditorCanvas, MapPanel         |
+| 鼠标平移画布           | 双指拖拽       | EditorCanvas, MapPanel         |
+| 右键上下文菜单          | 长按(500ms)  | EditorCanvas                   |
+| hover 查看 tooltip | 点击展开/收起    | MapPanel 节点, Typewriter SCP 链接 |
+| 鼠标悬停粒子散开         | 触摸移动粒子散开   | ParticleText                   |
+| 拖拽调整面板宽度         | 不支持，使用预设尺寸 | SidePanel                      |
 
 ### 6.3 滑动手势支持
 
@@ -1138,7 +1155,7 @@ export function useSwipeGesture(
 }
 ```
 
----
+***
 
 ## 7. 性能优化专项
 
@@ -1182,7 +1199,7 @@ for await (const chunk of stream) {
 flushPendingText();
 ```
 
-**预期效果**：状态更新从每 token（~50ms）降至每帧（~16ms），减少约 70% 的 re-render 次数。
+**预期效果**：状态更新从每 token（\~50ms）降至每帧（\~16ms），减少约 70% 的 re-render 次数。
 
 ### 7.2 图片内存优化
 
@@ -1257,7 +1274,7 @@ const WorldLineTree = React.lazy(() => import('./components/WorldLineTree'));
 
 ### 7.5 framer-motion 优化
 
-`framer-motion`（~150KB gzipped）是最大的 UI 依赖。对于移动端：
+`framer-motion`（\~150KB gzipped）是最大的 UI 依赖。对于移动端：
 
 - 确认 Vite 已将其隔离为独立 chunk（已配置 ✓）
 - 考虑使用 `LazyMotion` + `domAnimation` 特性包减少 bundle：
@@ -1270,13 +1287,14 @@ import { LazyMotion, domAnimation } from 'framer-motion';
 </LazyMotion>
 ```
 
----
+***
 
 ## 8. 音频系统移动端适配
 
 ### 8.1 问题
 
 移动浏览器要求在用户手势（tap/click）之后才能解锁 AudioContext。当前的 `playBgm()`、`playSfx()` 在以下场景静默失败：
+
 - 游戏开始自动播放 BGM
 - 稳定性降低触发警报音
 - glitch 特效音
@@ -1340,7 +1358,7 @@ useEffect(() => {
 }, [gameState.status]);
 ```
 
----
+***
 
 ## 9. PWA 与离线支持
 
@@ -1397,24 +1415,25 @@ export default defineConfig({
 - IndexedDB 中的存档本地可用（已实现 ✓）
 - 在无网络时仍允许继续上一次保存点（需要本地 AI 模式或提示离线）
 
----
+***
 
 ## 10. 测试策略
 
 ### 10.1 设备测试矩阵
 
-| 设备 | 系统 | 浏览器 | 屏幕 | 优先级 |
-|------|------|--------|------|--------|
-| iPhone 15 | iOS 17+ | Safari | 390×844 | P0 |
-| iPhone SE 3 | iOS 17+ | Safari | 375×667 | P0 |
-| Pixel 8 | Android 14+ | Chrome | 412×915 | P0 |
-| Samsung Galaxy S24 | Android 14+ | Samsung Browser | 360×780 | P1 |
-| iPad Mini 6 | iPadOS 17+ | Safari | 744×1133 | P1 |
-| iPad Pro 12.9" | iPadOS 17+ | Safari | 1024×1366 | P1 |
+| 设备                 | 系统          | 浏览器             | 屏幕        | 优先级 |
+| ------------------ | ----------- | --------------- | --------- | --- |
+| iPhone 15          | iOS 17+     | Safari          | 390×844   | P0  |
+| iPhone SE 3        | iOS 17+     | Safari          | 375×667   | P0  |
+| Pixel 8            | Android 14+ | Chrome          | 412×915   | P0  |
+| Samsung Galaxy S24 | Android 14+ | Samsung Browser | 360×780   | P1  |
+| iPad Mini 6        | iPadOS 17+  | Safari          | 744×1133  | P1  |
+| iPad Pro 12.9"     | iPadOS 17+  | Safari          | 1024×1366 | P1  |
 
 ### 10.2 测试检查清单
 
 **布局验证**：
+
 - [ ] 所有页面在 360px 宽度下无水平溢出
 - [ ] 所有弹窗在移动端正确全屏或自适应
 - [ ] 软键盘弹出时输入区域可见
@@ -1422,6 +1441,7 @@ export default defineConfig({
 - [ ] 横屏模式下布局不崩溃
 
 **交互验证**：
+
 - [ ] 所有按钮触摸目标 ≥ 44×44px
 - [ ] 故事编辑器画布支持触控操作
 - [ ] 地图面板可通过手势或按钮访问
@@ -1429,68 +1449,68 @@ export default defineConfig({
 - [ ] 侧滑手势正确呼出抽屉
 
 **性能验证**：
+
 - [ ] AI 流式渲染无卡顿（目标：≥30fps）
 - [ ] 视觉特效在低端设备上不掉帧
 - [ ] 内存不持续增长（10 轮游戏后 < 200MB）
 - [ ] 首屏加载 < 3s（4G 网络）
 
 **音频验证**：
+
 - [ ] 首次交互后音频正常播放
 - [ ] 切到后台 BGM 暂停
 - [ ] 切回前台 BGM 恢复
 
----
+***
 
 ## 11. 实施路线图与优先级
 
 ### Phase 0 — 基础设施（1 周）
 
-| 任务 | 涉及文件 | 工作量 |
-|------|----------|--------|
-| 新增 `useViewport` Hook | hooks/useViewport.ts (新建) | 0.5d |
-| 修改 viewport meta + safe area CSS | index.html | 0.5d |
-| z-index 规范化 | 全局 10+ 组件 | 1d |
-| 全局触摸样式 + hover 修复 | index.html, themeCss.ts | 1d |
-| 音频解锁机制 | services/audioUnlock.ts (新建) | 0.5d |
-| 新增 `MobileDrawer` 组件 | components/common/MobileDrawer.tsx (新建) | 1d |
+| 任务                               | 涉及文件                                    | 工作量  |
+| -------------------------------- | --------------------------------------- | ---- |
+| 新增 `useViewport` Hook            | hooks/useViewport.ts (新建)               | 0.5d |
+| 修改 viewport meta + safe area CSS | index.html                              | 0.5d |
+| z-index 规范化                      | 全局 10+ 组件                               | 1d   |
+| 全局触摸样式 + hover 修复                | index.html, themeCss.ts                 | 1d   |
+| 音频解锁机制                           | services/audioUnlock.ts (新建)            | 0.5d |
+| 新增 `MobileDrawer` 组件             | components/common/MobileDrawer.tsx (新建) | 1d   |
 
 ### Phase 1 — 核心游戏流适配（2 周）
 
-| 任务 | 涉及文件 | 优先级 |
-|------|----------|--------|
-| GameScreen 移动端布局 | GameScreen.tsx, ChatArea.tsx, InputArea.tsx | P0 |
-| MapPanel 移动端全宽渲染 + 抽屉入口 | MapPanel.tsx, GameScreen.tsx | P0 |
-| StartScreen 响应式优化 | StartScreen.tsx | P0 |
-| LegacySidebar 移动端改 MobileDrawer | LegacySidebar.tsx | P0 |
-| StabilityMonitor 移动端迷你版 | StabilityMonitor.tsx | P1 |
-| 视觉特效移动端降级 | VisualEffects.tsx | P1 |
-| ParticleText 触摸支持 | ParticleText.tsx | P1 |
-| Typewriter 触摸目标优化 | Typewriter.tsx | P1 |
-| AI 流式渲染 rAF 节流 | useGameLoop.ts | P1 |
-| 图片内存优化 | useGameLoop.ts, 新建 imageMemory.ts | P1 |
+| 任务                              | 涉及文件                                        | 优先级 |
+| ------------------------------- | ------------------------------------------- | --- |
+| GameScreen 移动端布局                | GameScreen.tsx, ChatArea.tsx, InputArea.tsx | P0  |
+| MapPanel 移动端全宽渲染 + 抽屉入口         | MapPanel.tsx, GameScreen.tsx                | P0  |
+| StartScreen 响应式优化               | StartScreen.tsx                             | P0  |
+| LegacySidebar 移动端改 MobileDrawer | LegacySidebar.tsx                           | P0  |
+| StabilityMonitor 移动端迷你版         | StabilityMonitor.tsx                        | P1  |
+| 视觉特效移动端降级                       | VisualEffects.tsx                           | P1  |
+| ParticleText 触摸支持               | ParticleText.tsx                            | P1  |
+| Typewriter 触摸目标优化               | Typewriter.tsx                              | P1  |
+| AI 流式渲染 rAF 节流                  | useGameLoop.ts                              | P1  |
+| 图片内存优化                          | useGameLoop.ts, 新建 imageMemory.ts           | P1  |
 
 ### Phase 2 — 完整界面适配（2 周）
 
-| 任务 | 涉及文件 | 优先级 |
-|------|----------|--------|
-| TacticalPreview 移动端重构 | TacticalPreview.tsx | P0 |
-| EntityProfileAugmentation 移动端 Tab 布局 | EntityProfileAugmentation.tsx | P0 |
-| StoryEditor 移动端单面板 + 底部导航 | StoryEditor.tsx, 各编辑器子组件 | P0 |
-| GlobalSettingsModal 弹窗升级 | GlobalSettingsModal.tsx | P1 |
-| ConfirmationModal 触摸目标 | ConfirmationModal.tsx | P2 |
-| AuthorLinks 触摸目标 | AuthorLinks.tsx | P2 |
-| BootSequenceOverlay 减少动效 | BootSequenceOverlay.tsx | P2 |
+| 任务                                   | 涉及文件                          | 优先级 |
+| ------------------------------------ | ----------------------------- | --- |
+| TacticalPreview 移动端重构                | TacticalPreview\.tsx          | P0  |
+| EntityProfileAugmentation 移动端 Tab 布局 | EntityProfileAugmentation.tsx | P0  |
+| StoryEditor 移动端单面板 + 底部导航            | StoryEditor.tsx, 各编辑器子组件      | P0  |
+| GlobalSettingsModal 弹窗升级             | GlobalSettingsModal.tsx       | P1  |
+| ConfirmationModal 触摸目标               | ConfirmationModal.tsx         | P2  |
+| AuthorLinks 触摸目标                     | AuthorLinks.tsx               | P2  |
 
 ### Phase 3 — 编辑器画布触控 + PWA（2 周）
 
-| 任务 | 涉及文件 | 优先级 |
-|------|----------|--------|
-| EditorCanvas Pointer Events 改造 | EditorCanvas.tsx | P1 |
-| 手势库（捏合缩放、长按菜单） | 新建 hooks/useGesture.ts | P1 |
-| 代码分割（React.lazy） | App.tsx | P1 |
-| framer-motion LazyMotion 优化 | App.tsx | P2 |
-| PWA manifest + Service Worker | vite.config.ts, 新建 icons/ | P2 |
-| 性能降级策略（getPerformanceTier） | 新建 utils/performance.ts | P2 |
+| 任务                             | 涉及文件                      | 优先级 |
+| ------------------------------ | ------------------------- | --- |
+| EditorCanvas Pointer Events 改造 | EditorCanvas.tsx          | P1  |
+| 手势库（捏合缩放、长按菜单）                 | 新建 hooks/useGesture.ts    | P1  |
+| 代码分割（React.lazy）               | App.tsx                   | P1  |
+| framer-motion LazyMotion 优化    | App.tsx                   | P2  |
+| PWA manifest + Service Worker  | vite.config.ts, 新建 icons/ | P2  |
 
 ### 时间线总览
 
@@ -1502,44 +1522,45 @@ Week 6-7      Phase 3: 编辑器触控 + PWA
 Week 8        全量测试 + 回归修复
 ```
 
----
+***
 
 ## 附录：组件问题清单矩阵
 
-| 组件 | P0 问题 | P1 问题 | P2 问题 | 预估工作量 |
-|------|---------|---------|---------|-----------|
-| **App.tsx** | — | safe area, CRT 降级 | — | 0.5d |
-| **StartScreen** | — | ParticleText 字号, 齿轮目标 | 装饰重叠 | 1d |
-| **EntityProfileAugmentation** | w-96 溢出, grid-cols-2 | — | — | 2d |
-| **TacticalPreview** | w-96 溢出, Canvas 720×420 | — | — | 2d |
-| **StoryEditor** | 多面板 1084px, Canvas 鼠标 | — | — | 5d |
-| **EditorCanvas** | 仅鼠标交互 | — | — | 3d |
-| **EditorAssistantPanel** | w-96 溢出 | — | — | 含在 StoryEditor |
-| **PropertyInspector** | w-80 溢出 | — | — | 含在 StoryEditor |
-| **StoryFormPanel** | w-[300px] 溢出 | — | — | 含在 StoryEditor |
-| **GameScreen** | MapPanel 移动端隐藏 | — | — | 2d |
-| **MapPanel** | hidden lg:block 无替代 | SVG 尺寸固定 | 节点目标小 | 2d |
-| **LegacySidebar** | w-96 溢出, 切换按钮 24px | — | — | 1d |
-| **InputArea** | — | 软键盘遮挡, 字号 < 16px | — | 0.5d |
-| **ChatArea** | — | base64 内存 | — | 0.5d |
-| **ParticleText** | — | 无触摸交互 | — | 0.5d |
-| **Typewriter** | — | 列表选项目标小 | — | 0.5d |
-| **StabilityMonitor** | — | — | 移动端占空间 | 0.5d |
-| **VisualEffects** | — | 移动端性能 | prefers-reduced-motion | 0.5d |
-| **GlobalSettingsModal** | — | z-50 被遮挡, 下拉裁切 | 开关目标小, 无 100dvh | 1d |
-| **SaveLoadModal** | — (优秀 ✓) | — | — | 0d |
-| **ConfirmationModal** | — | — | 按钮文字 12px | 0.25d |
-| **AuthorLinks** | — | — | 图标 16px | 0.25d |
-| **BootSequenceOverlay** | — (良好 ✓) | — | reduced-motion | 0.25d |
-| **WorldLineTree** | — (良好 ✓) | — | z-100 冲突 | 0.25d |
-| **GameReviewReport** | — (良好 ✓) | — | 印章位置 | 0.25d |
-| **themeCss.ts** | — | hover 粘滞 | — | 0.5d |
-| **useGameLoop** | — | 流式渲染掉帧 | — | 1d |
-| **useGlitchEffect** | — | — | 移动端频率过高 | 0.25d |
-| **音频系统** | — | autoplay 被拦截 | 后台暂停 | 1d |
+| 组件                            | P0 问题                   | P1 问题                 | P2 问题                  | 预估工作量          |
+| ----------------------------- | ----------------------- | --------------------- | ---------------------- | -------------- |
+| **App.tsx**                   | —                       | safe area, CRT 降级     | —                      | 0.5d           |
+| **StartScreen**               | —                       | ParticleText 字号, 齿轮目标 | 装饰重叠                   | 1d             |
+| **EntityProfileAugmentation** | w-96 溢出, grid-cols-2    | —                     | —                      | 2d             |
+| **TacticalPreview**           | w-96 溢出, Canvas 720×420 | —                     | —                      | 2d             |
+| **StoryEditor**               | 多面板 1084px, Canvas 鼠标   | —                     | —                      | 5d             |
+| **EditorCanvas**              | 仅鼠标交互                   | —                     | —                      | 3d             |
+| **EditorAssistantPanel**      | w-96 溢出                 | —                     | —                      | 含在 StoryEditor |
+| **PropertyInspector**         | w-80 溢出                 | —                     | —                      | 含在 StoryEditor |
+| **StoryFormPanel**            | w-\[300px] 溢出           | —                     | —                      | 含在 StoryEditor |
+| **GameScreen**                | MapPanel 移动端隐藏          | —                     | —                      | 2d             |
+| **MapPanel**                  | hidden lg:block 无替代     | SVG 尺寸固定              | 节点目标小                  | 2d             |
+| **LegacySidebar**             | w-96 溢出, 切换按钮 24px      | —                     | —                      | 1d             |
+| **InputArea**                 | —                       | 软键盘遮挡, 字号 < 16px      | —                      | 0.5d           |
+| **ChatArea**                  | —                       | base64 内存             | —                      | 0.5d           |
+| **ParticleText**              | —                       | 无触摸交互                 | —                      | 0.5d           |
+| **Typewriter**                | —                       | 列表选项目标小               | —                      | 0.5d           |
+| **StabilityMonitor**          | —                       | —                     | 移动端占空间                 | 0.5d           |
+| **VisualEffects**             | —                       | 移动端性能                 | prefers-reduced-motion | 0.5d           |
+| **GlobalSettingsModal**       | —                       | z-50 被遮挡, 下拉裁切        | 开关目标小, 无 100dvh        | 1d             |
+| **SaveLoadModal**             | — (优秀 ✓)                | —                     | —                      | 0d             |
+| **ConfirmationModal**         | —                       | —                     | 按钮文字 12px              | 0.25d          |
+| **AuthorLinks**               | —                       | —                     | 图标 16px                | 0.25d          |
+| **BootSequenceOverlay**       | — (良好 ✓)                | —                     | reduced-motion         | 0.25d          |
+| **WorldLineTree**             | — (良好 ✓)                | —                     | z-100 冲突               | 0.25d          |
+| **GameReviewReport**          | — (良好 ✓)                | —                     | 印章位置                   | 0.25d          |
+| **themeCss.ts**               | —                       | hover 粘滞              | —                      | 0.5d           |
+| **useGameLoop**               | —                       | 流式渲染掉帧                | —                      | 1d             |
+| **useGlitchEffect**           | —                       | —                     | 移动端频率过高                | 0.25d          |
+| **音频系统**                      | —                       | autoplay 被拦截          | 后台暂停                   | 1d             |
 
-**总预估工作量**：~28 人天（1 名前端工程师，约 6-8 周）
+**总预估工作量**：\~28 人天（1 名前端工程师，约 6-8 周）
 
----
+***
 
-> **文档结束** — 本技术方案基于对项目 50+ 源文件的逐行代码审查，覆盖全部 UI 组件、Hooks、样式系统、构建配置与类型定义。方案遵循"Mobile-First 逐层增强"原则，按"基础设施 → 核心流 → 完整界面 → 高级特性"分阶段实施，确保每阶段可独立交付且不影响现有桌面端体验。
+> **文档结束** — 本技术方案基于对项目 50+ 源文件的逐行代码审查，覆盖全部 UI 组件、Hooks、样式系统、构建配置与类型定义。方案遵循"Mobile-First 逐层增强"原则，按"基础设施 → 核心流 → 完整界面 → 高级特性"分阶段实施，确保每阶段可独立交付且不影响现有桌面端体验。sss
+

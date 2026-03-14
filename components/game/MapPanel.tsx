@@ -3,13 +3,15 @@ import { GameState } from '../../types';
 import { useTranslation } from '../../utils/i18n';
 import { buildLayout } from '../../utils/mapLayout';
 import SidePanel from '../common/SidePanel';
+import { useResizable } from '../../hooks/useResizable';
 
 interface MapPanelProps {
   gameState: GameState;
   onQuickAction: (text: string) => void;
+  fullWidth?: boolean;
 }
 
-const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
+const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction, fullWidth = false }) => {
   const { t } = useTranslation();
   const blueprint = gameState.scpData?.mapBlueprint;
   const runtime = gameState.map;
@@ -19,6 +21,13 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
 
   const [viewTransform, setViewTransform] = useState({ scale: DEFAULT_MAP_SCALE, x: 0, y: 0 }); // Initial scale matches reset
   const [isPanning, setIsPanning] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const { width: panelWidth, onMouseDown: onResizeMouseDown } = useResizable({
+    side: 'right',
+    defaultWidth: 320,
+    minWidth: 200,
+    maxWidth: 560,
+  });
   const [panOrigin, setPanOrigin] = useState<{ x: number; y: number; originX: number; originY: number } | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredObjectiveId, setHoveredObjectiveId] = useState<string | null>(null);
@@ -343,8 +352,8 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
 
   const activeObjective = (activeObjectiveId ? data.objectiveById.get(activeObjectiveId) : null) || null;
 
-  return (
-    <SidePanel id="map-panel" side="right" className="fixed top-16 bottom-4 hidden lg:flex w-80">
+  const mapContent = (
+    <>
       <div className="p-3 border-b border-scp-gray/30 scp-window-header flex justify-between items-center">
         <div>
           <div className="text-[12px] font-mono tracking-widest text-scp-term uppercase">{t('game.map_title')}</div>
@@ -360,7 +369,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
         {/* Radar Container */}
         <div className="w-full flex justify-center py-2 relative">
-            <div className="relative w-64 h-64 bg-scp-dark rounded-full overflow-hidden border-4 border-scp-border-strong shadow-[0_0_30px_rgba(0,0,0,0.8)] group select-none">
+            <div className={`relative ${fullWidth ? "w-full aspect-square max-w-[300px]" : "w-64 h-64"} bg-scp-dark rounded-full overflow-hidden border-4 border-scp-border-strong shadow-[0_0_30px_rgba(0,0,0,0.8)] group select-none`}>
                 {/* Grid Layer */}
                 <div className="absolute inset-0 pointer-events-none opacity-30">
                     <svg viewBox="0 0 200 200" className="w-full h-full">
@@ -423,6 +432,29 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
                     }}
                     onMouseUp={() => { setIsPanning(false); setPanOrigin(null); }}
                     onMouseLeave={() => { setIsPanning(false); setPanOrigin(null); }}
+                    onTouchStart={event => {
+                        const touch = event.touches[0];
+                        if (!touch || !minimapRef.current) return;
+                        setIsPanning(true);
+                        setPanOrigin({
+                            x: touch.clientX,
+                            y: touch.clientY,
+                            originX: viewTransform.x,
+                            originY: viewTransform.y
+                        });
+                    }}
+                    onTouchMove={event => {
+                        event.preventDefault();
+                        const touch = event.touches[0];
+                        if (!touch || !isPanning || !panOrigin || !minimapRef.current) return;
+                        const rect = minimapRef.current.getBoundingClientRect();
+                        const scaleX = 200 / rect.width;
+                        const scaleY = 200 / rect.height;
+                        const dx = ((touch.clientX - panOrigin.x) * scaleX) / viewTransform.scale;
+                        const dy = ((touch.clientY - panOrigin.y) * scaleY) / viewTransform.scale;
+                        setViewTransform(prev => ({ ...prev, x: panOrigin.originX + dx, y: panOrigin.originY + dy }));
+                    }}
+                    onTouchEnd={() => { setIsPanning(false); setPanOrigin(null); }}
                 >
                     <svg viewBox="0 0 200 200" className="w-full h-full">
                         <defs>
@@ -533,7 +565,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
             {/* Reset View Button - Moved to top right relative to the container */}
             <button
                   onClick={resetView}
-                  className="absolute top-2 right-4 text-[11px] font-mono text-scp-text/60 hover:text-scp-term border border-scp-term/30 px-1.5 py-0.5 bg-black/80 z-30"
+                  className={`absolute top-2 right-4 text-[11px] font-mono text-scp-text/60 hover:text-scp-term border border-scp-term/30 ${fullWidth ? "px-3 py-2 min-h-[44px] min-w-[44px] flex items-center justify-center" : "px-1.5 py-0.5"} bg-black/80 z-30`}
             >
                   {t('game.map_reset')}
             </button>
@@ -542,11 +574,11 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
             <div className="absolute top-2 left-4 z-30 flex gap-1">
                 <button 
                     onClick={zoomIn}
-                    className="w-5 h-5 flex items-center justify-center border border-scp-term/30 bg-black/80 text-scp-term hover:bg-scp-term/20 text-xs font-mono"
+                    className={`${fullWidth ? "w-11 h-11 min-w-[44px] min-h-[44px]" : "w-5 h-5"} flex items-center justify-center border border-scp-term/30 bg-black/80 text-scp-term hover:bg-scp-term/20 text-xs font-mono`}
                 >+</button>
                 <button 
                     onClick={zoomOut}
-                    className="w-5 h-5 flex items-center justify-center border border-scp-term/30 bg-black/80 text-scp-term hover:bg-scp-term/20 text-xs font-mono"
+                    className={`${fullWidth ? "w-11 h-11 min-w-[44px] min-h-[44px]" : "w-5 h-5"} flex items-center justify-center border border-scp-term/30 bg-black/80 text-scp-term hover:bg-scp-term/20 text-xs font-mono`}
                 >-</button>
             </div>
             
@@ -627,25 +659,6 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
 
         {/* List Views (Adjacency, etc.) */}
         <div className="space-y-3 pt-2">
-            {activeObjective && isTouchMode && (
-              <div className="border border-scp-term/30 bg-black/60 px-2 py-2 text-[11px] text-scp-text/80 space-y-1">
-                <div className="flex items-center justify-between gap-2 border-b border-scp-term/20 pb-1">
-                  <div className="font-bold truncate">{activeObjective.type === 'MAIN' ? 'MAIN' : 'SIDE'} | {activeObjective.title}</div>
-                  <button
-                    onClick={() => setActiveObjectiveId(null)}
-                    className="text-scp-text/60 hover:text-scp-text border border-scp-gray/30 px-1.5 py-0.5"
-                  >
-                    ×
-                  </button>
-                </div>
-                {activeObjective.detail && (
-                  <div className="flex gap-2">
-                    <span className="text-gray-400 shrink-0">{t('map_editor.obj_detail')}</span>
-                    <span className="whitespace-pre-wrap break-words">{activeObjective.detail}</span>
-                  </div>
-                )}
-              </div>
-            )}
              {/* Neighbors */}
              <div>
                 <h3 className="font-mono text-[12px] font-bold text-scp-term/80 uppercase mb-1">{t('game.map_adjacency')}</h3>
@@ -746,6 +759,30 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction }) => {
             )}
         </div>
       </div>
+    </>
+  );
+
+  return fullWidth ? (
+    <div className="flex flex-col h-full">{mapContent}</div>
+  ) : (
+    <SidePanel id="map-panel" side="right" className="fixed top-1/2 -translate-y-1/2 h-[85vh] md:h-[90vh] hidden lg:flex transition-all duration-300 ease-in-out shadow-[-5px_0_20px_rgba(0,0,0,0.5)]" style={{ width: isCollapsed ? 32 : panelWidth }}>
+      {/* Collapse toggle */}
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="absolute -left-4 top-1/2 -translate-y-1/2 w-6 h-12 bg-scp-dark border border-scp-term/60 flex items-center justify-center cursor-pointer hover:bg-scp-term/20 text-scp-term z-50 rounded-l"
+      >
+        {isCollapsed ? '\u2039' : '\u203a'}
+      </button>
+      <div className={`flex-1 flex flex-col overflow-hidden transition-opacity duration-300 ${isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        {mapContent}
+      </div>
+      {/* Resize handle */}
+      {!isCollapsed && (
+        <div
+          onMouseDown={onResizeMouseDown}
+          className="absolute top-0 left-0 w-1 h-full cursor-col-resize hover:bg-scp-term/40 active:bg-scp-term/60 transition-colors z-50"
+        />
+      )}
     </SidePanel>
   );
 };

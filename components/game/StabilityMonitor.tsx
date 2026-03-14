@@ -292,7 +292,7 @@ const StabilityMonitor: React.FC<StabilityMonitorProps> = ({ stability, isPlayin
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-3">
               <div className="relative">
                 <canvas ref={canvasRef} className="bg-black/40 border border-scp-gray/40 rounded-sm" />
                 <div className="absolute inset-0 pointer-events-none opacity-25 bg-[repeating-linear-gradient(180deg,transparent,transparent_2px,rgba(255,255,255,0.04)_3px)] rounded-sm"></div>

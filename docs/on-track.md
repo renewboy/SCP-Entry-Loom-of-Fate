@@ -111,3 +111,96 @@
 5. 首次交互后音效与 BGM 可触发。
 6. 切到后台 BGM 暂停，切回恢复，游戏结束后切回不恢复。
 7. MobileDrawer 滑入/出动画流畅，内部滚动不穿透。
+
+---
+
+# On Track — Phase 1 核心组件移动端适配
+
+日期：2026-03-14
+状态：**Complete ✓**
+
+## 目标
+对所有核心 UI 组件进行移动端适配：触摸交互、响应式布局、GPU 降级、MobileDrawer 集成、44px 触摸目标。
+
+## 已完成
+
+### 1. `components/ParticleText.tsx` — 触摸交互支持
+- 移除 canvas 上的 `touch-none` CSS 类（原先阻止所有触摸交互）。
+- 新增 `handleTouchMove`：`e.preventDefault()` + `getBoundingClientRect` + scale factor 坐标计算。
+- 新增 `handleTouchEnd`：重置 `mouse.current.isActive = false`。
+- 通过 `useEffect` 注册 `touchmove`（passive: false）、`touchend`、`touchcancel` 事件监听，并在清理函数中移除。
+
+### 2. `components/Typewriter.tsx` — 触摸目标尺寸
+- 可点击 `<li>` 元素：增加 `py-2` 和 `min-h-[44px]`，确保每个选项满足 44px 最小触摸目标。
+- SCP 链接 `<span>`：增加 `py-1` 纵向内边距，提升可点击区域。
+
+### 3. `components/game/VisualEffects.tsx` — 移动端 GPU 降级
+- 引入 `useViewport` hook 获取 `isMobile`。
+- 噪点透明度（noiseOpacity）：移动端上限 0.2。
+- 扭曲缩放（distortionScale）：移动端上限 10。
+- Layer 1（Color Shift + backdrop-filter）：移动端完全跳过 `{!isMobile && ...}`。
+- Layer 2（RGB Split）：移动端降低透明度 `opacity-20`（桌面 `opacity-30`）。
+- Layer 3（Digital Artifacts）：桌面显示 3 个彩色块，移动端简化为单个。
+
+### 4. `components/game/InputArea.tsx` — iOS 缩放防护与安全区
+- 引入 `useViewport` 获取 `safeAreaInsets`。
+- 输入框增加 `text-base`（16px），防止 iOS Safari 自动缩放。
+- 外层容器增加 `paddingBottom: calc(1rem + safeAreaInsets.bottom)`，尊重底部安全区。
+
+### 5. `components/game/StabilityMonitor.tsx` — 移动端紧凑模式
+- 引入 `useViewport` 获取 `isMobile`。
+- 移动端隐藏 canvas 波形区域（164×40 CSS px）及 CRT 扫描线叠层：`{!isMobile && ...}` 包裹。
+- 仅保留 Hume 数值文字指示器（数值 + 百分比 + 状态标签 + delta 动画）。
+- 桌面端行为完全不变。
+
+### 6. `components/game/MapPanel.tsx` — fullWidth 模式与触摸交互
+- **新增 `fullWidth?: boolean` prop**：
+  - `fullWidth=true`：不使用 SidePanel 包裹，直接渲染在 `<div className="flex flex-col h-full">` 中（用于 MobileDrawer 内嵌）。
+  - `fullWidth=false`（默认）：保持原有 SidePanel 固定定位行为。
+- **雷达容器响应式**：fullWidth 模式下从 `w-64 h-64` 改为 `w-full aspect-square max-w-[300px]`。
+- **触摸平移支持**：新增 `onTouchStart`、`onTouchMove`（`preventDefault`）、`onTouchEnd` 事件处理，镜像鼠标平移逻辑。
+- **触摸友好控件**：缩放按钮 fullWidth 模式下从 `w-5 h-5` 升级为 `w-11 h-11 min-w-[44px]`；重置按钮增加 `min-h-[44px]`。
+
+### 7. `components/LegacySidebar.tsx` — MobileDrawer 集成
+- 引入 `MobileDrawer` 组件和 `useViewport` hook。
+- **新增 props**：`isDrawerOpen?: boolean`、`onDrawerClose?: () => void`。
+- **移动端路径**：`isMobile` 时渲染 `<MobileDrawer side="left">`，内含完整遗产内容（特质、物品、回响），不使用 createPortal 或 SidePanel。
+- **桌面端路径**：保持原有 `createPortal` + SidePanel + 折叠/展开行为完全不变。
+
+### 8. `components/StartScreen.tsx` — 响应式优化
+- 引入 `useViewport` 获取 `isMobile`。
+- **ParticleText 响应式字号**：主标题 `isMobile ? 28 : 42`，副标题 `isMobile ? 20 : 28`。
+- **设置按钮触摸目标**：从 `p-2` + `h-6 w-6` 升级为 `p-3` + `h-7 w-7`（≥44px）。
+- **容器响应式**：`p-4 md:p-8` 替代固定 `p-8`；`max-h-[90dvh]` 替代 `max-h-[90vh]`（适配移动端软键盘）。
+
+### 9. `components/GameScreen.tsx` — 移动端布局编排
+- 引入 `useViewport` 和 `MobileDrawer`。
+- **抽屉状态机**：`mobileDrawer: 'none' | 'map' | 'legacy'` 控制哪个抽屉打开。
+- **LegacySidebar**：传递 `isDrawerOpen` / `onDrawerClose` props，由 GameScreen 统一管理。
+- **MapPanel 移动端**：包裹在 `<MobileDrawer side="right" title="RADAR MAP">` 中，传递 `fullWidth` prop；快捷操作自动关闭抽屉。
+- **浮动切换按钮**：游戏进行中在 InputArea 下方显示「📜 LEGACY」和「📡 MAP」按钮（`min-h-[44px]`），仅移动端可见。
+- **容器高度**：移动端 `h-[100dvh]`（全屏），桌面端保持 `h-[85vh] md:h-[90vh]`。
+
+## 变更文件清单
+
+**修改（9 个）：**
+- `components/ParticleText.tsx` — 触摸事件监听
+- `components/Typewriter.tsx` — 44px 触摸目标
+- `components/game/VisualEffects.tsx` — 移动端 GPU 降级
+- `components/game/InputArea.tsx` — iOS 缩放防护 + 安全区底部
+- `components/game/StabilityMonitor.tsx` — 移动端隐藏 canvas 波形
+- `components/game/MapPanel.tsx` — fullWidth prop + 触摸平移 + 响应式雷达
+- `components/LegacySidebar.tsx` — MobileDrawer 移动端路径
+- `components/StartScreen.tsx` — 响应式字号/间距/dvh
+- `components/GameScreen.tsx` — 移动端抽屉编排 + 浮动按钮
+
+## 验证建议
+1. iPhone 375px 下：StartScreen 标题不溢出，容器可滚动，设置按钮可轻松点击。
+2. 游戏中 375px：底部出现 MAP/LEGACY 浮动按钮，点击分别打开右/左抽屉。
+3. MapPanel 在抽屉中：雷达圆形自适应宽度，触摸可平移，缩放按钮 ≥44px。
+4. LegacySidebar 在抽屉中：特质/物品/回响正常渲染，滚动不穿透。
+5. StabilityMonitor 移动端：仅显示数值，无 canvas 波形闪烁。
+6. VisualEffects 移动端：无 backdrop-filter 色偏层，噪点/扭曲上限生效。
+7. Typewriter 选项条目：触摸目标 ≥44px 高度。
+8. InputArea：iOS Safari 聚焦不缩放（font-size ≥ 16px），底部安全区有间距。
+9. 桌面端回归：所有组件行为与修改前一致。
