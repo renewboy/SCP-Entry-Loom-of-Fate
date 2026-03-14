@@ -17,14 +17,17 @@ import TacticalPreview from './components/TacticalPreview';
 import FeedbackOverlay from './components/game/FeedbackOverlay';
 import { useViewport } from './hooks/useViewport';
 
-const LanguageToggle = () => {
+const LanguageToggle = ({ status }: { status: GameStatus }) => {
     const { language, setLanguage, t } = useTranslation();
     const { isMobile } = useViewport();
+    
+    // In mobile, only show language toggle on StartScreen (IDLE, ANALYZING, ENTITY_PROFILE)
+    const isStartScreen = status === GameStatus.IDLE || status === GameStatus.ANALYZING || status === GameStatus.ENTITY_PROFILE;
     
     return (
         <button 
             onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
-            className={`fixed top-2 right-4 z-[60] px-2 py-1 bg-black/80 border border-scp-gray/60 text-scp-text/80 font-mono text-xs hover:border-scp-term hover:text-scp-term hover:shadow-[0_0_10px_rgba(51,255,0,0.4)] transition-all backdrop-blur-md active:scale-95 ${isMobile ? "hidden" : ""}`}
+            className={`fixed top-2 right-4 z-[60] px-2 py-1 bg-black/80 border border-scp-gray/60 text-scp-text/80 font-mono text-xs hover:border-scp-term hover:text-scp-term hover:shadow-[0_0_10px_rgba(51,255,0,0.4)] transition-all backdrop-blur-md active:scale-95 ${isMobile && !isStartScreen ? "hidden" : ""}`}
         >
             {t('app.switch_lang')}
         </button>
@@ -32,6 +35,7 @@ const LanguageToggle = () => {
 };
 
 const AppContent: React.FC = () => {
+  const { isMobile } = useViewport();
   const { t } = useTranslation();
   const [gameState, setGameState] = useState<GameState>({
     status: GameStatus.IDLE,
@@ -96,7 +100,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="relative w-screen h-screen-safe flex flex-col items-center justify-center overflow-hidden bg-[#0a0a0a] text-scp-text" style={{ paddingTop: 'var(--safe-top)', paddingBottom: 'var(--safe-bottom)' }}>
-      <LanguageToggle />
+      <LanguageToggle status={gameState.status} />
       <FeedbackOverlay gameState={gameState} />
       
       {/* Dynamic Background Layer - z-0 */}
@@ -149,23 +153,24 @@ const AppContent: React.FC = () => {
         <>
           <AuthorLinks status={gameState.status} />
 
-          <div className="absolute bottom-2 left-4 text-[10px] text-gray-600 font-mono pointer-events-none z-20 mix-blend-difference">
-            {t('app.footer')}
-          </div>
-
-          <div className="absolute bottom-2 left-0 right-0 text-[10px] text-gray-600 font-mono pointer-events-none z-20 mix-blend-difference flex justify-center">
-            © {new Date().getFullYear()} SCP Entry: Loom of Fate
-          </div>
-
-          <div className="absolute bottom-2 right-4 text-[10px] text-gray-600 font-mono z-20 mix-blend-difference">
-            <a
-              href="https://creativecommons.org/licenses/by-sa/3.0/"
-              target="_blank"
-              rel="noreferrer"
-              className="pointer-events-auto underline decoration-dotted hover:text-gray-300"
-            >
-              {t('app.license')}
-            </a>
+          {/* Footer - Desktop: left, center, right. Mobile: Stacked or centered */}
+          <div className={`absolute left-0 right-0 pointer-events-none z-20 mix-blend-difference flex px-4 ${isMobile ? 'bottom-2 flex-col items-center gap-1' : 'bottom-2 justify-between items-center'}`}>
+            <div className={`text-[10px] text-gray-600 font-mono ${isMobile ? 'hidden' : ''}`}>
+              {t('app.footer')}
+            </div>
+            <div className="text-[10px] text-gray-600 font-mono">
+              © {new Date().getFullYear()} SCP Entry: Loom of Fate
+            </div>
+            <div className={`text-[10px] text-gray-600 font-mono pointer-events-auto ${isMobile ? 'hidden' : ''}`}>
+              <a
+                href="https://creativecommons.org/licenses/by-sa/3.0/"
+                target="_blank"
+                rel="noreferrer"
+                className="underline decoration-dotted hover:text-gray-300"
+              >
+                {t('app.license')}
+              </a>
+            </div>
           </div>
         </>
       )}

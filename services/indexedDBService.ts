@@ -298,9 +298,10 @@ export const saveCloudSavesList = async (saves: SaveGameMetadata[]): Promise<voi
         // Clear old cache first? Or merge? 
         // User wants "list stored in IndexedDB". If we get a full list, we should probably replace.
         // But for efficiency, clear and add all is okay for small lists.
-        await new Promise((resolve, reject) => {
-            store.clear().onsuccess = resolve;
-            store.clear().onerror = reject;
+        const clearReq = store.clear();
+        await new Promise<void>((resolve, reject) => {
+            clearReq.onsuccess = () => resolve();
+            clearReq.onerror = () => reject(clearReq.error);
         });
 
         for (const save of saves) {

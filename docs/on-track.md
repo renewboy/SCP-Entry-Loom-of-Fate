@@ -204,3 +204,78 @@
 7. Typewriter 选项条目：触摸目标 ≥44px 高度。
 8. InputArea：iOS Safari 聚焦不缩放（font-size ≥ 16px），底部安全区有间距。
 9. 桌面端回归：所有组件行为与修改前一致。
+
+---
+
+# On Track — Phase 2 完整界面适配
+
+日期：2026-03-14
+状态：**Complete ✓**
+
+## 目标
+对剩余非核心 UI 组件进行移动端适配：TacticalPreview 战术预览垂直布局、EntityProfileAugmentation Tab 切换布局、GlobalSettingsModal 全屏弹窗升级、ConfirmationModal / AuthorLinks 触摸目标优化。StoryEditor 按需求跳过。
+
+## 已完成
+
+### 1. `components/TacticalPreview.tsx` — 移动端垂直布局（P0）
+- 引入 `useViewport` 获取 `isMobile` 和 `width`。
+- **Header 响应式**：`px-3 md:px-6`，移动端隐藏 `//` 分隔符和 `MISSION BRIEF` 文字标签。
+- **移动端布局**：从左右双栏（`w-96` 信息面板 + `flex-1` 地图画布）改为垂直堆叠（`flex-col overflow-y-auto`）。
+  - 任务信息区：全宽展示，取消 `w-96` 固定宽度。
+  - 档案头部：字号从 `text-4xl` 缩小为 `text-2xl`，间距压缩。
+  - 地图画布：`min-h-[250px]` 保证最小可视高度，宽度自适应容器。
+- **桌面端**：原有双栏布局完全不变，720×420 固定画布尺寸保留。
+- **底部操作栏**：`p-3 md:p-6` 响应式内边距，移动端新增 Edit 按钮，Start 按钮增加 `min-h-[44px]`。
+
+### 2. `components/EntityProfileAugmentation.tsx` — 移动端 Tab 布局（P0）
+- 引入 `useViewport` 获取 `isMobile`，新增 `activeTab` 状态（`'candidates' | 'details'`）。
+- **Header 响应式**：`px-3 md:px-6`，`text-base md:text-lg`。
+- **移动端 Tab 导航**：顶部双 Tab（CANDIDATES / DETAILS），每个 Tab `min-h-[44px]`，激活态 `border-b-2 border-amber-400`。
+- **候选人列表**：移动端全宽展示，取消 `w-96` 固定宽度。
+- **详情面板**：表单从 `grid-cols-2` 改为 `grid-cols-1` 单列，输入框 `text-base`（16px iOS 缩放防护）。
+- **自动切换**：选中候选人时自动切换到 Details Tab：`if (isMobile) setActiveTab('details')`。
+- **确认按钮**：移动端全宽 + `min-h-[44px]`。
+- **桌面端**：原有左右双栏布局完全不变。
+
+### 3. `components/GlobalSettingsModal.tsx` — 全屏弹窗升级（P1）
+- 引入 `useViewport` 获取 `isMobile`。
+- **CrtSurface 容器**：移动端 `h-[100dvh] max-h-none rounded-none`（全屏无圆角），桌面端保持 `max-w-lg`。
+- **关闭按钮**：升级为 `min-w-[44px] min-h-[44px]` 触摸目标。
+- **内容滚动区**：移动端 `flex-1`（占满剩余高度），桌面端保持 `max-h-[60vh]`。
+- **Toggle 开关**：从 `w-11 h-5` 升级为 `w-12 h-7`，圆点从 `w-4 h-4` 升级为 `w-5 h-5`，偏移 `translate-x-5`。
+- **Provider 下拉菜单**：从 `absolute` 绝对定位改为 inline 行内流式布局，解决移动端溢出裁切问题。
+- **输入框文字**：`isMobile ? 'text-base' : 'text-sm'`（16px iOS Safari 缩放防护）。
+- **底部按钮**：`min-h-[44px]` 触摸目标。
+- **桌面端**：除 Toggle 尺寸微调外，布局和行为不变。
+
+### 4. `components/ConfirmationModal.tsx` — 触摸目标优化（P2）
+- 取消/确认按钮：`py-2` → `py-3`，`text-xs` → `text-sm`，新增 `min-h-[44px]`。
+- 按钮容器增加 `flex-wrap`，防止小屏幕下按钮溢出。
+
+### 5. `components/AuthorLinks.tsx` — 触摸目标优化（P2）
+- 图标尺寸：`w-4 h-4` → `w-5 h-5`。
+- 链接触摸区域：增加 `justify-center min-w-[44px] min-h-[44px]`。
+- 容器定位响应式：`bottom-6 md:bottom-10 right-3 md:right-4`，移动端更贴近屏幕边缘。
+
+### 6. StoryEditor — 按需跳过
+- 故事编辑器移动端适配（单面板 + 底部导航）优先级较低，本阶段不做。
+
+## 变更文件清单
+
+**修改（5 个）：**
+- `components/TacticalPreview.tsx` — 垂直布局 + 响应式画布 + 44px 按钮
+- `components/EntityProfileAugmentation.tsx` — Tab 切换 + 单列表单 + iOS 缩放防护
+- `components/GlobalSettingsModal.tsx` — 全屏弹窗 + 大号 Toggle + inline 下拉 + 44px 按钮
+- `components/ConfirmationModal.tsx` — 44px 触摸目标 + flex-wrap
+- `components/AuthorLinks.tsx` — 44px 触摸目标 + 响应式定位
+
+## TypeScript 编译验证
+- `npx tsc --noEmit` 通过，5 个修改文件无编译错误（仅存在与本次修改无关的 `vitest.config.ts` 预存类型警告）。
+
+## 验证建议
+1. TacticalPreview 375px：垂直滚动布局，地图画布 ≥250px 高度，任务信息全宽无截断。
+2. EntityProfileAugmentation 375px：Tab 可切换，选中候选人自动跳到 Details，表单单列，输入 16px 不缩放。
+3. GlobalSettingsModal 375px：全屏展示无圆角，Toggle 可轻松点击，Provider 下拉不被裁切。
+4. ConfirmationModal 375px：按钮高度 ≥44px，小屏幕换行正常。
+5. AuthorLinks 375px：图标可轻松点击，不被屏幕边缘遮挡。
+6. 桌面端回归：所有 5 个组件行为与修改前一致。
