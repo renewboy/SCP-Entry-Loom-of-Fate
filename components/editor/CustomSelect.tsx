@@ -6,9 +6,10 @@ interface CustomSelectProps {
     onChange: (value: string) => void;
     options: { value: string; label: string }[];
     label?: string;
+    isMobile?: boolean;
 }
 
-const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, options, label }) => {
+const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, options, label, isMobile = false }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -23,12 +24,16 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, options, l
     }, []);
 
     const selectedOption = options.find(o => o.value === value);
+    
+    const triggerClass = isMobile 
+        ? `${selectTriggerBase} text-base min-h-[44px]` 
+        : selectTriggerBase;
 
     return (
         <div className={`${inputGroup} relative`} ref={containerRef}>
             {label && <label className={labelBase}>{label}</label>}
             <div 
-                className={selectTriggerBase}
+                className={triggerClass}
                 onClick={() => setIsOpen(!isOpen)}
             >
                 <span className="truncate">{selectedOption ? selectedOption.label : value}</span>
@@ -40,7 +45,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, options, l
                     {options.map(option => (
                         <div 
                             key={option.value}
-                            className={`${selectOptionBase} ${selectOptionHover} ${option.value === value ? selectOptionActive : 'text-scp-text'}`}
+                            className={`${selectOptionBase} ${selectOptionHover} ${option.value === value ? selectOptionActive : 'text-scp-text'} ${isMobile ? 'min-h-[44px] text-base' : ''}`}
                             onClick={() => {
                                 onChange(option.value);
                                 setIsOpen(false);

@@ -16,6 +16,7 @@ interface StoryFormPanelProps {
     handleImageUpload: (type: 'bg' | 'entity', e: React.ChangeEvent<HTMLInputElement>) => void;
     handleDeleteImage: (type: 'bg' | 'entity') => void;
     setLightboxImage: (value: string | null) => void;
+    isMobile?: boolean;
 }
 
 const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
@@ -32,18 +33,35 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
     handleGenerateImage,
     handleImageUpload,
     handleDeleteImage,
-    setLightboxImage
+    setLightboxImage,
+    isMobile = false
 }) => {
     const getInputClass = (value: string | undefined) => {
-        const baseClass = "w-full bg-black/50 border p-1 text-xs text-scp-text focus:outline-none transition-colors";
+        const baseClass = `w-full bg-black/50 border p-1 ${isMobile ? 'text-base' : 'text-xs'} text-scp-text focus:outline-none transition-colors`;
         const borderClass = showValidationErrors && !value 
             ? "border-red-500 focus:border-red-500 placeholder-red-900/50" 
             : "border-gray-700 focus:border-scp-accent";
         return `${baseClass} ${borderClass}`;
     };
+    
+    const getTextareaClass = () => {
+        return `w-full bg-black/50 border border-gray-700 p-2 ${isMobile ? 'text-base' : 'text-xs'} text-scp-text focus:border-scp-accent focus:outline-none`;
+    };
+    
+    const getBtnClass = () => {
+        return isMobile 
+            ? "text-xs px-3 py-2 min-h-[44px] bg-scp-accent/20 border border-scp-accent/50 text-scp-accent hover:bg-scp-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
+            : "text-[12px] px-2 py-1 bg-scp-accent/20 border border-scp-accent/50 text-scp-accent hover:bg-scp-accent/40 disabled:opacity-50 disabled:cursor-not-allowed";
+    };
+    
+    const getUploadBtnClass = () => {
+        return isMobile
+            ? "text-xs px-3 py-2 min-h-[44px] bg-gray-800 border border-gray-600 text-gray-300 hover:bg-gray-700 cursor-pointer"
+            : "text-[12px] px-2 py-1 bg-gray-800 border border-gray-600 text-gray-300 hover:bg-gray-700 cursor-pointer";
+    };
 
     return (
-        <div className="p-4 space-y-6">
+        <div className={`p-4 space-y-6 ${isMobile ? 'h-full overflow-y-auto' : ''}`}>
             <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-1">
                     <label className="text-[12px] text-scp-text-dim font-bold uppercase block">
@@ -106,7 +124,7 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
                     value={scpData.storyDraft?.roleDetails || ''}
                     onChange={e => setScpData({...scpData, storyDraft: {...scpData.storyDraft, roleDetails: e.target.value}}, 'deferred')}
                     onBlur={commitScpData}
-                    className="w-full h-20 bg-black/50 border border-gray-700 p-2 text-xs text-scp-text focus:border-scp-accent focus:outline-none"
+                    className={`${getTextareaClass()} h-20`}
                     placeholder={t('story_editor.placeholder_role')}
                 />
             </div>
@@ -116,7 +134,7 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
                     value={scpData.storyDraft?.storyBackground || ''}
                     onChange={e => setScpData({...scpData, storyDraft: {...scpData.storyDraft, storyBackground: e.target.value}}, 'deferred')}
                     onBlur={commitScpData}
-                    className="w-full h-24 bg-black/50 border border-gray-700 p-2 text-xs text-scp-text focus:border-scp-accent focus:outline-none"
+                    className={`${getTextareaClass()} h-24`}
                     placeholder={t('story_editor.placeholder_background')}
                 />
             </div>
@@ -126,7 +144,7 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
                     value={scpData.storyDraft?.narrativeConstraints || ''}
                     onChange={e => setScpData({...scpData, storyDraft: {...scpData.storyDraft, narrativeConstraints: e.target.value}}, 'deferred')}
                     onBlur={commitScpData}
-                    className="w-full h-16 bg-black/50 border border-gray-700 p-2 text-xs text-scp-text focus:border-scp-accent focus:outline-none"
+                    className={`${getTextareaClass()} h-16`}
                     placeholder={t('story_editor.placeholder_constraints')}
                 />
             </div>
@@ -136,7 +154,7 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
                     value={scpData.storyDraft?.openingPrompt || ''}
                     onChange={e => setScpData({...scpData, storyDraft: {...scpData.storyDraft, openingPrompt: e.target.value}}, 'deferred')}
                     onBlur={commitScpData}
-                    className="w-full h-20 bg-black/50 border border-gray-700 p-2 text-xs text-scp-text focus:border-scp-accent focus:outline-none"
+                    className={`${getTextareaClass()} h-20`}
                     placeholder={t('story_editor.placeholder_opening')}
                 />
             </div>
@@ -151,24 +169,24 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
                     <textarea 
                         value={bgImagePrompt}
                         onChange={e => setBgImagePrompt(e.target.value)}
-                        className="w-full h-16 bg-black/50 border border-gray-700 p-2 text-[12px] text-scp-text focus:border-scp-accent focus:outline-none mb-1"
+                        className={`w-full h-16 bg-black/50 border border-gray-700 p-2 ${isMobile ? 'text-xs' : 'text-[12px]'} text-scp-text focus:border-scp-accent focus:outline-none mb-1`}
                         placeholder="Prompt..."
                     />
                     <div className="flex gap-1 justify-end">
                         <button 
                             onClick={() => handleGenerateImage('bg')} 
                             disabled={generatingState.bg || generatingState.entity}
-                            className="text-[12px] px-2 py-1 bg-scp-accent/20 border border-scp-accent/50 text-scp-accent hover:bg-scp-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={getBtnClass()}
                         >
                             {t('story_editor.btn_generate')}
                         </button>
-                        <label className="text-[12px] px-2 py-1 bg-gray-800 border border-gray-600 text-gray-300 hover:bg-gray-700 cursor-pointer">
+                        <label className={getUploadBtnClass()}>
                             {t('story_editor.btn_upload')}
                             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload('bg', e)} />
                         </label>
                     </div>
                     <div 
-                        className="w-full aspect-video bg-black/50 border border-gray-800 relative flex items-center justify-center overflow-hidden group cursor-pointer"
+                        className={`w-full aspect-video bg-black/50 border border-gray-800 relative flex items-center justify-center overflow-hidden group cursor-pointer ${isMobile ? 'max-h-[40vh]' : ''}`}
                         onClick={() => scpData.storyDraft?.backgroundImage && setLightboxImage(scpData.storyDraft.backgroundImage)}
                     >
                         {scpData.storyDraft?.backgroundImage && (
@@ -206,24 +224,24 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
                     <textarea 
                         value={entityImagePrompt}
                         onChange={e => setEntityImagePrompt(e.target.value)}
-                        className="w-full h-16 bg-black/50 border border-gray-700 p-2 text-[12px] text-scp-text focus:border-scp-accent focus:outline-none mb-1"
+                        className={`w-full h-16 bg-black/50 border border-gray-700 p-2 ${isMobile ? 'text-xs' : 'text-[12px]'} text-scp-text focus:border-scp-accent focus:outline-none mb-1`}
                         placeholder="Prompt..."
                     />
                     <div className="flex gap-1 justify-end">
                         <button 
                             onClick={() => handleGenerateImage('entity')}
                             disabled={generatingState.bg || generatingState.entity}
-                            className="text-[12px] px-2 py-1 bg-scp-accent/20 border border-scp-accent/50 text-scp-accent hover:bg-scp-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={getBtnClass()}
                         >
                             {t('story_editor.btn_generate')}
                         </button>
-                        <label className="text-[12px] px-2 py-1 bg-gray-800 border border-gray-600 text-gray-300 hover:bg-gray-700 cursor-pointer">
+                        <label className={getUploadBtnClass()}>
                             {t('story_editor.btn_upload')}
                             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload('entity', e)} />
                         </label>
                     </div>
                     <div 
-                        className="w-full aspect-square bg-black/50 border border-gray-800 relative flex items-center justify-center overflow-hidden group cursor-pointer"
+                        className={`w-full aspect-square bg-black/50 border border-gray-800 relative flex items-center justify-center overflow-hidden group cursor-pointer ${isMobile ? 'max-h-[40vh]' : ''}`}
                         onClick={() => scpData.storyDraft?.entityImage && setLightboxImage(scpData.storyDraft.entityImage)}
                     >
                         {scpData.storyDraft?.entityImage && (

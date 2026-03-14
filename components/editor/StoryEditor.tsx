@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { GameState, GameStatus, SCPData } from '../../types';
 import { useTranslation } from '../../utils/i18n';
+import { useViewport } from '../../hooks/useViewport';
 import EditorCanvas, { EditorCanvasRef } from './EditorCanvas';
 import PropertyInspector from './PropertyInspector';
 import StoryFormPanel from './StoryFormPanel';
 import ConfirmationModal from '../ConfirmationModal';
 import SidePanel from '../common/SidePanel';
-import { Sparkles, ZoomIn, ZoomOut, Undo, Redo } from "lucide-react";
+import MobileEditorTabs, { MobileEditorTab } from './MobileEditorTabs';
+import EntityListMobile from './EntityListMobile';
+import { Sparkles, ZoomIn, ZoomOut, Undo, Redo, Play, ArrowLeft, Save, Trash, RotateCcw } from "lucide-react";
 
 import {
     addEntityButtonNpc,
@@ -46,6 +49,7 @@ type EditorSelection = { type: 'node' | 'edge' | 'npc' | 'objective', id: string
 
 const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) => {
     const { t } = useTranslation();
+    const { isMobile } = useViewport();
     const [showAssistant, setShowAssistant] = useState(false);
     const isHydratingRef = useRef(true);
     const [selectionState, setSelectionState] = useState<EditorSelection>(null);
@@ -55,8 +59,10 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
     const hasLoadedRef = useRef(false);
     const canvasRef = useRef<EditorCanvasRef>(null);
 
-    // Story Editor Specific State
     const [activeTab, setActiveTab] = useState<'MAP' | 'STORY'>('STORY');
+    
+    const [mobileTab, setMobileTab] = useState<MobileEditorTab>('story');
+
     const {
         state: scpData,
         setState: setScpData,
@@ -193,7 +199,10 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         };
         setBlueprint((prev: any) => ({ ...prev, nodes: [...prev.nodes, newNode] }), 'immediate');
         setSelection({ type: 'node', id });
-    }, [setBlueprint]);
+        if (isMobile) {
+            setMobileTab('properties');
+        }
+    }, [setBlueprint, setSelection, isMobile]);
 
     const addEdge = useCallback((from: string, to: string) => {
         const exists = blueprint.edges.some((e: any) =>
@@ -217,7 +226,10 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         };
         setBlueprint((prev: any) => ({ ...prev, npcs: [...prev.npcs, newNPC] }), 'immediate');
         setSelection({ type: 'npc', id });
-    }, [blueprint.startNodeId, selectionState, setBlueprint, setSelection]);
+        if (isMobile) {
+            setMobileTab('properties');
+        }
+    }, [blueprint.startNodeId, selectionState, setBlueprint, setSelection, isMobile]);
 
     const addObjective = useCallback(() => {
         const id = `obj_${Math.floor(Math.random() * 900) + 100}`;
@@ -230,7 +242,10 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         };
         setBlueprint((prev: any) => ({ ...prev, objectives: [...prev.objectives, newObj] }), 'immediate');
         setSelection({ type: 'objective', id });
-    }, [blueprint.startNodeId, selectionState, setBlueprint, setSelection]);
+        if (isMobile) {
+            setMobileTab('properties');
+        }
+    }, [blueprint.startNodeId, selectionState, setBlueprint, setSelection, isMobile]);
 
     const handleDeleteSelection = useCallback(() => {
         if (!selectionState) return;
@@ -302,10 +317,17 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
     });
 
     const handleMapSelection = (next: { type: 'node' | 'edge' | 'npc' | 'objective', id: string } | null) => {
-        if (activeTab !== 'MAP') {
+        if (activeTab !== 'MAP' && !isMobile) {
             setActiveTab('MAP');
         }
         setSelection(next);
+    };
+
+    const handleMobileSelection = (next: EditorSelection) => {
+        setSelection(next);
+        if (next && (next.type === 'npc' || next.type === 'objective')) {
+            setMobileTab('properties');
+        }
     };
 
     useEffect(() => {
@@ -325,12 +347,10 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
             isHydratingRef.current = true;
             let loadedData: SCPData | null = null;
 
-            // 1. Try Memory Cache
             const memoryCached = getEditingStoryCache();
             if (memoryCached) {
                 loadedData = memoryCached;
             } else {
-                // 2. Try IndexedDB
                 loadedData = await loadEditingSCPData();
             }
 
@@ -343,7 +363,6 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                 selectionHistoryRef.current = [null];
                 setSelectionState(null);
             } else if (gameState.scpData) {
-                // 3. Fallback to GameState (Tactical Preview)
                 const initialStoryDraft = gameState.scpData.storyDraft || {
                     roleDetails: gameState.role !== 'CUSTOM' ? gameState.role : '',
                     storyBackground: '',
@@ -361,7 +380,6 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                 selectionHistoryRef.current = [null];
                 setSelectionState(null);
             } else {
-                 // No data, initialize with template
                  resetScpData({
                     ...SCP173_TEMPLATE,
                     mapBlueprint: SCP173_TEMPLATE.mapBlueprint || DEFAULT_BLUEPRINT
@@ -417,8 +435,11 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         const isValid = !!(scpData.designation && scpData.name && scpData.role);
         if (!isValid) {
             setShowValidationErrors(true);
-            if (activeTab !== 'STORY') {
+            if (!isMobile && activeTab !== 'STORY') {
                 setActiveTab('STORY');
+            }
+            if (isMobile) {
+                setMobileTab('story');
             }
         }
         return isValid;
@@ -435,9 +456,6 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         };
         
         await saveEditingSCPData(fullData);
-        
-        // Logic: If we have scpData (Tactical Preview mode), return to Tactical Preview
-        // If we are in "Create New" mode (IDLE -> STORY_EDITOR), return to IDLE
         
         if (gameState.scpData && gameState.status === GameStatus.STORY_EDITOR) {
              setGameState(prev => ({
@@ -494,9 +512,19 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         }
     };
 
+    const handleMobileTabChange = (tab: MobileEditorTab) => {
+        setMobileTab(tab);
+        if (tab === 'assistant') {
+            setShowAssistant(true);
+        } else {
+            setShowAssistant(false);
+        }
+    };
+
+    const showSaveAndPlay = !gameState.scpData || gameState.scpData.designation === SCP173_TEMPLATE.designation;
+
     return (
         <div className="w-full h-full flex flex-col bg-[var(--scp-bg)] text-[var(--scp-text)] overflow-hidden relative font-mono">
-            {/* Custom Modal Overlay */}
             {modal && modal.isOpen && (
                 <div className={modalOverlay}>
                     <div className={modalPanel}>
@@ -530,7 +558,6 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                 </div>
             )}
 
-            {/* Lightbox Modal */}
             {lightboxImage && (
                 <div 
                     className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/95 backdrop-blur-sm cursor-zoom-out p-4"
@@ -562,256 +589,414 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                 confirmText={t('map_editor.btn_reset_confirm')}
             />
 
-            {/* Toolbar */}
-            <div className="h-12 border-b border-[var(--scp-border)] flex items-center justify-between px-4 bg-[var(--scp-surface)] shrink-0 z-10 shadow-md scp-ui crt">
-                <div className="flex items-center gap-4">
-                    <button onClick={handleBack} className={toolbarButtonBase}>
-                        <span>←</span> {t('common.back')}
-                    </button>
-                    <div className={toolbarGroupDivider}></div>
-                    <span className="text-scp-text-dim font-bold font-mono text-xs tracking-wider">{t('story_editor.title')}</span>
-                    
-                    {/* Assistant Toggle */}
-                    <button
-                        onClick={() => setShowAssistant(!showAssistant)}
-                        className={`ml-4 px-3 py-1 text-xs font-bold transition-colors ${showAssistant ? 'bg-scp-accent text-white' : 'text-gray-400 hover:text-white'}`}
-                    >
-                        <div className="flex items-center gap-2">
-                            <Sparkles size={16} strokeWidth={2} />
-                            <span>{t('editor_assistant.title')} (Beta)</span>
-                        </div>
-                    </button>
-
-                    {/* Tab Switcher */}
-                    <div className="flex items-center gap-2 ml-4 bg-black/30 p-1 rounded">
+            {isMobile ? (
+                <div className="h-12 border-b border-[var(--scp-border)] flex items-center justify-between px-2 bg-[var(--scp-surface)] shrink-0 z-10 shadow-md scp-ui crt">
+                    <div className="flex items-center gap-1">
                         <button 
-                            onClick={() => setActiveTab('STORY')}
-                            className={`px-3 py-1 text-xs font-bold transition-colors ${activeTab === 'STORY' ? 'bg-scp-accent text-white' : 'text-gray-400 hover:text-white'}`}
+                            onClick={handleBack} 
+                            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-scp-text hover:text-scp-accent transition-colors"
                         >
-                            {t('story_editor.tab_story')}
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('MAP')}
-                            className={`px-3 py-1 text-xs font-bold transition-colors ${activeTab === 'MAP' ? 'bg-scp-accent text-white' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            {t('story_editor.tab_map')}
+                            <ArrowLeft size={20} strokeWidth={1.5} />
                         </button>
                     </div>
-
-                    <>
-                        <div className="flex items-center gap-1 ml-4 pl-4 border-l border-[var(--scp-border)]">
-                            <button 
-                                onClick={handleUndo} 
+                    <div className="flex-1 flex items-center justify-center gap-2">
+                        <span className="text-xs font-mono uppercase tracking-wider text-scp-text-dim font-bold">
+                            {t('story_editor.title')}
+                        </span>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={handleUndo}
                                 disabled={!canUndo}
-                                className={toolbarHistoryButton(canUndo)}
-                                title="Undo (Ctrl+Z)"
+                                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-scp-text hover:text-scp-accent transition-colors disabled:opacity-40"
                             >
-                                <Undo size={16} strokeWidth={1} /> {t('common.undo')}
+                                <Undo size={18} strokeWidth={1.5} />
                             </button>
-                            <button 
-                                onClick={handleRedo} 
+                            <button
+                                onClick={handleRedo}
                                 disabled={!canRedo}
-                                className={toolbarHistoryButton(canRedo)}
-                                title="Redo (Ctrl+Shift+Z)"
+                                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-scp-text hover:text-scp-accent transition-colors disabled:opacity-40"
                             >
-                                <Redo size={16} strokeWidth={1} /> {t('common.redo')}
+                                <Redo size={18} strokeWidth={1.5} />
                             </button>
                         </div>
-                        {activeTab === 'MAP' && (
-                            <>
-                                <div className="flex items-center gap-1 ml-4 pl-4 border-l border-[var(--scp-border)]">
-                                    <button
-                                        onClick={() => canvasRef.current?.zoomIn()}
-                                        className={toolbarHistoryButton(true)}
-                                        title="Zoom In"
-                                    >
-                                        <ZoomIn size={16} strokeWidth={1} />
-                                    </button>
-                                    <button
-                                        onClick={() => canvasRef.current?.zoomOut()}
-                                        className={toolbarHistoryButton(true)}
-                                        title="Zoom Out"
-                                    >
-                                        <ZoomOut size={16} strokeWidth={1} />
-                                    </button>
-                                </div>
-                                
-                                <div className="flex items-center gap-2 ml-4">
-                                    <button 
-                                        onClick={addNPC}
-                                        className={addEntityButtonNpc}
-                                        title={t('map_editor.add_npc')}
-                                    >
-                                        + NPC
-                                    </button>
-                                    <button 
-                                        onClick={addObjective}
-                                        className={addEntityButtonObj}
-                                        title={t('map_editor.add_objective')}
-                                    >
-                                        + OBJ
-                                    </button>
-                                </div>
-                            </>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        {selectionState && (
+                            <button
+                                onClick={handleDeleteSelection}
+                                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-scp-text hover:text-scp-accent transition-colors"
+                            >
+                                <Trash size={18} strokeWidth={1.5} />
+                            </button>
                         )}
-                    </>
+                        {mobileTab === 'canvas' && (
+                            <button
+                                onClick={handleReset}
+                                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-scp-text hover:text-scp-accent transition-colors"
+                            >
+                                <RotateCcw size={18} strokeWidth={1.5} />
+                            </button>
+                        )}
+                        {showSaveAndPlay ? (
+                            <button 
+                                onClick={handleSaveAndPlay}
+                                disabled={isStarting}
+                                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-scp-text hover:text-scp-accent transition-colors disabled:opacity-50"
+                            >
+                                {isStarting ? (
+                                    <div className="w-5 h-5 border-2 border-scp-accent/30 border-t-scp-accent rounded-full animate-spin"></div>
+                                ) : (
+                                    <Play size={20} strokeWidth={1.5} />
+                                )}
+                            </button>
+                        ) : (
+                            <button 
+                                onClick={handleBack}
+                                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-scp-term hover:text-scp-accent transition-colors"
+                            >
+                                <Save size={20} strokeWidth={1.5} />
+                            </button>
+                        )}
+                    </div>
                 </div>
-                <div className="flex gap-2 pr-32">
-                    <button onClick={() => setShowNewMapConfirm(true)} className={toolbarButtonGhost}>{t('map_editor.new_map')}</button>
-                    <button onClick={() => showImportModal()} className={toolbarButtonGhost}>{t('map_editor.import')}</button>
-                    <button onClick={() => showExportModal()} className={toolbarButtonGhost}>{t('map_editor.export')}</button>
-                    <button onClick={handleReset} className={toolbarButtonGhost} title="Reset Story Template">
-                        {t('map_editor.reset_title')}
-                    </button>
-                    
-                    {/* Mode B: Direct Entry -> Save & Play */}
-                    {(!gameState.scpData || gameState.scpData.designation === SCP173_TEMPLATE.designation) && (
-                        <button 
-                            onClick={handleSaveAndPlay}
-                            disabled={isStarting}
-                            className="scp-btn-action px-4 py-1 text-xs font-bold text-scp-white hover:text-scp-accent border-scp-gray/30 hover:border-scp-accent/60 flex items-center gap-2 min-w-[140px] justify-center"
-                        >
-                            {isStarting ? (
-                                <div className="w-4 h-4 border-2 border-white/20 border-t-scp-accent rounded-full animate-spin"></div>
-                            ) : (
-                                <span>▶ {t('story_editor.btn_save_and_play')}</span>
-                            )}
+            ) : (
+                <div className="h-12 border-b border-[var(--scp-border)] flex items-center justify-between px-4 bg-[var(--scp-surface)] shrink-0 z-10 shadow-md scp-ui crt">
+                    <div className="flex items-center gap-4">
+                        <button onClick={handleBack} className={toolbarButtonBase}>
+                            <span>←</span> {t('common.back')}
                         </button>
-                    )}
-                </div>
-            </div>
+                        <div className={toolbarGroupDivider}></div>
+                        <span className="text-scp-text-dim font-bold font-mono text-xs tracking-wider">{t('story_editor.title')}</span>
+                        
+                        <button
+                            onClick={() => setShowAssistant(!showAssistant)}
+                            className={`ml-4 px-3 py-1 text-xs font-bold transition-colors ${showAssistant ? 'bg-scp-accent text-white' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            <div className="flex items-center gap-2">
+                                <Sparkles size={16} strokeWidth={2} />
+                                <span>{t('editor_assistant.title')} (Beta)</span>
+                            </div>
+                        </button>
 
-            {/* Main Area */}
+                        <div className="flex items-center gap-2 ml-4 bg-black/30 p-1 rounded">
+                            <button 
+                                onClick={() => setActiveTab('STORY')}
+                                className={`px-3 py-1 text-xs font-bold transition-colors ${activeTab === 'STORY' ? 'bg-scp-accent text-white' : 'text-gray-400 hover:text-white'}`}
+                            >
+                                {t('story_editor.tab_story')}
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('MAP')}
+                                className={`px-3 py-1 text-xs font-bold transition-colors ${activeTab === 'MAP' ? 'bg-scp-accent text-white' : 'text-gray-400 hover:text-white'}`}
+                            >
+                                {t('story_editor.tab_map')}
+                            </button>
+                        </div>
+
+                        <>
+                            <div className="flex items-center gap-1 ml-4 pl-4 border-l border-[var(--scp-border)]">
+                                <button 
+                                    onClick={handleUndo} 
+                                    disabled={!canUndo}
+                                    className={toolbarHistoryButton(canUndo)}
+                                    title="Undo (Ctrl+Z)"
+                                >
+                                    <Undo size={16} strokeWidth={1} /> {t('common.undo')}
+                                </button>
+                                <button 
+                                    onClick={handleRedo} 
+                                    disabled={!canRedo}
+                                    className={toolbarHistoryButton(canRedo)}
+                                    title="Redo (Ctrl+Shift+Z)"
+                                >
+                                    <Redo size={16} strokeWidth={1} /> {t('common.redo')}
+                                </button>
+                            </div>
+                            {activeTab === 'MAP' && (
+                                <>
+                                    <div className="flex items-center gap-1 ml-4 pl-4 border-l border-[var(--scp-border)]">
+                                        <button
+                                            onClick={() => canvasRef.current?.zoomIn()}
+                                            className={toolbarHistoryButton(true)}
+                                            title="Zoom In"
+                                        >
+                                            <ZoomIn size={16} strokeWidth={1} />
+                                        </button>
+                                        <button
+                                            onClick={() => canvasRef.current?.zoomOut()}
+                                            className={toolbarHistoryButton(true)}
+                                            title="Zoom Out"
+                                        >
+                                            <ZoomOut size={16} strokeWidth={1} />
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-2 ml-4">
+                                        <button 
+                                            onClick={addNPC}
+                                            className={addEntityButtonNpc}
+                                            title={t('map_editor.add_npc')}
+                                        >
+                                            + NPC
+                                        </button>
+                                        <button 
+                                            onClick={addObjective}
+                                            className={addEntityButtonObj}
+                                            title={t('map_editor.add_objective')}
+                                        >
+                                            + OBJ
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </>
+                    </div>
+                    <div className="flex gap-2 pr-32">
+                        <button onClick={() => setShowNewMapConfirm(true)} className={toolbarButtonGhost}>{t('map_editor.new_map')}</button>
+                        <button onClick={() => showImportModal()} className={toolbarButtonGhost}>{t('map_editor.import')}</button>
+                        <button onClick={() => showExportModal()} className={toolbarButtonGhost}>{t('map_editor.export')}</button>
+                        <button onClick={handleReset} className={toolbarButtonGhost} title="Reset Story Template">
+                            {t('map_editor.reset_title')}
+                        </button>
+                        
+                        {showSaveAndPlay && (
+                            <button 
+                                onClick={handleSaveAndPlay}
+                                disabled={isStarting}
+                                className="scp-btn-action px-4 py-1 text-xs font-bold text-scp-white hover:text-scp-accent border-scp-gray/30 hover:border-scp-accent/60 flex items-center gap-2 min-w-[140px] justify-center"
+                            >
+                                {isStarting ? (
+                                    <div className="w-4 h-4 border-2 border-white/20 border-t-scp-accent rounded-full animate-spin"></div>
+                                ) : (
+                                    <span>▶ {t('story_editor.btn_save_and_play')}</span>
+                                )}
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
             <div className="flex-1 relative overflow-hidden">
-                <div className="absolute inset-0 bg-[#050505] scp-ui crt pl-56 pr-80 box-border">
-                    <div className="absolute inset-0 bg-grid-pattern opacity-10 pointer-events-none"></div>
-                    <div className="relative w-full h-full">
-                        <EditorCanvas 
-                            ref={canvasRef}
-                            blueprint={blueprint} 
-                            selection={selectionState} 
-                            setSelection={handleMapSelection} 
-                            updateNode={updateNode}
-                            addNode={addNode}
-                            addEdge={addEdge}
-                            commitBlueprint={commitBlueprint}
-                            onDeleteSelection={handleDeleteSelection}
+                {isMobile ? (
+                    <div className="w-full h-full flex flex-col">
+                        <div className="flex-1 overflow-hidden">
+                            {mobileTab === 'story' && (
+                                <StoryFormPanel
+                                    t={t}
+                                    scpData={scpData}
+                                    setScpData={setScpData}
+                                    commitScpData={commitScpData}
+                                    showValidationErrors={showValidationErrors}
+                                    bgImagePrompt={bgImagePrompt}
+                                    setBgImagePrompt={setBgImagePrompt}
+                                    entityImagePrompt={entityImagePrompt}
+                                    setEntityImagePrompt={setEntityImagePrompt}
+                                    generatingState={generatingState}
+                                    handleGenerateImage={handleGenerateImage}
+                                    handleImageUpload={handleImageUpload}
+                                    handleDeleteImage={handleDeleteImage}
+                                    setLightboxImage={setLightboxImage}
+                                    isMobile={true}
+                                />
+                            )}
+                            {mobileTab === 'canvas' && (
+                                <EditorCanvas 
+                                    ref={canvasRef}
+                                    blueprint={blueprint} 
+                                    selection={selectionState} 
+                                    setSelection={handleMapSelection} 
+                                    updateNode={updateNode}
+                                    addNode={addNode}
+                                    addEdge={addEdge}
+                                    commitBlueprint={commitBlueprint}
+                                    onDeleteSelection={handleDeleteSelection}
+                                    isMobile={true}
+                                    onAddNPC={addNPC}
+                                    onAddObjective={addObjective}
+                                />
+                            )}
+                            {mobileTab === 'properties' && (
+                                <PropertyInspector 
+                                    blueprint={blueprint}
+                                    selection={selectionState}
+                                    setSelection={handleMapSelection}
+                                    updateNode={updateNode}
+                                    updateEdge={updateEdge}
+                                    updateNPC={updateNPC}
+                                    updateObjective={updateObjective}
+                                    setBlueprint={setBlueprint}
+                                    npcImagePrompts={npcImagePrompts}
+                                    onNpcPromptChange={handleNpcPromptChange}
+                                    onGenerateNpcImage={handleGenerateNPCImage}
+                                    onUploadNpcImage={handleUploadNPCImage}
+                                    onDeleteNpcImage={handleDeleteNPCImage}
+                                    npcImages={scpData.npcImages}
+                                    generatingState={generatingState}
+                                    setLightboxImage={setLightboxImage}
+                                    commitBlueprint={commitBlueprint}
+                                    commitScpData={commitScpData}
+                                    isMobile={true}
+                                />
+                            )}
+                            {mobileTab === 'assistant' && (
+                                <EditorAssistantPanel
+                                    blueprint={blueprint}
+                                    setBlueprint={setBlueprint}
+                                    scpData={scpData}
+                                    setScpData={setScpData}
+                                    onClose={() => setMobileTab('story')}
+                                    isOpen={true}
+                                    isMobile={true}
+                                />
+                            )}
+                            {mobileTab === 'entities' && (
+                                <EntityListMobile
+                                    blueprint={blueprint}
+                                    selection={selectionState}
+                                    onSelectionChange={handleMobileSelection}
+                                    onAddNPC={addNPC}
+                                    onAddObjective={addObjective}
+                                />
+                            )}
+                        </div>
+                        
+                        <MobileEditorTabs 
+                            activeTab={mobileTab}
+                            onTabChange={handleMobileTabChange}
+                            hasSelection={!!selectionState}
                         />
                     </div>
-                </div>
-
-                {showAssistant && (
-                    <EditorAssistantPanel
-                        blueprint={blueprint}
-                        setBlueprint={setBlueprint}
-                        scpData={scpData}
-                        setScpData={setScpData}
-                        onClose={() => setShowAssistant(false)}
-                        isOpen={showAssistant}
-                    />
-                )}
-
-                <SidePanel side="left" className={`absolute top-0 bottom-0 w-56 ${panelContainerBase}`}>
-                    <div className={editorPanelHeader}>
-                        <div className={editorPanelTitle}>
-                            {t('map_editor.entity_list')}
-                        </div>
-                    </div>
-                    <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-3 space-y-4">
-                        {/* NPCs Section */}
-                        <div>
-                            <div className="text-[12px] text-scp-text-dim uppercase font-bold mb-2 px-1 tracking-wider">
-                                {t('map_editor.npcs')} ({(blueprint.npcs || []).length})
-                            </div>
-                            <div className="space-y-1">
-                                {(blueprint.npcs || []).map(npc => (
-                                    <div 
-                                        key={npc.id}
-                                        onClick={() => {
-                                            handleMapSelection({ type: 'npc', id: npc.id });
-                                        }}
-                                        className={`${listItemBase} ${selectionState?.type === 'npc' && selectionState.id === npc.id ? listItemNpcActive : listItemInactive}`}
-                                    >
-                                        <div className="font-bold truncate">{npc.name}</div>
-                                        <div className="text-[12px] opacity-60 truncate">{npc.archetype}</div>
-                                    </div>
-                                ))}
-                                {(blueprint.npcs || []).length === 0 && <div className="p-2 text-[12px] text-gray-600 italic text-center border border-dashed border-gray-800 rounded">No Entities</div>}
+                ) : (
+                    <>
+                        <div className="absolute inset-0 bg-[#050505] scp-ui crt pl-56 pr-80 box-border">
+                            <div className="absolute inset-0 bg-grid-pattern opacity-10 pointer-events-none"></div>
+                            <div className="relative w-full h-full">
+                                <EditorCanvas 
+                                    ref={canvasRef}
+                                    blueprint={blueprint} 
+                                    selection={selectionState} 
+                                    setSelection={handleMapSelection} 
+                                    updateNode={updateNode}
+                                    addNode={addNode}
+                                    addEdge={addEdge}
+                                    commitBlueprint={commitBlueprint}
+                                    onDeleteSelection={handleDeleteSelection}
+                                />
                             </div>
                         </div>
 
-                        {/* Objectives Section */}
-                        <div>
-                            <div className="text-[12px] text-scp-text-dim uppercase font-bold mb-2 px-1 tracking-wider border-t border-[var(--scp-border)] pt-4">
-                                {t('map_editor.objectives')} ({(blueprint.objectives || []).length})
-                            </div>
-                            <div className="space-y-1">
-                                {(blueprint.objectives || []).map(obj => (
-                                    <div 
-                                        key={obj.id}
-                                        onClick={() => {
-                                            handleMapSelection({ type: 'objective', id: obj.id });
-                                        }}
-                                        className={`${listItemBase} ${selectionState?.type === 'objective' && selectionState.id === obj.id ? listItemObjectiveActive : listItemInactive}`}
-                                    >
-                                        <div className="font-bold truncate">{obj.title}</div>
-                                        <div className="text-[12px] opacity-60 truncate">{obj.type}</div>
-                                    </div>
-                                ))}
-                                {(blueprint.objectives || []).length === 0 && <div className="p-2 text-[12px] text-gray-600 italic text-center border border-dashed border-gray-800 rounded">No Objectives</div>}
-                            </div>
-                        </div>
-                    </div>
-                </SidePanel>
-
-                <SidePanel side="right" className={`absolute top-0 bottom-0 w-80 ${panelContainerBase}`}>
-                    <div className={editorPanelHeader}>
-                        <div className={editorPanelTitle}>
-                            {activeTab === 'MAP' ? t('map_editor.properties') : t('story_editor.title')}
-                        </div>
-                    </div>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        {activeTab === 'MAP' ? (
-                            <PropertyInspector 
+                        {showAssistant && (
+                            <EditorAssistantPanel
                                 blueprint={blueprint}
-                                selection={selectionState}
-                                setSelection={handleMapSelection}
-                                updateNode={updateNode}
-                                updateEdge={updateEdge}
-                                updateNPC={updateNPC}
-                                updateObjective={updateObjective}
                                 setBlueprint={setBlueprint}
-                                npcImagePrompts={npcImagePrompts}
-                                onNpcPromptChange={handleNpcPromptChange}
-                                onGenerateNpcImage={handleGenerateNPCImage}
-                                onUploadNpcImage={handleUploadNPCImage}
-                                onDeleteNpcImage={handleDeleteNPCImage}
-                                npcImages={scpData.npcImages}
-                                generatingState={generatingState}
-                                setLightboxImage={setLightboxImage}
-                                commitBlueprint={commitBlueprint}
-                                commitScpData={commitScpData}
-                            />
-                        ) : (
-                            <StoryFormPanel
-                                t={t}
                                 scpData={scpData}
                                 setScpData={setScpData}
-                                commitScpData={commitScpData}
-                                showValidationErrors={showValidationErrors}
-                                bgImagePrompt={bgImagePrompt}
-                                setBgImagePrompt={setBgImagePrompt}
-                                entityImagePrompt={entityImagePrompt}
-                                setEntityImagePrompt={setEntityImagePrompt}
-                                generatingState={generatingState}
-                                handleGenerateImage={handleGenerateImage}
-                                handleImageUpload={handleImageUpload}
-                                handleDeleteImage={handleDeleteImage}
-                                setLightboxImage={setLightboxImage}
+                                onClose={() => setShowAssistant(false)}
+                                isOpen={showAssistant}
                             />
                         )}
-                    </div>
-                </SidePanel>
+
+                        <SidePanel side="left" className={`absolute top-0 bottom-0 w-56 ${panelContainerBase}`}>
+                            <div className={editorPanelHeader}>
+                                <div className={editorPanelTitle}>
+                                    {t('map_editor.entity_list')}
+                                </div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-3 space-y-4">
+                                <div>
+                                    <div className="text-[12px] text-scp-text-dim uppercase font-bold mb-2 px-1 tracking-wider">
+                                        {t('map_editor.npcs')} ({(blueprint.npcs || []).length})
+                                    </div>
+                                    <div className="space-y-1">
+                                        {(blueprint.npcs || []).map(npc => (
+                                            <div 
+                                                key={npc.id}
+                                                onClick={() => {
+                                                    handleMapSelection({ type: 'npc', id: npc.id });
+                                                }}
+                                                className={`${listItemBase} ${selectionState?.type === 'npc' && selectionState.id === npc.id ? listItemNpcActive : listItemInactive}`}
+                                            >
+                                                <div className="font-bold truncate">{npc.name}</div>
+                                                <div className="text-[12px] opacity-60 truncate">{npc.archetype}</div>
+                                            </div>
+                                        ))}
+                                        {(blueprint.npcs || []).length === 0 && <div className="p-2 text-[12px] text-gray-600 italic text-center border border-dashed border-gray-800 rounded">No Entities</div>}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div className="text-[12px] text-scp-text-dim uppercase font-bold mb-2 px-1 tracking-wider border-t border-[var(--scp-border)] pt-4">
+                                        {t('map_editor.objectives')} ({(blueprint.objectives || []).length})
+                                    </div>
+                                    <div className="space-y-1">
+                                        {(blueprint.objectives || []).map(obj => (
+                                            <div 
+                                                key={obj.id}
+                                                onClick={() => {
+                                                    handleMapSelection({ type: 'objective', id: obj.id });
+                                                }}
+                                                className={`${listItemBase} ${selectionState?.type === 'objective' && selectionState.id === obj.id ? listItemObjectiveActive : listItemInactive}`}
+                                            >
+                                                <div className="font-bold truncate">{obj.title}</div>
+                                                <div className="text-[12px] opacity-60 truncate">{obj.type}</div>
+                                            </div>
+                                        ))}
+                                        {(blueprint.objectives || []).length === 0 && <div className="p-2 text-[12px] text-gray-600 italic text-center border border-dashed border-gray-800 rounded">No Objectives</div>}
+                                    </div>
+                                </div>
+                            </div>
+                        </SidePanel>
+
+                        <SidePanel side="right" className={`absolute top-0 bottom-0 w-80 ${panelContainerBase}`}>
+                            <div className={editorPanelHeader}>
+                                <div className={editorPanelTitle}>
+                                    {activeTab === 'MAP' ? t('map_editor.properties') : t('story_editor.title')}
+                                </div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                {activeTab === 'MAP' ? (
+                                    <PropertyInspector 
+                                        blueprint={blueprint}
+                                        selection={selectionState}
+                                        setSelection={handleMapSelection}
+                                        updateNode={updateNode}
+                                        updateEdge={updateEdge}
+                                        updateNPC={updateNPC}
+                                        updateObjective={updateObjective}
+                                        setBlueprint={setBlueprint}
+                                        npcImagePrompts={npcImagePrompts}
+                                        onNpcPromptChange={handleNpcPromptChange}
+                                        onGenerateNpcImage={handleGenerateNPCImage}
+                                        onUploadNpcImage={handleUploadNPCImage}
+                                        onDeleteNpcImage={handleDeleteNPCImage}
+                                        npcImages={scpData.npcImages}
+                                        generatingState={generatingState}
+                                        setLightboxImage={setLightboxImage}
+                                        commitBlueprint={commitBlueprint}
+                                        commitScpData={commitScpData}
+                                    />
+                                ) : (
+                                    <StoryFormPanel
+                                        t={t}
+                                        scpData={scpData}
+                                        setScpData={setScpData}
+                                        commitScpData={commitScpData}
+                                        showValidationErrors={showValidationErrors}
+                                        bgImagePrompt={bgImagePrompt}
+                                        setBgImagePrompt={setBgImagePrompt}
+                                        entityImagePrompt={entityImagePrompt}
+                                        setEntityImagePrompt={setEntityImagePrompt}
+                                        generatingState={generatingState}
+                                        handleGenerateImage={handleGenerateImage}
+                                        handleImageUpload={handleImageUpload}
+                                        handleDeleteImage={handleDeleteImage}
+                                        setLightboxImage={setLightboxImage}
+                                    />
+                                )}
+                            </div>
+                        </SidePanel>
+                    </>
+                )}
             </div>
         </div>
     );

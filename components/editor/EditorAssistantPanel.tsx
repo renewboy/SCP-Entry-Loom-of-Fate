@@ -20,6 +20,7 @@ interface EditorAssistantPanelProps {
     setScpData: React.Dispatch<React.SetStateAction<SCPData>>;
     onClose: () => void;
     isOpen: boolean;
+    isMobile?: boolean;
 }
 
 const SANITIZE_SCHEMA = {
@@ -168,7 +169,8 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
     scpData,
     setScpData,
     onClose,
-    isOpen
+    isOpen,
+    isMobile = false
 }) => {
     const { t, language } = useTranslation();
     const [input, setInput] = useState('');
@@ -651,7 +653,10 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
 
     return (
         <div
-            className={`absolute top-0 bottom-0 right-80 w-96 ${panelContainerBase} flex flex-col border-l border-[var(--scp-border)] z-20 shadow-2xl transition-transform transition-opacity duration-300 ease-out ${isOpen ? 'translate-x-0 opacity-100 pointer-events-auto' : 'translate-x-[calc(100%+20rem)] opacity-0 pointer-events-none'}`}
+            className={isMobile 
+                ? `fixed inset-x-0 top-0 bottom-14 z-[300] flex flex-col bg-[var(--scp-bg)] ${isOpen ? 'pointer-events-auto' : 'pointer-events-none hidden'}`
+                : `absolute top-0 bottom-0 right-80 w-96 ${panelContainerBase} flex flex-col border-l border-[var(--scp-border)] z-20 shadow-2xl transition-transform transition-opacity duration-300 ease-out ${isOpen ? 'translate-x-0 opacity-100 pointer-events-auto' : 'translate-x-[calc(100%+20rem)] opacity-0 pointer-events-none'}`
+            }
         >
             {/* Header */}
             <div className={editorPanelHeader}>
@@ -661,10 +666,10 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
                         {t('editor_assistant.title')}
                     </div>
                     <div className="flex gap-2">
-                         <button onClick={handleClear} className="text-[10px] text-gray-500 hover:text-scp-accent uppercase border border-transparent hover:border-scp-accent/30 px-1 rounded">
+                         <button onClick={handleClear} className={`text-[10px] text-gray-500 hover:text-scp-accent uppercase border border-transparent hover:border-scp-accent/30 px-1 rounded ${isMobile ? 'min-h-[44px] min-w-[44px]' : ''}`}>
                             {t('editor_assistant.clear_chat')}
                         </button>
-                        <button onClick={onClose} className="text-gray-500 hover:text-white">×</button>
+                        <button onClick={onClose} className={`text-gray-500 hover:text-white ${isMobile ? 'min-h-[44px] min-w-[44px] text-xl' : ''}`}>×</button>
                     </div>
                 </div>
             </div>
@@ -743,13 +748,13 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
                             }
                         }}
                         placeholder={t('editor_assistant.placeholder')}
-                        className="w-full bg-[#111] border border-gray-700 p-2 pr-10 text-xs text-white focus:border-scp-accent outline-none font-mono resize-none min-h-[72px]"
+                        className={`w-full bg-[#111] border border-gray-700 p-2 pr-10 ${isMobile ? 'text-base min-h-[80px]' : 'text-xs min-h-[72px]'} text-white focus:border-scp-accent outline-none font-mono resize-none`}
                         disabled={isLoading}
                     />
                     <button 
                         type="submit" 
                         disabled={isLoading || !input.trim()}
-                        className="absolute right-1 top-1 px-2 text-scp-accent hover:text-white disabled:opacity-30 transition-colors"
+                        className={`absolute right-1 top-1 px-2 text-scp-accent hover:text-white disabled:opacity-30 transition-colors ${isMobile ? 'min-h-[44px] min-w-[44px]' : ''}`}
                     >
                         ➤
                     </button>
