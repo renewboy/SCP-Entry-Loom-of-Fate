@@ -1,4 +1,5 @@
 import { EndingType, GameReviewData } from '../../types';
+import { ImageAspectRatio } from './types';
 
 export const extractVisualPrompt = (text: string): { cleanText: string, visualPrompt: string | null } => {
   const match = text.match(/\[(VISUAL|VISIBILITY|VISABILITY):(.*?)\]/);
@@ -163,8 +164,22 @@ export const extractMapUpdate = (text: string): { cleanText: string, update: any
   return { cleanText: cleanText.trim(), update };
 };
 
-export const imageSizeFromAspectRatio = (aspectRatio: "1:1" | "16:9" | "3:4") => {
+export const isMobileViewport = () => {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth < 768;
+};
+
+export const getBackgroundAspectRatio = (): ImageAspectRatio => (
+  isMobileViewport() ? "9:16" : "16:9"
+);
+
+export const getSceneAspectRatio = (): ImageAspectRatio => (
+  isMobileViewport() ? "9:16" : "16:9"
+);
+
+export const imageSizeFromAspectRatio = (aspectRatio: ImageAspectRatio) => {
   if (aspectRatio === "16:9") return "2560x1440";
+  if (aspectRatio === "9:16") return "1440x2560";
   if (aspectRatio === "3:4") return "1728x2304";
   return "2048x2048";
 };

@@ -1,5 +1,5 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { AIService } from "../types";
+import { AIService, ImageAspectRatio } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt, getCompressionPrompt } from "../prompts";
 import { getEditorAssistantPrompt, getEditorAssistantContext, editorTools } from "../editorPrompts";
@@ -74,7 +74,7 @@ export class OpenAIProvider implements AIService {
     constructor() {
     }
 
-    public async generateImage(prompt: string, aspectRatio: "1:1" | "16:9" | "3:4" = "1:1", responseFormat: "url" | "b64_json" = "url"): Promise<string | null> {
+    public async generateImage(prompt: string, aspectRatio: ImageAspectRatio = "1:1", responseFormat: "url" | "b64_json" = "url"): Promise<string | null> {
         try {
             const config = await this.getConfig();
             const response = await postJson<any>("/api/ai/openai/generate-image", {

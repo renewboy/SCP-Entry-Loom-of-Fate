@@ -1,5 +1,5 @@
 import { Content } from "@google/genai";
-import { AIService } from "./ai/types";
+import { AIService, ImageAspectRatio } from "./ai/types";
 import { GeminiProvider } from "./ai/providers/geminiProvider";
 import { OpenAIProvider } from "./ai/providers/openaiProvider";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../types";
@@ -204,7 +204,7 @@ export const generateLegacyData = async (
     return (await getProvider()).generateLegacyData(ending, role, language);
 };
 
-export const generateImage = async (prompt: string, aspectRatio: "1:1" | "16:9" | "3:4" = "1:1", responseFormat: "url" | "b64_json" = "url"): Promise<string | null> => {
+export const generateImage = async (prompt: string, aspectRatio: ImageAspectRatio = "1:1", responseFormat: "url" | "b64_json" = "url"): Promise<string | null> => {
     return (await getProvider()).generateImage(prompt, aspectRatio, responseFormat);
 };
 

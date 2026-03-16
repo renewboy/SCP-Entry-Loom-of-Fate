@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useMemo, createContext, useContext 
 import ReactMarkdown from 'react-markdown';
 import { RuntimeNPCState } from '../types';
 import NPCDialogue from './game/NPCDialogue';
-import { extractNpcDialogue } from '../utils/npcDialogue';
+import { extractNpcDialogues } from '../utils/npcDialogue';
 
 // Context to determine if we are inside an ordered list
 const ListTypeContext = createContext({ ordered: false });
@@ -135,11 +135,28 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
         );
     },
     p: ({ children, ...props }: any) => {
-        const match = extractNpcDialogue(children, npcs);
-        if (match) {
-            return <NPCDialogue id={match.npcId} content={match.contentNodes} npcs={npcs} npcImages={npcImages} onImageClick={onNpcImageClick} />;
+        const segments = extractNpcDialogues(children);
+        if (!segments) {
+            return <p {...props}>{children}</p>;
         }
-        return <p {...props}>{children}</p>;
+        const nodes = segments.flatMap((segment, index) => {
+            if (segment.type === 'npc' && segment.npcId) {
+                return [
+                    <NPCDialogue
+                        key={`npc-${segment.npcId}-${index}`}
+                        id={segment.npcId}
+                        content={[segment.content]}
+                        npcs={npcs}
+                        npcImages={npcImages}
+                        onImageClick={onNpcImageClick}
+                    />
+                ];
+            }
+            const text = segment.content.trim();
+            if (!text) return [];
+            return [<p key={`npc-text-${index}`} {...props}>{segment.content}</p>];
+        });
+        return <>{nodes}</>;
     }
   }), [onOptionClick, npcs, npcImages, onNpcImageClick]);
 

@@ -472,12 +472,12 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
   return (
     <div className="absolute inset-0 z-[200] flex flex-col bg-black/80 backdrop-blur-md text-scp-text overflow-y-auto crt border-t border-scp-gray/50 scp-ui">
 
-      <div className="sticky top-0 z-20 bg-scp-dark/80 border-b border-scp-gray p-4 flex justify-between items-center backdrop-blur-md shadow-lg shrink-0 scp-window-header">
+      <div className="sticky top-0 z-20 bg-scp-dark/80 border-b border-scp-gray p-4 flex flex-col-reverse sm:flex-row sm:justify-between sm:items-center gap-3 backdrop-blur-md shadow-lg shrink-0 scp-window-header">
         <div>
            <h2 className="font-report text-xl md:text-2xl text-scp-term text-shadow-green">{t('report.title')}</h2>
            <p className="font-mono text-[10px] text-gray-500">{t('report.project')}: {scpData?.designation} // {t('report.final_report')}</p>
         </div>
-        <div className="flex gap-2 md:gap-3">
+        <div className="flex w-full sm:w-auto justify-between sm:justify-end gap-2 md:gap-3">
             {isAudioDramaEnabled && (
                 <button 
                     onClick={handleGenerateDrama} 
@@ -495,20 +495,20 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
             )}
              <button 
                 onClick={onMinimize}
-                className="hidden sm:block px-3 py-1.5 border border-scp-gray text-scp-text font-mono text-xs hover:border-scp-term hover:text-scp-term transition-colors shadow-lg"
+                className="px-2 sm:px-3 py-1 sm:py-1.5 border border-scp-gray text-scp-text font-mono text-[11px] sm:text-xs hover:border-scp-term hover:text-scp-term transition-colors shadow-lg min-h-[36px]"
                 title="MINIMIZE"
             >
                 {t('report.minimize')}
             </button>
             <button 
                 onClick={handleExport}
-                className="hidden sm:block px-3 py-1.5 border border-scp-gray text-scp-text font-mono text-xs hover:border-scp-term hover:text-scp-term transition-colors shadow-lg"
+                className="px-2 sm:px-3 py-1 sm:py-1.5 border border-scp-gray text-scp-text font-mono text-[11px] sm:text-xs hover:border-scp-term hover:text-scp-term transition-colors shadow-lg min-h-[36px]"
             >
                 {t('report.export')}
             </button>
             <button 
                 onClick={onRestart}
-                className="px-4 py-1.5 bg-scp-text text-black font-mono text-xs hover:bg-white transition-colors shadow-lg font-bold"
+                className="px-3 sm:px-4 py-1 sm:py-1.5 bg-scp-text text-black font-mono text-[11px] sm:text-xs hover:bg-white transition-colors shadow-lg font-bold min-h-[36px]"
             >
                 {t('report.close')}
             </button>

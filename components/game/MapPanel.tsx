@@ -77,6 +77,31 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction, fullWidth
     return radarColors.low;
   };
 
+  const MapControls = () => (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex gap-2">
+        <button
+          onClick={zoomIn}
+          className="w-6 h-6 flex items-center justify-center border border-scp-term/30 bg-black/80 text-scp-term hover:bg-scp-term/20 text-xs font-mono"
+        >
+          +
+        </button>
+        <button
+          onClick={zoomOut}
+          className="w-6 h-6 flex items-center justify-center border border-scp-term/30 bg-black/80 text-scp-term hover:bg-scp-term/20 text-xs font-mono"
+        >
+          -
+        </button>
+      </div>
+      <button
+        onClick={resetView}
+        className="px-2 py-1 flex items-center justify-center text-[11px] font-mono text-scp-text/60 hover:text-scp-term border border-scp-term/30 bg-black/80"
+      >
+        {t('game.map_reset')}
+      </button>
+    </div>
+  );
+
   const data = useMemo(() => {
     if (!blueprint || !runtime) return null;
 
@@ -367,8 +392,9 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction, fullWidth
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
+        <MapControls />
         {/* Radar Container */}
-        <div className="w-full flex justify-center py-2 relative">
+        <div className="w-full flex justify-center pt-1 pb-2 relative">
             <div className={`relative ${fullWidth ? "w-full aspect-square max-w-[300px]" : "w-64 h-64"} bg-scp-dark rounded-full overflow-hidden border-4 border-scp-border-strong shadow-[0_0_30px_rgba(0,0,0,0.8)] group select-none`}>
                 {/* Grid Layer */}
                 <div className="absolute inset-0 pointer-events-none opacity-30">
@@ -563,24 +589,6 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction, fullWidth
             </div>
             
             {/* Reset View Button - Moved to top right relative to the container */}
-            <button
-                  onClick={resetView}
-                  className={`absolute top-2 right-4 text-[11px] font-mono text-scp-text/60 hover:text-scp-term border border-scp-term/30 ${fullWidth ? "px-3 py-2 min-h-[44px] min-w-[44px] flex items-center justify-center" : "px-1.5 py-0.5"} bg-black/80 z-30`}
-            >
-                  {t('game.map_reset')}
-            </button>
-
-            {/* Zoom Controls - Top Left relative to the container */}
-            <div className="absolute top-2 left-4 z-30 flex gap-1">
-                <button 
-                    onClick={zoomIn}
-                    className={`${fullWidth ? "w-11 h-11 min-w-[44px] min-h-[44px]" : "w-5 h-5"} flex items-center justify-center border border-scp-term/30 bg-black/80 text-scp-term hover:bg-scp-term/20 text-xs font-mono`}
-                >+</button>
-                <button 
-                    onClick={zoomOut}
-                    className={`${fullWidth ? "w-11 h-11 min-w-[44px] min-h-[44px]" : "w-5 h-5"} flex items-center justify-center border border-scp-term/30 bg-black/80 text-scp-term hover:bg-scp-term/20 text-xs font-mono`}
-                >-</button>
-            </div>
             
              {/* Tooltip Overlay - Moved outside radar container to avoid clipping if overflow hidden, but still positioned absolutely */}
             {hoveredNode && tooltipPosition && (

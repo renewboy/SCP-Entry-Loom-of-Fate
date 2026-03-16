@@ -5,7 +5,7 @@ import { AgentStreamEvent } from './streamProtocol';
 export interface AIService {
     analyzeSCPUrl(input: string, language: Language, role: string, difficulty: GameDifficulty, legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData>;
     generateProfileCandidates(role: string, scpDesignation: string, language: Language): Promise<EntityProfile[]>;
-    generateImage(prompt: string, aspectRatio?: "1:1" | "16:9" | "3:4", responseFormat?: "url" | "b64_json"): Promise<string | null>;
+    generateImage(prompt: string, aspectRatio?: ImageAspectRatio, responseFormat?: "url" | "b64_json"): Promise<string | null>;
     initializeGameChatStream(scp: SCPData, role: string, language: Language, legacyData: LegacyData | undefined, difficulty: GameDifficulty): AsyncGenerator<string>;
     setCallbacks(callbacks: { onTokenUpdate?: (count: number) => void; onStatusUpdate?: (status: 'idle' | 'generating' | 'summarizing') => void }): void;
     getSummaryContext(): string;
@@ -31,3 +31,5 @@ export interface AIService {
         onToolCall: (toolName: string, args: any) => Promise<any>
     ): AsyncGenerator<AgentStreamEvent>;
 }
+
+export type ImageAspectRatio = "1:1" | "16:9" | "3:4" | "9:16";

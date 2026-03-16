@@ -13,6 +13,7 @@ import {
 } from '../services/aiService';
 import { loadGlobalSettings } from '../services/indexedDBService';
 import { enhanceScenePrompt } from '../services/ai/promptUtils';
+import { getSceneAspectRatio } from '../services/ai/utils';
 import { MapUpdate } from './useMapUpdate';
 
 const IDLE_TIMEOUT_MS = 45000;
@@ -47,7 +48,7 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
         }
 
         const enhancedPrompt = enhanceScenePrompt(prompt);
-        const base64 = await generateImage(enhancedPrompt, "16:9");
+        const base64 = await generateImage(enhancedPrompt, getSceneAspectRatio());
         if (base64) {
             setGameState(prev => ({
                 ...prev,

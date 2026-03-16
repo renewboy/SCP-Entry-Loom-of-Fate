@@ -10,6 +10,7 @@ import ConfirmationModal from './ConfirmationModal';
 import CrtSurface from './common/CrtSurface';
 import { User } from '@supabase/supabase-js';
 import { ERROR_CODES } from '../services/indexedDBService';
+import { useViewport } from '../hooks/useViewport';
 
 interface SaveLoadModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ interface SaveLoadModalProps {
 
 const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, currentGameState, onLoadGame, onSaveComplete }) => {
   const { t } = useTranslation();
+  const { isMobile } = useViewport();
   const [activeTab, setActiveTab] = useState<'local' | 'cloud'>('local'); // We'll use this just for login view state now
   const [saves, setSaves] = useState<SaveGameMetadata[]>([]);
   const [loading, setLoading] = useState(false);
@@ -576,7 +578,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
   const content = (
     <>
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-mono scp-ui">
-      <CrtSurface className={`scp-window border-y sm:border ${accentClasses.borderSoft} w-full max-w-3xl shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[85vh] relative overflow-hidden group/modal z-10`}>
+      <CrtSurface className={`scp-window border-y sm:border ${accentClasses.borderSoft} w-full max-w-3xl shadow-2xl flex flex-col ${isMobile ? 'h-[90dvh] rounded-md' : 'h-[100dvh] sm:h-auto sm:max-h-[85vh]'} relative overflow-hidden group/modal z-10`}>
         
         {/* Header with Login */}
         <div className="bg-black h-14 w-full flex items-center justify-between px-3 sm:px-6 border-b border-scp-gray relative z-20 shrink-0 gap-2 scp-window-header">

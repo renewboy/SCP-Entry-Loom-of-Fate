@@ -2,6 +2,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { SCPData } from '../../types';
 import { generateImage } from '../../services/aiService';
 import { enhanceBackgroundPrompt, enhanceEntityPrompt, enhanceNpcPrompt } from '../../services/ai/promptUtils';
+import { getBackgroundAspectRatio } from '../../services/ai/utils';
 
 export const useStoryImageManager = ({
     scpData,
@@ -93,7 +94,7 @@ export const useStoryImageManager = ({
         setGeneratingState(prev => ({ ...prev, [type]: true }));
         try {
             const prompt = type === 'bg' ? enhanceBackgroundPrompt(bgImagePrompt) : enhanceEntityPrompt(entityImagePrompt);
-            const url = await generateImage(prompt, type === 'bg' ? "16:9" : "1:1");
+            const url = await generateImage(prompt, type === 'bg' ? getBackgroundAspectRatio() : "1:1");
             if (url) {
                 setScpData(prev => ({
                     ...prev,

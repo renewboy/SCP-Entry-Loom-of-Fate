@@ -1,43 +1,42 @@
 import React from 'react';
-import { RuntimeNPCState } from '../types';
 
-export interface NpcDialogueMatch {
-  npcId: string;
-  contentNodes: React.ReactNode[];
+export interface NpcDialogueSegment {
+  type: 'text' | 'npc';
+  content: string;
+  npcId?: string;
 }
 
-export const extractNpcDialogue = (children: React.ReactNode, npcs?: RuntimeNPCState[]): NpcDialogueMatch | null => {
+export const extractNpcDialogues = (children: React.ReactNode): NpcDialogueSegment[] | null => {
   const childrenArray = React.Children.toArray(children);
-  const startChildIndex = childrenArray.findIndex(
-    (child) => typeof child === 'string' && child.match(/^\[@([^\]:：]+)[:：]\s*/)
-  );
+  const text = childrenArray.map(child => (typeof child === 'string' ? child : '')).join('');
+  if (!text.includes('[@')) return null;
 
-  if (startChildIndex === -1) return null;
+  const regex = /\[@([^\]:：]+)[:：]\s*([\s\S]*?)\]/g;
+  const segments: NpcDialogueSegment[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null = null;
 
-  const startChild = childrenArray[startChildIndex];
-  if (typeof startChild !== 'string') return null;
-
-  const match = startChild.match(/^\[@([^\]:：]+)[:：]\s*(.*)/);
-  if (!match) return null;
-
-  const npcId = match[1];
-  const newChildrenArray = childrenArray.slice(startChildIndex);
-  newChildrenArray[0] = match[2];
-
-  const lastIndex = newChildrenArray.length - 1;
-  const lastChild = newChildrenArray[lastIndex];
-
-  if (typeof lastChild === 'string' && lastChild.trim().endsWith(']')) {
-    newChildrenArray[lastIndex] = lastChild.trim().slice(0, -1);
-  } else if (typeof lastChild === 'string' && lastChild.endsWith(']')) {
-    newChildrenArray[lastIndex] = lastChild.slice(0, -1);
-  }
-
-  if (newChildrenArray.length === 1 && typeof newChildrenArray[0] === 'string') {
-    if (newChildrenArray[0].endsWith(']')) {
-      newChildrenArray[0] = newChildrenArray[0].slice(0, -1);
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({
+        type: 'text',
+        content: text.slice(lastIndex, match.index)
+      });
     }
+    segments.push({
+      type: 'npc',
+      npcId: match[1],
+      content: match[2].trim()
+    });
+    lastIndex = match.index + match[0].length;
   }
 
-  return { npcId, contentNodes: newChildrenArray };
+  if (lastIndex < text.length) {
+    segments.push({
+      type: 'text',
+      content: text.slice(lastIndex)
+    });
+  }
+
+  return segments.length ? segments : null;
 };

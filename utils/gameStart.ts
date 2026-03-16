@@ -2,6 +2,7 @@ import { GameState, GameStatus } from '../types';
 import { initializeGameChatStream, extractStability, extractVisualPrompt, generateImage, extractLoc, extractMapUpdate, setProviderCallbacks } from '../services/aiService';
 import { loadGlobalSettings } from '../services/indexedDBService';
 import { enhanceBackgroundPrompt, enhanceEntityPrompt, enhanceNpcPrompt } from '../services/ai/promptUtils';
+import { getBackgroundAspectRatio, getSceneAspectRatio } from '../services/ai/utils';
 
 interface StartGameParams {
     gameState: GameState;
@@ -42,7 +43,7 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
              const bgDesc = finalScpData.visualDescription || `texture and atmosphere of ${finalScpData.name}`;
              const bgPrompt = enhanceBackgroundPrompt(bgDesc);
              // use b64_json to get base64 image data for bypassing CORS issue when creating thumbnail
-             generateImage(bgPrompt, "16:9", "b64_json").then(bgUrl => {
+             generateImage(bgPrompt, getBackgroundAspectRatio(), "b64_json").then(bgUrl => {
                  if(bgUrl) setGameState(prev => ({...prev, backgroundImage: bgUrl}));
              });
         }
@@ -175,7 +176,7 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
         
         // 3. Scene Image (Intro)
         if (visualPrompt && settings.enableSceneImages) {
-            generateImage(visualPrompt, "16:9").then(introImageUrl => {
+            generateImage(visualPrompt, getSceneAspectRatio()).then(introImageUrl => {
                 if (introImageUrl) {
                     setGameState(prev => ({
                         ...prev,
