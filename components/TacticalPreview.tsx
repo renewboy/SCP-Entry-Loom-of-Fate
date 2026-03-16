@@ -139,6 +139,8 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
                     updateNode={() => {}}
                     addEdge={() => {}}
                     onDeleteSelection={() => {}}
+                    isMobile={isMobile}
+                    showMobileControls={false}
                 />
             )}
         </>
@@ -280,12 +282,12 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
             )}
 
             {/* Bottom Action Bar */}
-            <div className={`border-t border-[var(--scp-border)] bg-[var(--scp-surface)]/90 backdrop-blur-sm ${isMobile ? 'p-3' : 'p-6'} flex items-center justify-between crt`}>
+            <div className={`border-t border-[var(--scp-border)] bg-[var(--scp-surface)]/90 backdrop-blur-sm ${isMobile ? 'p-3' : 'p-6'} flex items-center justify-between gap-2 crt`}>
                 <div>
                     <button 
                         onClick={handleBack}
                         disabled={isStarting}
-                        className={`text-gray-300 hover:text-white hover:border-white border border-[var(--scp-border-strong)] transition-colors font-report font-bold ${isMobile ? 'text-sm tracking-wider px-3 py-2' : 'text-xl tracking-[0.2em] px-4 py-2'} flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+                        className={`text-gray-300 hover:text-white hover:border-white border border-[var(--scp-border-strong)] transition-colors font-report font-bold ${isMobile ? 'text-sm tracking-wide px-3 py-2 whitespace-nowrap' : 'text-xl tracking-[0.2em] px-4 py-2'} flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         ← {t('common.back')}
                     </button>
@@ -296,10 +298,10 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
                     {isMobile && (
                         <button 
                             onClick={handleEdit}
-                            className="px-5 py-3 bg-scp-accent/90 hover:bg-scp-accent text-white font-report tracking-widest border border-red-500 transition-all shadow-[0_0_15px_rgba(195,46,46,0.3)] hover:shadow-[0_0_25px_rgba(195,46,46,0.6)] flex items-center justify-center gap-2 group active:scale-[0.99] min-h-[44px]"
+                            className="px-4 py-3 bg-scp-accent/90 hover:bg-scp-accent text-white font-report tracking-wide border border-red-500 transition-all shadow-[0_0_15px_rgba(195,46,46,0.3)] hover:shadow-[0_0_25px_rgba(195,46,46,0.6)] flex items-center justify-center gap-2 group active:scale-[0.99] min-h-[44px] whitespace-nowrap text-sm"
                         >
-                            <span>{t('map_editor.btn_edit_story')}</span>
-                            <span className="group-hover:translate-x-1 transition-transform">→</span>
+                            <span className={`font-report font-bold ${isMobile ? 'text-sm tracking-wide' : 'text-xl tracking-[0.2em]'}`}>{t('map_editor.btn_edit_story')}</span>
+                            <span className={`${isMobile ? 'text-sm' : 'text-xl'} opacity-70 group-hover:translate-x-1 transition-transform`}>→</span>
                         </button>
                     )}
                     <div className="text-right hidden lg:block">
@@ -310,7 +312,7 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
                     <button 
                         onClick={handleStartWeave}
                         disabled={isStarting}
-                        className={`bg-scp-accent/90 hover:bg-scp-accent text-white font-report tracking-widest border border-red-500 transition-all shadow-[0_0_15px_rgba(195,46,46,0.3)] hover:shadow-[0_0_25px_rgba(195,46,46,0.6)] disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99] ${isMobile ? 'px-6 py-3 text-base min-h-[44px]' : 'px-10 py-4 text-xl'}`}
+                        className={`bg-scp-accent/90 hover:bg-scp-accent text-white font-report tracking-widest border border-red-500 transition-all shadow-[0_0_15px_rgba(195,46,46,0.3)] hover:shadow-[0_0_25px_rgba(195,46,46,0.6)] disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99] ${isMobile ? 'px-4 py-3 text-sm min-h-[44px] whitespace-nowrap' : 'px-10 py-4 text-xl'}`}
                     >
                         <div className="flex items-center gap-3 justify-center">
                             {isStarting ? (
@@ -320,8 +322,8 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
                                 </>
                             ) : (
                                 <>
-                                    <span className={`font-report font-bold ${isMobile ? 'text-base' : 'text-xl'} tracking-[0.2em]`}>{t('map_editor.continue_game')}</span>
-                                    <span className="text-xs opacity-70">&gt;&gt;&gt;</span>
+                                    <span className={`font-report font-bold ${isMobile ? 'text-sm tracking-wide' : 'text-xl tracking-[0.2em]'}`}>{t('map_editor.continue_game')}</span>
+                                    <span className={`${isMobile ? 'text-sm' : 'text-xl'} opacity-70`}>&gt;&gt;&gt;</span>
                                 </>
                             )}
                         </div>

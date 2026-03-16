@@ -13,7 +13,7 @@ export const en = {
       "Loading Loom Nodes: Parsing Entry Predicates...",
       "Loom of Fate Core Weave Module Initializing...",
     ],
-    scp_archive: "SCP Entry",
+    scp_archive: "SCP ENTRY",
     fate_loom: "Loom of Fate",
     error_prefix: "[ERROR]: ",
     error_conn: "Failed to connect to Foundation Database. Verify API Key permissions or SCP designation.",

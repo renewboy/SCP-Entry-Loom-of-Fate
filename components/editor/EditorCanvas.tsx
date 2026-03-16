@@ -35,6 +35,7 @@ interface EditorCanvasProps {
     isMobile?: boolean;
     onAddNPC?: () => void;
     onAddObjective?: () => void;
+    showMobileControls?: boolean;
 }
 
 type GestureType = 'none' | 'drag-node' | 'pan-canvas' | 'pinch-zoom';
@@ -61,7 +62,8 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(({
     onDeleteSelection,
     isMobile = false,
     onAddNPC,
-    onAddObjective
+    onAddObjective,
+    showMobileControls = true
 }, ref) => {
     const { t } = useTranslation();
     const svgRef = useRef<SVGSVGElement>(null);
@@ -625,7 +627,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(({
                 </div>
             )}
             
-            {isMobile && (
+            {isMobile && showMobileControls && (
                 <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
                     <button
                         onClick={() => {
@@ -658,7 +660,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(({
                 </div>
             )}
 
-            {isMobile && onAddNPC && onAddObjective && (
+            {isMobile && showMobileControls && onAddNPC && onAddObjective && (
                 <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
                     <button
                         onClick={onAddNPC}
