@@ -20,11 +20,13 @@ const InputArea: React.FC<InputAreaProps> = ({
   return (
       <div className="p-4 bg-black/50 border-t border-scp-gray/30 scp-ui relative" id="input-area"
         style={{ paddingBottom: safeAreaInsets.bottom > 0 ? `calc(1rem + ${safeAreaInsets.bottom}px)` : undefined }}>
-        {gameState.tokenCount !== undefined && (
-            <div className="absolute right-4 -top-6 text-xs text-scp-term font-mono opacity-70">
-                Tokens: {gameState.tokenCount}
-            </div>
-        )}
+        {/* Right-top info: Turn count + Tokens (two-line display) */}
+        <div className="absolute right-4 -top-10 text-[11px] text-scp-term font-mono opacity-70 text-right leading-relaxed">
+            <div>{t('game.turn')}: {gameState.turnCount}</div>
+            {gameState.tokenCount !== undefined && (
+                <div>Tokens: {gameState.tokenCount}</div>
+            )}
+        </div>
         <div className="flex gap-2 relative">
           <span className="absolute left-3 top-3 text-scp-term font-mono pointer-events-none"></span>
           <input

@@ -7,9 +7,13 @@ interface SettingsMenuProps {
   onLoad: () => void;
   onTerminate: () => void;
   t: (key: string) => string;
+  /** Mobile-only: role name to display at top of menu */
+  role?: string;
+  /** Mobile-only: containment class to display at top of menu */
+  containmentClass?: string;
 }
 
-const SettingsMenu: React.FC<SettingsMenuProps> = ({ onSave, onLoad, onTerminate, t }) => {
+const SettingsMenu: React.FC<SettingsMenuProps> = ({ onSave, onLoad, onTerminate, t, role, containmentClass }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -22,6 +26,8 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onSave, onLoad, onTerminate
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const hasMobileInfo = role || containmentClass;
 
   return (
     <div className="relative z-50 scp-ui" ref={menuRef}>
@@ -36,6 +42,17 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onSave, onLoad, onTerminate
       
       {isOpen && (
         <div className="absolute right-0 top-full mt-2 w-48 scp-window border border-scp-gray shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-sm flex flex-col p-2 space-y-2">
+           {/* Mobile-only: Show role & class info at top */}
+           {hasMobileInfo && (
+             <>
+               <div className="text-[10px] font-mono text-gray-400 leading-tight px-2 py-1">
+                 {role && <p>{t('game.role')}: {role}</p>}
+                 {containmentClass && <p>{t('game.class')}: {containmentClass}</p>}
+               </div>
+               <div className="h-px bg-scp-gray/30 my-1"></div>
+             </>
+           )}
+
            <button
                 onClick={() => { onSave(); setIsOpen(false); }}
                 className="w-full text-left bg-scp-gray/10 hover:bg-scp-gray/30 text-scp-text px-3 py-2 font-mono text-xs transition-colors flex items-center gap-2"
