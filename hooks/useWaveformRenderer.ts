@@ -1,30 +1,34 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface UseWaveformRendererOptions {
   stability: number;
   isPlaying: boolean;
 }
 
-/**
- * Extracted waveform canvas rendering logic from StabilityMonitor.
- * Renders the waveform animation onto a given canvas element.
- * The canvas will fill its parent container (uses ResizeObserver).
- */
+function clamp01(v: number): number {
+  return Math.max(0, Math.min(1, v));
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+// ============================================================
+// Main Hook: Audio Spectrum Visualizer Style
+// ============================================================
 export function useWaveformRenderer(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
   { stability, isPlaying }: UseWaveformRendererOptions
 ) {
-  const phaseRef = useRef(0);
-  const driftRef = useRef(0);
-  const spikeRef = useRef<{ x: number; amp: number } | null>(null);
+  const ampsRef = useRef<number[]>([]);
+  const targetsRef = useRef<number[]>([]);
 
-  const instability = 100 - stability;
-
-  const accentColor = useMemo(() => {
-    if (stability > 70) return '#2bdc6b';
-    if (stability > 30) return '#f59e0b';
-    return '#ef4444';
-  }, [stability]);
+  // Debug toggle injected directly onto the window object for easy console access
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__DEBUG_WAVEFORM_ENABLED = true;
+    }
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -33,209 +37,205 @@ export function useWaveformRenderer(
     if (!ctx) return;
 
     let rafId = 0;
+    let frameCount = 0;
+    let lastRenderTime = 0;
+    const TARGET_FPS = 30;
+    const FRAME_INTERVAL = 1000 / TARGET_FPS;
 
-    // --- ResizeObserver to dynamically size canvas ---
     const resizeCanvas = () => {
       const parent = canvas.parentElement;
       if (!parent) return;
       const rect = parent.getBoundingClientRect();
       const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-      const cssWidth = rect.width;
-      const cssHeight = rect.height;
-      canvas.style.width = `${cssWidth}px`;
-      canvas.style.height = `${cssHeight}px`;
-      canvas.width = Math.floor(cssWidth * dpr);
-      canvas.height = Math.floor(cssHeight * dpr);
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${rect.height}px`;
+      canvas.width = Math.floor(rect.width * dpr);
+      canvas.height = Math.floor(rect.height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
-
     resizeCanvas();
-
     const ro = new ResizeObserver(() => resizeCanvas());
     if (canvas.parentElement) ro.observe(canvas.parentElement);
 
-    // --- Rendering logic (unchanged from StabilityMonitor) ---
-    const instabilityRatio = Math.max(0, Math.min(1, instability / 100));
-    const baseAmp = 3.5 + instabilityRatio * 18.0;
-    const chaos = instabilityRatio * instabilityRatio;
-    const speed = 0.08 + instabilityRatio * 0.25;
-    const gridStep = 10;
-
-    const render = () => {
-      const cssWidth = parseFloat(canvas.style.width) || 164;
-      const cssHeight = parseFloat(canvas.style.height) || 40;
-      const width = cssWidth;
-      const height = cssHeight;
-
-      phaseRef.current += speed;
-      const phase = phaseRef.current;
-      const targetDrift = Math.sin(phase * 0.7) * (2 + instabilityRatio * 6);
-      driftRef.current = driftRef.current * 0.92 + targetDrift * 0.08;
-
-      if (instabilityRatio > 0.6) {
-        const hasSpike = spikeRef.current !== null;
-        if (!hasSpike && Math.random() < 0.05 + chaos * 0.08) {
-          spikeRef.current = { x: Math.random() * width, amp: (8 + Math.random() * 22) * chaos };
-        }
+    const render = (currentTime: number) => {
+      // Respect debug toggle
+      if ((window as any).__DEBUG_WAVEFORM_ENABLED === false) {
+         ctx.clearRect(0, 0, canvas.width, canvas.height);
+         rafId = requestAnimationFrame(render);
+         return;
       }
 
-      if (spikeRef.current) {
-        spikeRef.current.amp *= 0.94;
-        if (spikeRef.current.amp < 0.8) {
-          spikeRef.current = null;
-        }
+      if (document.hidden) { 
+        rafId = requestAnimationFrame(render); 
+        return; 
       }
 
+      // Throttle framerate to 30 FPS
+      if (currentTime - lastRenderTime < FRAME_INTERVAL) {
+        rafId = requestAnimationFrame(render);
+        return;
+      }
+      lastRenderTime = currentTime;
+
+      const width = parseFloat(canvas.style.width) || 300;
+      const height = parseFloat(canvas.style.height) || 40;
+      const midY = height / 2;
+
+      // 1. Instability calculation (Direct, no interpolation)
+      const instability = 100 - stability;
+      const inst = clamp01(instability / 100);
+      const chaos = inst * inst;
+
+      // 2. Get global accent color dynamically
+      // GameScreen sets --theme-accent on the root element
+      const computedStyle = getComputedStyle(document.documentElement);
+      let accent = computedStyle.getPropertyValue('--theme-accent').trim();
+      
+      // Fallback color if the variable is not found
+      if (!accent) {
+         accent = '#33ff00';
+      } else if (!accent.startsWith('#') && !accent.startsWith('rgb')) {
+         // Some themes define --theme-accent as "0 255 0", convert to rgb
+         if (accent.split(' ').length >= 3) {
+            accent = `rgb(${accent.split(' ').join(',')})`;
+         } else {
+            accent = `#${accent}`; // Fallback heuristic
+         }
+      }
+
+      // 3. Layout Bars (Frequency Bins)
+      const barWidth = 4;
+      const barGap = 2;
+      const step = barWidth + barGap;
+      const numBars = Math.floor(width / step);
+      const startX = (width - numBars * step) / 2;
+
+      // Resize arrays if canvas size changes
+      if (ampsRef.current.length !== numBars) {
+        ampsRef.current = new Array(numBars).fill(0);
+        targetsRef.current = new Array(numBars).fill(0);
+      }
+
+      const amps = ampsRef.current;
+      const targets = targetsRef.current;
+
+      // 4. Update Targets (Driven strictly by Hume Field Stability)
+      // inst = 0   => Stability 100 (Stable)
+      // inst = 0.3 => Stability 70  (Fluctuating threshold)
+      // inst = 0.7 => Stability 30  (Critical threshold)
+      const time = Date.now() / 1000;
+      const speed = lerp(2, 15, inst);
+      const ampScale = lerp(0.15, 0.95, inst);
+      
+      // Noise scales up only after stability drops below 70 (inst > 0.3)
+      const noiseScale = inst > 0.3 ? lerp(0, 0.8, (inst - 0.3) / 0.7) : 0;
+      // Extreme spikes only appear when stability drops below 30 (inst > 0.7)
+      const spikeProb = inst > 0.7 ? lerp(0, 0.15, (inst - 0.7) / 0.3) : 0;
+
+      const maxHeight = height * 0.85;
+
+      for (let i = 0; i < numBars; i++) {
+        const nx = i / numBars; // 0.0 to 1.0
+        // Hanning window to taper the edges smoothly
+        const envelope = Math.pow(Math.sin(nx * Math.PI), 0.8);
+
+        // Base low-frequency wave (always present, slow and smooth when stable)
+        const wave1 = Math.sin(nx * Math.PI * lerp(3, 8, inst) + time * speed) * 0.5 + 0.5;
+        
+        // Mid-frequency wave (fades in and speeds up as instability increases)
+        const wave2 = Math.sin(nx * Math.PI * lerp(5, 25, inst) - time * speed * 1.5) * 0.5 + 0.5;
+        
+        // Combine waves smoothly
+        let v = wave1 * lerp(1, 0.4, inst) + wave2 * lerp(0, 0.6, inst);
+        
+        // Add chaotic noise when fluctuating (< 70)
+        if (noiseScale > 0) {
+            const noise = Math.random();
+            v = lerp(v, noise, noiseScale);
+        }
+        
+        let target = v * maxHeight * ampScale;
+        
+        // Add extreme spikes in critical state (< 30)
+        if (spikeProb > 0 && Math.random() < spikeProb) {
+            target = maxHeight * (0.8 + Math.random() * 0.2);
+        }
+
+        targets[i] = target * envelope;
+      }
+
+      // 5. Clear canvas
       ctx.clearRect(0, 0, width, height);
-
-      // Background — semi-transparent for header overlay
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
       ctx.fillRect(0, 0, width, height);
 
-      // Grid lines
+      // 6. Draw center zero-line
       ctx.save();
-      ctx.globalAlpha = 0.22;
-      ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+      ctx.strokeStyle = `${accent}30`;
       ctx.lineWidth = 1;
-      for (let x = 0; x <= width; x += gridStep) {
-        ctx.beginPath();
-        ctx.moveTo(x + 0.5, 0);
-        ctx.lineTo(x + 0.5, height);
-        ctx.stroke();
-      }
-      for (let y = 0; y <= height; y += gridStep) {
-        ctx.beginPath();
-        ctx.moveTo(0, y + 0.5);
-        ctx.lineTo(width, y + 0.5);
-        ctx.stroke();
-      }
+      ctx.beginPath(); ctx.moveTo(0, midY); ctx.lineTo(width, midY); ctx.stroke();
       ctx.restore();
 
-      // Waveform points
-      const points: { x: number; y: number }[] = [];
-      const midY = height / 2;
-      for (let x = 0; x <= width; x += 2) {
-        const nx = x / width;
-        const t = nx * Math.PI * 2;
-        const band1 = Math.sin(t * 3.5 + phase * 1.5) * baseAmp;
-        const band2 = Math.sin(t * (7.0 + instabilityRatio * 6.0) + phase * 2.5) * (baseAmp * (0.25 + 0.75 * chaos));
-        const band3 = Math.sin(t * (14.0 + instabilityRatio * 15.0) + phase * 4.2) * (baseAmp * (0.1 + 0.5 * chaos));
-        const jag = Math.sin(t * 25 + phase * 10.0) * (baseAmp * 0.15 * chaos);
-        let y = midY + driftRef.current * 0.12 + band1 + band2 + band3 + jag;
+      // 7. Draw Frequency Bars
+      // Glow increases purely based on instability
+      // With 30FPS cap, we can safely restore the higher blur values for better visual effect
+      const baseBlur = lerp(0, 15, inst);
 
-        if (spikeRef.current) {
-          const dx = (x - spikeRef.current.x) / 12;
-          const spike = Math.exp(-dx * dx) * spikeRef.current.amp;
-          y -= spike;
-        }
-
-        y = Math.max(2, Math.min(height - 2, y));
-        points.push({ x, y });
+      // We optimize by grouping all bar drawing into a single path.
+      // This vastly reduces the number of draw calls per frame.
+      ctx.save();
+      ctx.fillStyle = accent;
+      
+      if (baseBlur > 0) {
+          ctx.shadowColor = accent;
+          ctx.shadowBlur = baseBlur;
       }
 
-      const accent = accentColor;
-      const accentGlow = 'rgba(255,255,255,0.25)';
-      const strokeGradient = ctx.createLinearGradient(0, 0, width, 0);
-      strokeGradient.addColorStop(0, 'rgba(255,255,255,0.25)');
-      strokeGradient.addColorStop(0.15, accent);
-      strokeGradient.addColorStop(0.85, accent);
-      strokeGradient.addColorStop(1, 'rgba(255,255,255,0.15)');
+      // Lerp speed: smooth when stable, twitchy when critical
+      const lerpSpeed = lerp(0.1, 0.5, inst);
 
-      const fillGradient = ctx.createLinearGradient(0, 0, 0, height);
-      fillGradient.addColorStop(0, 'rgba(255,255,255,0.08)');
-      fillGradient.addColorStop(0.2, `${accent}33`);
-      fillGradient.addColorStop(0.6, `${accent}11`);
-      fillGradient.addColorStop(1, 'rgba(0,0,0,0)');
-
-      // Fill area
-      ctx.save();
-      ctx.globalAlpha = 0.85;
-      ctx.fillStyle = fillGradient;
       ctx.beginPath();
-      ctx.moveTo(points[0].x, height);
-      points.forEach((p) => ctx.lineTo(p.x, p.y));
-      ctx.lineTo(points[points.length - 1].x, height);
-      ctx.closePath();
+      for (let i = 0; i < numBars; i++) {
+        amps[i] = lerp(amps[i], targets[i], lerpSpeed);
+        
+        let h = Math.max(2, amps[i]); // Minimum height
+        
+        // Horizontal glitch offset (only when critical < 30)
+        let xOffset = 0;
+        if (inst > 0.7 && Math.random() < (inst - 0.7)) {
+          xOffset = (Math.random() - 0.5) * 8;
+        }
+
+        const x = startX + i * step + xOffset;
+        
+        // Using rect instead of roundRect in a single path is much faster.
+        // For a pixelated/cyberpunk feel, standard rect is fine.
+        ctx.rect(x, midY - h / 2, barWidth - 1, h);
+      }
       ctx.fill();
       ctx.restore();
 
-      // 3D shadow
+      // 8. Static noise particles (Optimized into a single path)
       ctx.save();
-      ctx.globalAlpha = 0.4;
-      ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-      ctx.lineWidth = 6;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      points.forEach((p, idx) => {
-        const ox = 1.5;
-        const oy = 2.5;
-        if (idx === 0) ctx.moveTo(p.x + ox, p.y + oy);
-        else ctx.lineTo(p.x + ox, p.y + oy);
-      });
-      ctx.stroke();
-      ctx.restore();
-
-      // Inner glow
-      ctx.save();
-      ctx.globalAlpha = 0.7;
-      ctx.strokeStyle = accentGlow;
-      ctx.lineWidth = 4;
-      ctx.shadowColor = accent;
-      ctx.shadowBlur = 8;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      points.forEach((p, idx) => {
-        if (idx === 0) ctx.moveTo(p.x, p.y - 1);
-        else ctx.lineTo(p.x, p.y - 1);
-      });
-      ctx.stroke();
-      ctx.restore();
-
-      // Main line
-      ctx.save();
-      ctx.strokeStyle = strokeGradient;
-      ctx.lineWidth = 2.5;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      points.forEach((p, idx) => {
-        if (idx === 0) ctx.moveTo(p.x, p.y);
-        else ctx.lineTo(p.x, p.y);
-      });
-      ctx.stroke();
-      ctx.restore();
-
-      // Center line
-      ctx.save();
-      ctx.globalAlpha = 0.25;
-      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, midY + 0.5);
-      ctx.lineTo(width, midY + 0.5);
-      ctx.stroke();
-      ctx.restore();
-
-      // Noise particles
-      ctx.save();
-      ctx.globalAlpha = 0.10;
+      ctx.globalAlpha = 0.12;
       ctx.fillStyle = 'rgba(255,255,255,1)';
-      for (let i = 0; i < 16 + Math.floor(18 * instabilityRatio); i += 1) {
-        const px = Math.random() * width;
-        const py = Math.random() * height;
-        ctx.fillRect(px, py, 1, 1);
+      const pCount = Math.floor(10 * (1 + chaos * 6));
+      ctx.beginPath();
+      for (let i = 0; i < pCount; i++) {
+        const w = Math.random() < 0.1 ? 2 : 1;
+        ctx.rect(Math.random() * width, Math.random() * height, w, 1);
       }
+      ctx.fill();
       ctx.restore();
 
+      frameCount++;
       rafId = requestAnimationFrame(render);
     };
 
     rafId = requestAnimationFrame(render);
-    return () => {
-      cancelAnimationFrame(rafId);
-      ro.disconnect();
+    return () => { 
+      cancelAnimationFrame(rafId); 
+      ro.disconnect(); 
     };
-  }, [accentColor, instability, stability, canvasRef]);
+  }, [stability, isPlaying, canvasRef]);
 }

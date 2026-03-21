@@ -10,6 +10,7 @@ import { aiConfig } from "../../../config/aiConfig";
 import { imageSizeFromAspectRatio } from "../utils";
 import { getEffectiveAIConfig } from "../../aiConfigService";
 import { AgentStreamEvent } from "../streamProtocol";
+import { EditorChatMessage, toOpenAIMessages } from "../editorAssistantTypes";
 
 type ChatMessage = {
   role: "system" | "user" | "assistant";
@@ -494,7 +495,7 @@ export class OpenAIProvider implements AIService {
     }
 
     async *streamEditorAssistant(
-        messages: { role: string; content: string }[],
+        messages: EditorChatMessage[],
         scpData: SCPData,
         language: Language,
         onToolCall: (toolName: string, args: any) => Promise<any>
@@ -502,25 +503,34 @@ export class OpenAIProvider implements AIService {
         const config = await this.getConfig();
         const systemPrompt = getEditorAssistantPrompt(language);
 
+        // Convert EditorChatMessage[] to OpenAI-native messages,
+        // which correctly replays prior tool calls via nativeHistory
+        const historyMessages = toOpenAIMessages(messages);
+
         const contextMessages = [
             { role: "system", content: systemPrompt },
             { role: "system", content: getEditorAssistantContext(scpData) },
-            ...messages
+            ...historyMessages
         ];
 
         let currentLoopMessages: any[] = [...contextMessages];
+
+        // Collect all native history entries produced during THIS turn
+        // so the UI can store them for future replay
+        const turnNativeHistory: any[] = [];
+
         let loopCount = 0;
-        const MAX_LOOPS = 5;
+        const MAX_LOOPS = 20;
 
         while (loopCount < MAX_LOOPS) {
             loopCount++;
 
-            // Use a temporary structure to accumulate partial tool calls
             const toolCallsMap: Record<number, { index: number; id?: string; name?: string; arguments: string }> = {};
             let hasToolCalls = false;
-            
+            let assistantText = "";
+
             console.log(`[EditorAssistant] streamEditorAssistant loop ${loopCount}`);
-            
+
             // 1. Call OpenAI API and stream response
             const stream = streamSse<any>("/api/ai/openai/chat-completion-stream", {
                 apiKey: config.apiKey,
@@ -538,6 +548,7 @@ export class OpenAIProvider implements AIService {
 
                 // Handle text content delta
                 if (delta.content) {
+                    assistantText += delta.content;
                     yield { type: "assistant_delta", delta: delta.content };
                 }
 
@@ -556,8 +567,11 @@ export class OpenAIProvider implements AIService {
                 }
             }
 
-            // 2. If no tool calls, break the loop
+            // 2. If no tool calls, record the assistant text and break
             if (!hasToolCalls) {
+                if (assistantText) {
+                    turnNativeHistory.push({ role: "assistant", content: assistantText });
+                }
                 break;
             }
 
@@ -571,16 +585,18 @@ export class OpenAIProvider implements AIService {
                 }
             }));
 
-            // Append assistant message with tool_calls to history (Model turn)
-            currentLoopMessages.push({
+            // Build the assistant message with tool_calls (and optional text)
+            const assistantEntry: any = {
                 role: "assistant",
-                content: null,
+                content: assistantText || null,
                 tool_calls: completedToolCalls
-            });
+            };
+            currentLoopMessages.push(assistantEntry);
+            turnNativeHistory.push(assistantEntry);
 
             // 4. Execute tools and yield events
             for (const call of completedToolCalls) {
-                const callId = call.id; // Use OpenAI's ID if available, or fallback
+                const callId = call.id;
                 const toolName = call.function.name;
                 const startTime = Date.now();
                 let args = {};
@@ -606,7 +622,7 @@ export class OpenAIProvider implements AIService {
                     console.log(`[EditorAssistant] Executing tool ${toolName}...`);
                     const result = await onToolCall(toolName, args);
                     const endTime = Date.now();
-                    
+
                     // Send "result" event
                     yield {
                         type: "tool_call",
@@ -616,12 +632,12 @@ export class OpenAIProvider implements AIService {
                         result,
                         endTime
                     };
-                    
+
                     resultStr = JSON.stringify(result);
                 } catch (e) {
                     const endTime = Date.now();
                     console.error(`Tool execution failed: ${e}`);
-                    
+
                     // Send "error" event
                     yield {
                         type: "tool_call",
@@ -631,18 +647,24 @@ export class OpenAIProvider implements AIService {
                         error: String(e),
                         endTime
                     };
-                    
+
                     resultStr = JSON.stringify({ error: String(e) });
                 }
 
-                // Append tool result to history (Tool turn)
-                currentLoopMessages.push({
+                // Append tool result to history
+                const toolResultEntry = {
                     role: "tool",
                     tool_call_id: call.id,
                     name: toolName,
                     content: resultStr
-                });
+                };
+                currentLoopMessages.push(toolResultEntry);
+                turnNativeHistory.push(toolResultEntry);
             }
         }
+
+        // Yield turn_complete with the native history for this entire turn
+        yield { type: "turn_complete", nativeHistory: turnNativeHistory };
     }
+
 }

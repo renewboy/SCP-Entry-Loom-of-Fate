@@ -9,6 +9,7 @@ import { AudioDramaSchema } from "../schemas";
 import { postJson, streamSse } from "./backendClient";
 import { getEffectiveAIConfig } from "../../aiConfigService";
 import { AgentStreamEvent } from "../streamProtocol";
+import { EditorChatMessage, toGeminiContents } from "../editorAssistantTypes";
 
 const INIT_EMPTY_MAX_RETRIES = 3;
 
@@ -567,29 +568,33 @@ export class GeminiProvider implements AIService {
     }
 
     async *streamEditorAssistant(
-        messages: { role: string; content: string }[],
+        messages: EditorChatMessage[],
         scpData: SCPData,
         language: Language,
         onToolCall: (toolName: string, args: any) => Promise<any>
     ): AsyncGenerator<AgentStreamEvent> {
         const config = await this.getConfig();
         const systemInstruction = `${getEditorAssistantPrompt(language)}\n\n${getEditorAssistantContext(scpData)}`;
-        const baseContents: any[] = messages.map(msg => ({
-            role: msg.role === "assistant" ? "model" : "user",
-            parts: [{ text: msg.content }]
-        }));
+
+        // Convert EditorChatMessage[] to Gemini-native contents,
+        // which correctly replays prior tool calls via nativeHistory
+        const baseContents: any[] = toGeminiContents(messages);
         let currentContents: any[] = [...baseContents];
+
+        // Collect all native history entries produced during THIS turn
+        // so the UI can store them for future replay
+        const turnNativeHistory: any[] = [];
+
         let loopCount = 0;
-        const MAX_LOOPS = 5;
-        console.log(`[GeminiProvider] streamEditorAssistant called. Input: ${JSON.stringify(messages)}`);
+        const MAX_LOOPS = 20;
+        console.log(`[GeminiProvider] streamEditorAssistant called. messages: ${messages.length}, baseContents: ${baseContents.length}`);
 
         while (loopCount < MAX_LOOPS) {
             loopCount += 1;
             const toolCalls: { name: string; args: any }[] = [];
-            console.log(`[GeminiProvider] streamEditorAssistant loop ${loopCount}`);
-            
-            // 1. 调用 Gemini API，处理流式响应
-            // 注意：Gemini 的 stream 可能同时包含 text 和 functionCall
+            console.log(`[GeminiProvider] streamEditorAssistant loop ${loopCount}, contents length: ${currentContents.length}`);
+
+            // 1. Call Gemini API with streaming
             const stream = streamSse<any>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
                 model: config.chatModel,
@@ -600,55 +605,70 @@ export class GeminiProvider implements AIService {
                 },
             });
 
+            // During streaming: yield text deltas to UI, collect raw functionCall parts
+            const rawFunctionCallParts: any[] = [];
+            let fullText = "";
+
             for await (const chunk of stream) {
                 const candidates = chunk?.candidates || [];
                 for (const candidate of candidates) {
                     const parts = candidate?.content?.parts || [];
                     for (const part of parts) {
-                        // 处理文本增量
                         if (part.text) {
+                            fullText += part.text;
                             yield { type: "assistant_delta", delta: part.text };
                         }
-                        // 收集工具调用（Gemini 通常是在流的末尾一次性给出 functionCall）
                         if (part.functionCall) {
                             toolCalls.push({
                                 name: part.functionCall.name,
                                 args: part.functionCall.args || part.functionCall.arguments || {}
                             });
+                            // Preserve the ENTIRE raw part (including thought_signature etc.)
+                            rawFunctionCallParts.push(part);
                         }
                     }
                 }
             }
 
-            // 2. 如果没有工具调用，结束循环
+            // After stream ends: build a single consolidated model entry
+            // - one merged text part (instead of per-chunk fragments)
+            // - raw functionCall parts as-is (preserving thought_signature)
+            const modelParts: any[] = [];
+            if (fullText) {
+                modelParts.push({ text: fullText });
+            }
+            if (rawFunctionCallParts.length > 0) {
+                modelParts.push(...rawFunctionCallParts);
+            }
+
+            // 2. If no tool calls, we are done - record the model text turn and break
             if (toolCalls.length === 0) {
+                if (modelParts.length > 0) {
+                    const modelEntry = { role: "model", parts: modelParts };
+                    turnNativeHistory.push(modelEntry);
+                }
                 break;
             }
 
-            // 3. 将工具调用追加到 currentContents (Model turn)
-            const modelToolParts = toolCalls.map(call => ({
-                functionCall: {
-                    name: call.name,
-                    args: call.args
-                }
-            }));
-            currentContents = [
-                ...currentContents,
-                { role: "model", parts: modelToolParts }
-            ];
+            // 3. Append model response (text + functionCalls) to currentContents
+            if (modelParts.length > 0) {
+                const modelEntry = { role: "model", parts: modelParts };
+                currentContents.push(modelEntry);
+                turnNativeHistory.push(modelEntry);
+            }
 
-            // 4. 执行工具并产出结果
-            const toolResponseParts = [];
+            // 4. Execute tools and collect function responses
+            const toolResponseParts: any[] = [];
             for (const call of toolCalls) {
                 const callId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
                 const startTime = Date.now();
-                
-                // 发送 "开始执行" 事件
-                yield { 
-                    type: "tool_call", 
-                    callId, 
-                    name: call.name, 
-                    args: call.args, 
+
+                // Yield "start" event
+                yield {
+                    type: "tool_call",
+                    callId,
+                    name: call.name,
+                    args: call.args,
                     state: "start",
                     startTime
                 };
@@ -656,14 +676,14 @@ export class GeminiProvider implements AIService {
                 try {
                     const result = await onToolCall(call.name, call.args);
                     const endTime = Date.now();
-                    console.log(`[GeminiProvider] streamEditorAssistant toolCall result: ${JSON.stringify(result)}`);
-                    
-                    // 发送 "执行成功" 事件
-                    yield { 
-                        type: "tool_call", 
-                        callId, 
-                        name: call.name, 
-                        state: "result", 
+                    console.log(`[GeminiProvider] toolCall ${call.name} result:`, JSON.stringify(result).slice(0, 200));
+
+                    // Yield "result" event
+                    yield {
+                        type: "tool_call",
+                        callId,
+                        name: call.name,
+                        state: "result",
                         result,
                         endTime
                     };
@@ -677,17 +697,16 @@ export class GeminiProvider implements AIService {
                     });
                 } catch (e) {
                     const endTime = Date.now();
-                    // 发送 "执行失败" 事件
-                    yield { 
-                        type: "tool_call", 
-                        callId, 
-                        name: call.name, 
-                        state: "error", 
+                    // Yield "error" event
+                    yield {
+                        type: "tool_call",
+                        callId,
+                        name: call.name,
+                        state: "error",
                         error: String(e),
                         endTime
                     };
-                    
-                    // 即使失败，也要把错误信息喂回给模型，以便模型知道出错了
+
                     toolResponseParts.push({
                         functionResponse: {
                             name: call.name,
@@ -697,11 +716,18 @@ export class GeminiProvider implements AIService {
                 }
             }
 
-            // 5. 将工具结果追加到 currentContents (Tool turn)
-            currentContents = [
-                ...currentContents,
-                { role: "tool", parts: toolResponseParts }
-            ];
+            // 5. Append function responses to currentContents (as user turn per Gemini spec)
+            if (toolResponseParts.length > 0) {
+                const toolEntry = { role: "user", parts: toolResponseParts };
+                currentContents.push(toolEntry);
+                turnNativeHistory.push(toolEntry);
+            }
+
+            // Loop continues to get model's response to tool results
         }
+
+        // 6. Yield turn_complete with the native history for this entire turn
+        yield { type: "turn_complete", nativeHistory: turnNativeHistory };
     }
+
 }

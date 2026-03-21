@@ -1,5 +1,5 @@
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from '../../types';
-
+import { EditorChatMessage } from './editorAssistantTypes';
 import { AgentStreamEvent } from './streamProtocol';
 
 export interface AIService {
@@ -25,7 +25,7 @@ export interface AIService {
     askNarratorQuestion(question: string, language: Language): AsyncGenerator<string>;
     generateLegacyData(ending: string, role: string, language: Language): Promise<LegacyGenerationResult>;
     streamEditorAssistant(
-        messages: { role: string; content: string }[],
+        messages: EditorChatMessage[],
         scpData: SCPData,
         language: Language,
         onToolCall: (toolName: string, args: any) => Promise<any>

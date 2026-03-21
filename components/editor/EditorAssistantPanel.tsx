@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { useTranslation } from '../../utils/i18n';
 import { SCPData, Language } from '../../types';
+import { EditorChatMessage, EditorAssistantMessage, EditorToolRecord } from '../../services/ai/editorAssistantTypes';
 import { OpenAIProvider } from '../../services/ai/providers/openaiProvider';
 import { GeminiProvider } from '../../services/ai/providers/geminiProvider';
 import { postJson } from '../../services/ai/providers/backendClient';
@@ -98,9 +99,15 @@ type AssistantBlock =
     | { kind: 'text'; content: string }
     | { kind: 'tool'; data: ToolCallCardData };
 
+/**
+ * UI display message type.
+ * User messages are simple text.
+ * Assistant messages have blocks (text + tool cards) for rendering,
+ * PLUS the full EditorAssistantMessage data for provider history replay.
+ */
 type ChatMessage =
     | { kind: 'user'; content: string }
-    | { kind: 'assistant'; blocks: AssistantBlock[] };
+    | { kind: 'assistant'; blocks: AssistantBlock[]; editorMsg: EditorAssistantMessage };
 
 const ToolCard = ({ data }: { data: ToolCallCardData }) => {
     const { t } = useTranslation();
@@ -219,13 +226,9 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
             historyLoadedRef.current = false;
             const saved = await loadSetting(historyKey);
             if (Array.isArray(saved)) {
-                const converted: ChatMessage[] = saved.map((m: any) => {
-                    if (m?.kind === 'user' && typeof m?.content === 'string') return m as ChatMessage;
-                    if (m?.kind === 'assistant' && Array.isArray(m?.blocks)) return m as ChatMessage;
-                    if (m?.role === 'user' && typeof m?.content === 'string') return { kind: 'user', content: m.content };
-                    if (m?.role === 'assistant' && typeof m?.content === 'string') return { kind: 'assistant', blocks: [{ kind: 'text', content: m.content }] };
-                    return { kind: 'assistant', blocks: [{ kind: 'text', content: JSON.stringify(m) }] };
-                });
+                const converted: ChatMessage[] = saved
+                    .filter((m: any) => m?.kind === 'user' || m?.kind === 'assistant')
+                    .map((m: any) => m as ChatMessage);
                 setMessages(converted);
             }
             historyLoadedRef.current = true;
@@ -548,24 +551,28 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
             const config = await getEffectiveAIConfig();
             const provider = config.provider === 'gemini' ? geminiProvider.current : openaiProvider.current;
             
-            // Prepare history for provider (only content, no tool cards)
-            const historyForProvider = newMessages.map(m => {
-                if (m.kind === 'user') return { role: 'user', content: m.content };
-                const text = m.blocks.filter(b => b.kind === 'text').map(b => b.content).join('');
-                return { role: 'assistant', content: text };
+            // Convert UI ChatMessage[] to EditorChatMessage[] for provider
+            // This preserves full tool-call history via editorMsg.nativeHistory
+            const editorMessages: EditorChatMessage[] = newMessages.map(m => {
+                if (m.kind === 'user') return { kind: 'user' as const, content: m.content };
+                return m.editorMsg;
             });
             
             const stream = provider.streamEditorAssistant(
-                historyForProvider,
+                editorMessages,
                 { ...scpData, mapBlueprint: blueprint },
                 language as Language,
                 handleToolCall
             );
 
             let blocks: AssistantBlock[] = [];
+            let fullText = "";
+            const completedToolRecords: EditorToolRecord[] = [];
+            let nativeHistory: any[] = [];
 
             const addText = (delta: string) => {
                 if (!delta) return;
+                fullText += delta;
                 const last = blocks[blocks.length - 1];
                 if (last && last.kind === 'text') {
                     last.content += delta;
@@ -594,6 +601,9 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
                 
                 if (event.type === 'assistant_delta') {
                     addText(event.delta);
+                } else if (event.type === 'turn_complete') {
+                    // Capture the native history for accurate replay in future turns
+                    nativeHistory = event.nativeHistory || [];
                 } else if (event.type === 'tool_call') {
                     if (event.state === 'start') {
                         upsertTool({
@@ -614,6 +624,13 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
                             endTime: event.endTime,
                             startTime: existing && existing.kind === 'tool' ? existing.data.startTime : Date.now()
                         });
+                        // Record completed tool call
+                        completedToolRecords.push({
+                            name: event.name,
+                            args: existing && existing.kind === 'tool' ? existing.data.args : {},
+                            result: event.result,
+                            success: true
+                        });
                     } else if (event.state === 'error') {
                         const existing = blocks.find(b => b.kind === 'tool' && b.data.callId === event.callId);
                         upsertTool({
@@ -625,22 +642,39 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
                             endTime: event.endTime,
                             startTime: existing && existing.kind === 'tool' ? existing.data.startTime : Date.now()
                         });
+                        // Record failed tool call
+                        completedToolRecords.push({
+                            name: event.name,
+                            args: existing && existing.kind === 'tool' ? existing.data.args : {},
+                            result: { error: event.error },
+                            success: false
+                        });
                     }
                 }
             }
+
+            // Build the EditorAssistantMessage with full native history
+            const editorMsg: EditorAssistantMessage = {
+                kind: 'assistant',
+                text: fullText,
+                toolCalls: completedToolRecords,
+                nativeHistory
+            };
 
             setMessages(prev => [
                 ...prev, 
                 { 
                     kind: 'assistant',
-                    blocks
+                    blocks,
+                    editorMsg
                 }
             ]);
             setCurrentBlocks([]);
 
         } catch (error) {
             console.error("Assistant error:", error);
-            setMessages(prev => [...prev, { kind: 'assistant', blocks: [{ kind: 'text', content: `[ERROR] ${error}` }] }]);
+            const errText = `[ERROR] ${error}`;
+            setMessages(prev => [...prev, { kind: 'assistant', blocks: [{ kind: 'text', content: errText }], editorMsg: { kind: 'assistant', text: errText, toolCalls: [], nativeHistory: [] } }]);
         } finally {
             setIsLoading(false);
         }

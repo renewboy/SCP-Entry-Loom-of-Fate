@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { GameState } from '../../types';
 import Typewriter from '../Typewriter';
 
@@ -66,13 +67,14 @@ const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollR
             </div>
           )}
         </div>
-        {lightboxImage && (
+        {lightboxImage && typeof document !== 'undefined' && createPortal(
           <div 
             className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 backdrop-blur-sm cursor-zoom-out"
             onClick={() => setLightboxImage(null)}
           >
             <img src={lightboxImage} alt="Lightbox" className="max-w-full max-h-full object-contain border border-scp-gray/50 shadow-2xl" />
-          </div>
+          </div>,
+          document.body
         )}
       </>
   );
