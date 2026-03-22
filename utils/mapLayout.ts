@@ -85,8 +85,9 @@ export const buildLayout = (blueprint: MapBlueprint, options: LayoutOptions = {}
 };
 
 export const applyLayoutToBlueprint = (blueprint: MapBlueprint, options: LayoutOptions = {}) => {
+    const useExisting = options.useExistingLayout ?? true;
     const allHaveLayout = blueprint.nodes.every(node => !!node.layout);
-    if (allHaveLayout) return blueprint;
+    if (allHaveLayout && useExisting) return blueprint;
     const { positionById } = buildLayout(blueprint, options);
     return {
         ...blueprint,

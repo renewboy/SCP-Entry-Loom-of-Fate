@@ -350,26 +350,32 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
 
                 case 'delete_node': {
                     console.log(`[EditorAssistant] delete_node args: ${JSON.stringify(args)}`);
-                    setBlueprint((prev: any) => ({
-                        ...prev,
-                        nodes: (prev.nodes || []).filter((n: any) => n.id !== args.id),
-                        edges: (prev.edges || []).filter((e: any) => e.from !== args.id && e.to !== args.id),
-                        npcs: (prev.npcs || []).filter((n: any) => n.initialNodeId !== args.id),
-                        objectives: (prev.objectives || []).filter((o: any) => o.nodeId !== args.id)
-                    }));
+                    setBlueprint((prev: any) => {
+                        const updated = {
+                            ...prev,
+                            nodes: (prev.nodes || []).filter((n: any) => n.id !== args.id),
+                            edges: (prev.edges || []).filter((e: any) => e.from !== args.id && e.to !== args.id),
+                            npcs: (prev.npcs || []).filter((n: any) => n.initialNodeId !== args.id),
+                            objectives: (prev.objectives || []).filter((o: any) => o.nodeId !== args.id)
+                        };
+                        return applyLayoutToBlueprint(updated, { width: 720, height: 420, useExistingLayout: false });
+                    });
                     return { success: true, message: `Node ${args.id} deleted.` };
                 }
 
                 case 'connect_nodes': {
                     console.log(`[EditorAssistant] connect_nodes args: ${JSON.stringify(args)}`);
-                    setBlueprint((prev: any) => ({
-                        ...prev,
-                        edges: [...(prev.edges || []), {
-                            from: args.fromId,
-                            to: args.toId,
-                            bidirectional: args.bidirectional ?? true
-                        }]
-                    }));
+                    setBlueprint((prev: any) => {
+                        const updated = {
+                            ...prev,
+                            edges: [...(prev.edges || []), {
+                                from: args.fromId,
+                                to: args.toId,
+                                bidirectional: args.bidirectional ?? true
+                            }]
+                        };
+                        return applyLayoutToBlueprint(updated, { width: 720, height: 420, useExistingLayout: false });
+                    });
                     return { success: true, message: "Nodes connected." };
                 }
 
