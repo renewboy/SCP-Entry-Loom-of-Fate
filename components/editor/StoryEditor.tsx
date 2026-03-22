@@ -844,6 +844,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                                     setBlueprint={setBlueprint}
                                     scpData={scpData}
                                     setScpData={setScpData}
+                                    legacyData={gameState.legacy}
                                     onClose={() => setMobileTab('story')}
                                     isOpen={true}
                                     isMobile={true}
@@ -891,6 +892,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                                 setBlueprint={setBlueprint}
                                 scpData={scpData}
                                 setScpData={setScpData}
+                                legacyData={gameState.legacy}
                                 onClose={() => setShowAssistant(false)}
                                 isOpen={showAssistant}
                             />

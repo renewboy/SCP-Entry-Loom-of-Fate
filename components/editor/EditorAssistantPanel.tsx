@@ -4,12 +4,12 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { useTranslation } from '../../utils/i18n';
-import { SCPData, Language } from '../../types';
+import { SCPData, Language, LegacyData } from '../../types';
 import { EditorChatMessage, EditorAssistantMessage, EditorToolRecord } from '../../services/ai/editorAssistantTypes';
 import { OpenAIProvider } from '../../services/ai/providers/openaiProvider';
 import { GeminiProvider } from '../../services/ai/providers/geminiProvider';
 import { postJson } from '../../services/ai/providers/backendClient';
-import { loadSetting, saveSetting } from '../../services/indexedDBService';
+import { loadSetting, saveSetting, loadGlobalSettings } from '../../services/indexedDBService';
 import { getEffectiveAIConfig } from '../../services/aiConfigService';
 import { applyLayoutToBlueprint } from '../../utils/mapLayout';
 import { editorPanelHeader, editorPanelTitle, panelContainerBase } from './editorStyles';
@@ -21,6 +21,7 @@ interface EditorAssistantPanelProps {
     setScpData: React.Dispatch<React.SetStateAction<SCPData>>;
     onClose: () => void;
     isOpen: boolean;
+    legacyData?: LegacyData;
     isMobile?: boolean;
 }
 
@@ -177,6 +178,7 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
     setScpData,
     onClose,
     isOpen,
+    legacyData,
     isMobile = false
 }) => {
     const { t, language } = useTranslation();
@@ -555,6 +557,7 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
 
         try {
             const config = await getEffectiveAIConfig();
+            const globalSettings = await loadGlobalSettings();
             const provider = config.provider === 'gemini' ? geminiProvider.current : openaiProvider.current;
             
             // Convert UI ChatMessage[] to EditorChatMessage[] for provider
@@ -568,7 +571,9 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
                 editorMessages,
                 { ...scpData, mapBlueprint: blueprint },
                 language as Language,
-                handleToolCall
+                handleToolCall,
+                globalSettings.difficulty,
+                legacyData
             );
 
             let blocks: AssistantBlock[] = [];

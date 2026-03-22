@@ -1,7 +1,39 @@
-import { Language, SCPData } from "../../types";
+import { Language, SCPData, GameDifficulty, LegacyData } from "../../types";
 
-export const getEditorAssistantPrompt = (language: Language) => {
+const formatLegacyData = (legacyData?: LegacyData) => {
+    if (!legacyData) return '';
+    const traitsStr = legacyData.traits.length > 0 ?
+        `Traits:\n${legacyData.traits.map(t => `- ${t.icon} ${t.name}: ${t.description}`).join('\n')}` : '';
+    const itemsStr = legacyData.items.length > 0 ?
+        `Items:\n${legacyData.items.map(i => `- ${i.icon} ${i.name}: ${i.description}`).join('\n')}` : '';
+    const echoesStr = legacyData.echoes.length > 0 ?
+        `World Echoes (Past Lives):\n${legacyData.echoes.map(e => `- [Role: ${e.roleName}] [${e.endingType}] ${e.title}: ${e.summary}`).join('\n')}` : '';
+    return [traitsStr, itemsStr, echoesStr].filter(Boolean).join('\n\n');
+};
+
+export const getEditorAssistantPrompt = (language: Language, difficulty?: GameDifficulty, legacyData?: LegacyData) => {
     const langInstruction = language === 'zh' ? 'Chinese' : 'English';
+    const difficultySection = difficulty ? `
+[Difficulty Guidance]
+Current game difficulty: ${difficulty}
+Interpret difficulty as a continuous pressure level that scales map design:
+- Higher difficulty → more dangerous routes, denser gating, less helpful NPCs, scarcer resources.
+- Lower difficulty → safer routes, clearer objectives, friendlier NPCs.
+Scale node danger values, gate density, and NPC archetypes accordingly.
+` : '';
+    const legacyString = formatLegacyData(legacyData);
+    const legacySection = legacyString ? `
+[New Game+ Legacy Inheritance]
+This timeline is influenced by prior iteration cycles. The player inherits traits, items, and world echoes from past runs.
+${legacyString}
+[Legacy Data End]
+
+Legacy Integration Rules:
+- Map nodes, gated routes, NPC roles, and objectives should organically incorporate inherited traits/items/echoes.
+- Where appropriate, translate inherited items into access tokens, gate requirements, or objective rewards.
+- Echoes should subtly inform location flavor, NPC motivations, or objective context.
+` : '';
+
     return `
 [SYSTEM COMMAND: ACT AS An SCP FOUNDATION "LOOM OF FATE (命运织机)" EDITOR AI]
 
@@ -18,6 +50,25 @@ Capabilities:
    - When you need SCP Foundation-specific references, call \`web_search\` with a concise query.
 3. **Context Awareness**: You have access to the current Map Blueprint and Story Data. Ensure your changes are consistent with the existing state.
 
+[Map Blueprint Quality Standards]
+When creating or substantially modifying a map, follow these defaults (can be adjusted if the user explicitly requests otherwise):
+
+**Scale**: Default 5 to 8 nodes. Avoid disconnected nodes.
+**NPCs**: Default 2 to 4 NPCs. Each NPC must have a valid initialNodeId matching an existing node.
+**Objectives**: Default exactly 1 MAIN objective and 1 to 2 SIDE objectives.
+  - Main objectives must be designed in combination with the SCP, the player role, and story background.
+  - Main objectives must strictly align with the role's stance — not limited to "positive" outcomes.
+**Gating**: At least 20% of nodes should be gated: both \`requires\` (non-empty array) AND \`blockedText\` (non-empty string) must be set together.
+**Node ID Convention**: Use stable, lowercase_with_underscores IDs (e.g., "node_security_checkpoint").
+**Danger Semantics**: 0-30 low risk, 31-70 moderate risk, 71-100 high risk.
+**Objective Rewards**: reward.stabilityDelta must be an integer within -20 to +20.
+**Visual Descriptions** (when updating via update_basic_info):
+  - visualDescription: comma-separated nouns/adjectives only (texture, atmosphere, material essence).
+  - entityDescription: noun phrases only, no verbs, no background context.
+
+These are recommended defaults for game balance. If the user explicitly asks for more nodes, more objectives, or other deviations, comply with their request.
+${difficultySection}
+${legacySection}
 Output Language: ${langInstruction}
 
 When the user asks to "Clear" or "Reset", advise them to use the UI buttons.

@@ -498,10 +498,12 @@ export class OpenAIProvider implements AIService {
         messages: EditorChatMessage[],
         scpData: SCPData,
         language: Language,
-        onToolCall: (toolName: string, args: any) => Promise<any>
+        onToolCall: (toolName: string, args: any) => Promise<any>,
+        difficulty?: GameDifficulty,
+        legacyData?: LegacyData
     ): AsyncGenerator<AgentStreamEvent> {
         const config = await this.getConfig();
-        const systemPrompt = getEditorAssistantPrompt(language);
+        const systemPrompt = getEditorAssistantPrompt(language, difficulty, legacyData);
 
         // Convert EditorChatMessage[] to OpenAI-native messages,
         // which correctly replays prior tool calls via nativeHistory

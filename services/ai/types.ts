@@ -28,7 +28,9 @@ export interface AIService {
         messages: EditorChatMessage[],
         scpData: SCPData,
         language: Language,
-        onToolCall: (toolName: string, args: any) => Promise<any>
+        onToolCall: (toolName: string, args: any) => Promise<any>,
+        difficulty?: GameDifficulty,
+        legacyData?: LegacyData
     ): AsyncGenerator<AgentStreamEvent>;
 }
 

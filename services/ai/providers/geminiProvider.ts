@@ -571,10 +571,12 @@ export class GeminiProvider implements AIService {
         messages: EditorChatMessage[],
         scpData: SCPData,
         language: Language,
-        onToolCall: (toolName: string, args: any) => Promise<any>
+        onToolCall: (toolName: string, args: any) => Promise<any>,
+        difficulty?: GameDifficulty,
+        legacyData?: LegacyData
     ): AsyncGenerator<AgentStreamEvent> {
         const config = await this.getConfig();
-        const systemInstruction = `${getEditorAssistantPrompt(language)}\n\n${getEditorAssistantContext(scpData)}`;
+        const systemInstruction = `${getEditorAssistantPrompt(language, difficulty, legacyData)}\n\n${getEditorAssistantContext(scpData)}`;
 
         // Convert EditorChatMessage[] to Gemini-native contents,
         // which correctly replays prior tool calls via nativeHistory
