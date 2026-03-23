@@ -123,7 +123,10 @@ Goal:
     - Describe the entity's physical appearance in detail.
     - (Will be inserted into: "Close-up full body shot of [entityDescription], photorealistic, containment cell, scp foundation record photo")
 
-6) **Map Blueprint**:
+6) **Narrative Frame Selection (internal step before map)**:
+  - Choose a narrative frame that best fits the SCP and the player role.
+  - Do NOT output the frame separately; use it to drive map structure, objectives, NPC motives, and location naming.
+7) **Map Blueprint**:
   - Generate a small navigable map for the upcoming interactive fiction game session. The map is the physical space where the story takes place and where the player can move and explore.
   - The map should be a believable site / facility / area relevant to this SCP and the player's role (${role}).
   - Requirements:
@@ -134,6 +137,8 @@ Goal:
   - Objective Design Principles
     - Main objectives shall be fully designed in combination with characters, SCP project background, character settings, etc., to ensure objective diversity.
     - Main objectives shall not be limited to a "positive and uplifting" orientation; they must strictly align with the stance of the corresponding character.
+    - Main objective must include at least one reversal, hidden condition, or meaningful cost.
+    - At least one side objective should introduce tension, tradeoff, or partial conflict with the main objective.
   - Difficulty guidance:
     - Interpret the provided difficulty as a continuous pressure level that scales map danger, gate density, NPC helpfulness, and resource scarcity in the same direction.
     - Higher difficulty should make routes riskier and objectives more demanding.
@@ -141,12 +146,18 @@ Goal:
     ${legacyIntegrationRules}
   - Node rules:
     - "id": stable, lowercase_with_underscores (e.g. "node_security_checkpoint")
+    - "name": must be specific to SCP details, the chosen narrative frame, or current events; avoid generic template names.
     - "danger": reflects risk when entering/staying in that node, integer 0..100 (0-30 low, 31-70 moderate, 71-100 high)
     - "requires": a string array of access tokens (keys, clearance, flags, etc.); ungated node must use [] and blockedText must be ""
     - "blockedText": the reason why the node is blocked, if not blocked, leave it empty.
-7) npcVisuals
+8) npcVisuals
   - Map NPC IDs (from mapBlueprint) to visual prompts. 
   - Each prompt should be a concise description of the NPC's appearance.
+
+Naming constraints for Role & NPCs:
+  - Use a distinctive, story-rich name; avoid common everyday names and generic titles.
+  - Do not use numeric codes or pure codenames as the primary name.
+
 Output:
 Return ONLY one valid JSON object (no markdown, no extra text).
 
@@ -208,6 +219,9 @@ Task: Generate 3 distinct, creative, and plausible profile candidates for the pl
 1. **Search**: Use the search tool to understand the Target SCP (${scpDesignation}) and how the Role (${role}) typically interacts with it.
 2. **Diversity**: Each candidate should offer a unique gameplay flavor (e.g., one combat-focused, one intellect/research-focused, one stealth/social or esoteric).
 3. **Non-Human Adaptation**: If the role is non-human (e.g., SCP object, AI, Monster), adapt fields accordingly (Age -> Existence Duration, Origins, etc.).
+4. **Name Requirements**:
+   - Names must feel unique, story-rich, and specific to SCP tone; avoid common everyday names and generic titles.
+   - The name should hint at background, specialty, origin, or anomaly exposure without using numeric codes or pure codenames.
 
 Output Fields Explanation:
 - **name**: Character name or designation.

@@ -53,13 +53,19 @@ Capabilities:
 [Map Blueprint Quality Standards]
 When creating or substantially modifying a map, follow these defaults (can be adjusted if the user explicitly requests otherwise):
 
+**Narrative Frame**: Before drafting or heavily modifying a map, choose a narrative frame that best fits the SCP and role. Do NOT output the frame separately; use it to guide node naming, objectives, and NPC motives.
 **Scale**: Default 5 to 8 nodes. Avoid disconnected nodes.
+**Naming**: Role & NPC names must be distinctive and story-specific; avoid common everyday names and generic titles.
+
 **NPCs**: Default 2 to 4 NPCs. Each NPC must have a valid initialNodeId matching an existing node.
 **Objectives**: Default exactly 1 MAIN objective and 1 to 2 SIDE objectives.
   - Main objectives must be designed in combination with the SCP, the player role, and story background.
   - Main objectives must strictly align with the role's stance — not limited to "positive" outcomes.
+  - Main objective should include a reversal, hidden condition, or meaningful cost.
+  - At least one side objective should introduce tension, tradeoff, or partial conflict with the main objective.
 **Gating**: At least 20% of nodes should be gated: both \`requires\` (non-empty array) AND \`blockedText\` (non-empty string) must be set together.
 **Node ID Convention**: Use stable, lowercase_with_underscores IDs (e.g., "node_security_checkpoint").
+**Node Naming**: Node names must be specific to SCP details or current story events.
 **Danger Semantics**: 0-30 low risk, 31-70 moderate risk, 71-100 high risk.
 **Objective Rewards**: reward.stabilityDelta must be an integer within -20 to +20.
 **Visual Descriptions** (when updating via update_basic_info):
