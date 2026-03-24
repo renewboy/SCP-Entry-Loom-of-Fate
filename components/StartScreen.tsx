@@ -1,42 +1,106 @@
 
 
-import React, { useState, useEffect } from 'react';
-import { analyzeSCPUrl, initializeGameChatStream, generateImage, extractVisualPrompt, extractStability, restoreChatSession } from '../services/geminiService';
-import { GameState, GameStatus, Role } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { analyzeSCPUrl, restoreChatSession } from '../services/aiService';
+import { loadGlobalSettings } from '../services/indexedDBService';
+import { GameState, GameStatus, Role, LegacyData, EntityProfile } from '../types';
 import ParticleText from './ParticleText';
+import BootSequenceOverlay from './BootSequenceOverlay';
 import SaveLoadModal from './SaveLoadModal';
 import { useTranslation, ROLE_TRANSLATIONS } from '../utils/i18n';
 import GameLogo from './GameLogo';
+import LegacySidebar from './LegacySidebar';
+import GlobalSettingsModal from './GlobalSettingsModal';
+import { startGameProcess } from '../utils/gameStart';
+import { checkAIConfigAvailable } from '../services/aiConfigService';
+import SettingsGearIcon from './common/SettingsGearIcon';
+import { useViewport } from '../hooks/useViewport';
+import EntityProfileAugmentation from './EntityProfileAugmentation';
 
-interface StartScreenProps {
-  setGameState: React.Dispatch<React.SetStateAction<GameState>>;
+declare global {
+    interface Window {
+        aistudio?: any;
+    }
 }
 
-const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
+interface StartScreenProps {
+  gameState: GameState;
+  setGameState: React.Dispatch<React.SetStateAction<GameState>>;
+  legacyData?: LegacyData;
+}
+
+let bootShownInSession = false;
+
+const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, legacyData }) => {
   const { t, language } = useTranslation();
-  const LOADING_MESSAGES = t('start.loading_msgs') as string[];
+  const { isMobile } = useViewport();
+  const LOADING_MESSAGES = React.useMemo(() => t('start.loading_msgs') as string[], [t]);
+  const autoStartRef = useRef(false);
 
   const [urlInput, setUrlInput] = useState('');
   const [selectedRole, setSelectedRole] = useState<Role>(Role.RESEARCHER);
   const [customRole, setCustomRole] = useState('');
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [canRetryInit, setCanRetryInit] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
   const [saveLoadModalOpen, setSaveLoadModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'game' | 'ai'>('game');
+  const [settingsAttention, setSettingsAttention] = useState(false);
+  const [showBoot, setShowBoot] = useState(false);
+  const [skipBootSequence, setSkipBootSequence] = useState(false);
+  
+  const [showProfileAugmentation, setShowProfileAugmentation] = useState(false);
+  const [legacyDrawerOpen, setLegacyDrawerOpen] = useState(false);
+  const [entityProfile, setEntityProfile] = useState<EntityProfile | undefined>(undefined);
 
   useEffect(() => {
-    // Check for API key on mount
+    loadGlobalSettings().then(settings => {
+      setSkipBootSequence(Boolean(settings.skipBootSequence));
+      if (!bootShownInSession) {
+        setShowBoot(true);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
     const checkKey = async () => {
         if (window.aistudio && window.aistudio.hasSelectedApiKey) {
             const hasKey = await window.aistudio.hasSelectedApiKey();
             setHasApiKey(hasKey);
         } else {
-            // Fallback for dev environments without the special window object
             setHasApiKey(true);
         }
     };
     checkKey();
   }, []);
+
+  useEffect(() => {
+    if (gameState.status !== GameStatus.ANALYZING) {
+      autoStartRef.current = false;
+      return;
+    }
+    if (!gameState.scpData || autoStartRef.current) return;
+
+    autoStartRef.current = true;
+    setError(null);
+    setCanRetryInit(false);
+    
+    setLoadingStep(t('start.loading_retrieved', { designation: gameState.scpData.designation }));
+
+    startGameProcess({ gameState, setGameState, language, t }).catch((e) => {
+      console.error(e);
+      setError(t('start.error_conn'));
+      if ((e as any)?.code === "GEMINI_INIT_EMPTY") {
+        setCanRetryInit(true);
+        setLoadingStep(t('start.loading_retry'));
+        return;
+      }
+      setLoadingStep(null);
+      setGameState(prev => ({ ...prev, status: GameStatus.IDLE }));
+    });
+  }, [gameState.status, gameState.scpData, language, t, setGameState]);
 
   // Effect to cycle through loading messages if the current one is in the list
   useEffect(() => {
@@ -72,115 +136,94 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
     setUrlInput(scpStr);
   };
 
-  const handleStart = async () => {
-    if (!urlInput.trim()) return;
-    setError(null);
+  const startAnalysis = async (profile?: EntityProfile) => {
     setLoadingStep(t('start.loading_access'));
 
     try {
-      // 1. Analyze SCP
-      const scpData = await analyzeSCPUrl(urlInput, language);
+      const finalRole = selectedRole === Role.CUSTOM ? customRole : selectedRole;
+
+      const settings = await loadGlobalSettings();
+      const difficulty = settings.difficulty || 'normal';
+
+      const scpData = await analyzeSCPUrl(urlInput, language, finalRole, difficulty, legacyData, profile);
       setLoadingStep(t('start.loading_retrieved', { designation: scpData.designation }));
 
-      const finalRole = selectedRole === Role.CUSTOM ? customRole : selectedRole;
-      
-      // 2. Start Background Image Gen (Async)
-      console.log("[StartScreen] Initiating background image generation...");
-      
-      const bgDescription = scpData.visualDescription || `texture and atmosphere of ${scpData.name}`;
-      const bgPrompt = `Atmospheric, cinematic lighting, abstract horror background representing ${bgDescription}, subtle, texture, scp foundation style, dark moody`;
-      
-      generateImage(bgPrompt, "16:9").then(bgUrl => {
-         if(bgUrl) setGameState(prev => ({...prev, backgroundImage: bgUrl}));
-      });
-
-      // 3. Generate Main SCP Image (Async)
-      const entityDescription = scpData.entityDescription;
-      const mainPrompt = `Close up full body shot of ${scpData.name}: ${entityDescription}. detailed, photorealistic, containment cell, scp foundation record photo`;
-      
-      generateImage(mainPrompt, "1:1").then(mainUrl => {
-         if(mainUrl) setGameState(prev => ({...prev, mainImage: mainUrl}));
-      });
-
-      // 4. Initialize Chat with Stream
-      setLoadingStep(LOADING_MESSAGES[0]);
-      
-      // Create the generator
-      const stream = initializeGameChatStream(scpData, finalRole, language);
-      const msgId = 'intro';
-      let fullText = "";
-      let isFirstChunk = true;
-
-      for await (const chunk of stream) {
-        fullText += chunk;
-        
-        if (isFirstChunk) {
-            // SWITCH TO GAME SCREEN IMMEDIATELY ON FIRST TEXT
-            setGameState(prev => ({
-                ...prev,
-                status: GameStatus.PLAYING,
-                scpData,
-                role: finalRole,
-                stability: 100,
-                turnCount: 0,
-                messages: [{
-                    id: msgId,
-                    sender: 'narrator',
-                    content: fullText,
-                    timestamp: Date.now(),
-                    isTyping: true
-                }]
-            }));
-            isFirstChunk = false;
-        } else {
-             // Update the message content in real-time
-             setGameState(prev => ({
-                ...prev,
-                messages: prev.messages.map(m => 
-                    m.id === msgId ? { ...m, content: fullText } : m
-                )
-             }));
-        }
-      }
-
-      // 5. Post-process the full text (once stream is done)
-      // Extract stability, visuals and clean tags
-      const stabilityResult = extractStability(fullText);
-      const textAfterStability = stabilityResult.cleanText;
-      const introStability = stabilityResult.newStability ?? 100;
-
-      const { cleanText, visualPrompt } = extractVisualPrompt(textAfterStability);
-      
+      setLoadingStep(null);
       setGameState(prev => ({
-        ...prev,
-        messages: prev.messages.map(m => 
-            m.id === msgId ? { 
-                ...m, 
-                content: cleanText, 
-                isTyping: false,
-                stabilitySnapshot: introStability 
-            } : m
-        )
+          ...prev,
+          status: GameStatus.TACTICAL_PREVIEW,
+          scpData,
+          role: finalRole,
+          stability: 100,
+          turnCount: 0,
+          inventory: [],
+          legacy: legacyData,
+          returnFromEditor: false
       }));
-
-      // Generate intro image if prompt exists
-      if (visualPrompt) {
-          generateImage(visualPrompt, "16:9").then(introImageUrl => {
-               if (introImageUrl) {
-                    setGameState(prev => ({
-                        ...prev,
-                        messages: prev.messages.map(m => 
-                            m.id === msgId ? { ...m, imageUrl: introImageUrl } : m
-                        )
-                    }));
-               }
-          });
-      }
 
     } catch (e) {
       console.error(e);
       setError(t('start.error_conn'));
       setLoadingStep(null);
+    }
+  };
+
+  const handleStart = async () => {
+    if (!urlInput.trim() || loadingStep) return;
+    setError(null);
+    setCanRetryInit(false);
+    setLoadingStep(t('start.loading_checking_ai'));
+
+    const configCheck = await checkAIConfigAvailable();
+    if (!configCheck.available) {
+      setSettingsInitialTab('ai');
+      setSettingsAttention(true);
+      setSettingsModalOpen(true);
+      setLoadingStep(null);
+      return;
+    }
+    
+    // Check Entity Profile
+    if (!entityProfile) {
+        setLoadingStep(null);
+        setGameState(prev => ({ ...prev, status: GameStatus.ENTITY_PROFILE }));
+        setShowProfileAugmentation(true);
+        return;
+    }
+
+    startAnalysis(entityProfile);
+  };
+
+  const handleProfileComplete = (profile: EntityProfile) => {
+      setEntityProfile(profile);
+      setShowProfileAugmentation(false);
+      setGameState(prev => ({ ...prev, status: GameStatus.IDLE }));
+      startAnalysis(profile);
+  };
+
+  const handleProfileBack = () => {
+      setShowProfileAugmentation(false);
+      setGameState(prev => ({ ...prev, status: GameStatus.IDLE }));
+      startAnalysis(entityProfile);
+  };
+
+  const handleRetryInit = async () => {
+    if (!gameState.scpData) return;
+    setError(null);
+    setCanRetryInit(false);
+    setLoadingStep(t('start.loading_retrieved', { designation: gameState.scpData.designation }));
+    try {
+      await startGameProcess({ gameState, setGameState, language, t });
+    } catch (e) {
+      console.error(e);
+      setError(t('start.error_conn'));
+      if ((e as any)?.code === "GEMINI_INIT_EMPTY") {
+        setCanRetryInit(true);
+        setLoadingStep(t('start.loading_retry'));
+        return;
+      }
+      setLoadingStep(null);
+      setGameState(prev => ({ ...prev, status: GameStatus.IDLE }));
     }
   };
 
@@ -190,8 +233,43 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
     return `> ${ROLE_TRANSLATIONS[role] || role}`;
   };
 
+
+  if (showProfileAugmentation) {
+      return (
+          <div className="absolute inset-0 z-50">
+              <EntityProfileAugmentation 
+                  role={selectedRole === Role.CUSTOM ? customRole : selectedRole}
+                  scpDesignation={urlInput}
+                  language={language}
+                  onComplete={handleProfileComplete}
+                  onBack={handleProfileBack}
+              />
+          </div>
+      );
+  }
+
   return (
-    <div className="max-w-xl w-full p-8 bg-black/60 border border-scp-gray relative backdrop-blur-md z-10 crt shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
+    <>
+    {showBoot && (
+      <BootSequenceOverlay
+        skipToReady={skipBootSequence}
+        onComplete={() => {
+          bootShownInSession = true;
+          setShowBoot(false);
+        }}
+      />
+    )}
+    <div className="max-w-xl w-full p-4 md:p-8 scp-window scp-ui border border-scp-gray relative z-10 crt shadow-2xl flex flex-col max-h-[90dvh] overflow-y-auto">
+        {legacyData && <LegacySidebar legacyData={legacyData} isDrawerOpen={legacyDrawerOpen} onDrawerClose={() => setLegacyDrawerOpen(false)} />}
+        {/* Left-edge legacy tab (mobile only) */}
+        {isMobile && legacyData && (
+          <button
+            onClick={() => setLegacyDrawerOpen(true)}
+            className="fixed left-0 top-1/2 -translate-y-1/2 z-[90] w-6 min-h-[56px] flex items-center justify-center bg-black/80 border border-l-0 border-scp-term/40 rounded-r text-scp-term/70 active:bg-scp-term/20"
+          >
+            <span className="text-xs font-mono">›</span>
+          </button>
+        )}
         <div className="absolute top-0 left-0 w-full h-1 bg-scp-accent shadow-[0_0_10px_rgba(195,46,46,0.5)]"></div>
         <div className="absolute bottom-0 right-0 w-20 h-20 border-r-2 border-b-2 border-scp-gray opacity-50 pointer-events-none"></div>
 
@@ -200,13 +278,26 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
             <GameLogo className="h-10 w-10 md:h-12 md:w-12 opacity-90 drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />
         </div>
 
+        {/* Settings Button positioned at the top-right */}
+        <button 
+            onClick={() => {
+              setSettingsInitialTab('game');
+              setSettingsAttention(false);
+              setSettingsModalOpen(true);
+            }}
+            className="absolute top-4 right-4 z-20 text-gray-400 hover:text-white transition-colors p-3"
+            title={t('common.settings') || 'Settings'}
+        >
+            <SettingsGearIcon className="h-7 w-7" variant="outline" spin={false}/>
+        </button>
+
         {/* Replaced static titles with ParticleText */}
       
         <div className="mb-2 shrink-0 mt-8">
           <ParticleText 
             text={t('start.scp_archive')} 
             fontFamily='"Special Elite", cursive' 
-            fontSize={42} 
+            fontSize={isMobile ? 28 : 42} 
             color="#e0e0e0" 
             gap={2}
           />
@@ -215,7 +306,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
            <ParticleText 
             text={t('start.fate_loom')} 
             fontFamily='"JetBrains Mono", monospace' 
-            fontSize={28} 
+            fontSize={isMobile ? 20 : 28} 
             color="#c32e2e" 
             gap={2}
           />
@@ -234,6 +325,14 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
                 <div className="w-full bg-gray-900/50 h-1 mt-4 overflow-hidden rounded">
                      <div className="h-full bg-scp-term animate-[scanline_2s_linear_infinite] w-1/2 shadow-[0_0_10px_#33ff00]"></div>
                 </div>
+                {canRetryInit && (
+                    <button
+                        onClick={handleRetryInit}
+                        className="mt-2 px-6 py-2 bg-scp-accent/90 hover:bg-scp-accent text-white font-mono text-sm tracking-widest border border-red-500 transition-all shadow-[0_0_12px_rgba(195,46,46,0.4)] hover:shadow-[0_0_20px_rgba(195,46,46,0.6)]"
+                    >
+                        {t('start.btn_retry')}
+                    </button>
+                )}
             </div>
         ) : (
             <div className="space-y-6 flex-1 flex flex-col min-h-0">
@@ -313,12 +412,20 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
                     {t('start.btn_start')}
                 </button>
 
-                <button 
-                    onClick={() => setSaveLoadModalOpen(true)}
-                    className="w-full py-3 bg-scp-gray/20 hover:bg-scp-gray/40 text-gray-300 hover:text-white font-mono text-lg border border-scp-gray hover:border-gray-400 transition-all shrink-0 tracking-widest uppercase backdrop-blur-sm"
-                >
-                    {t('save_load.load')}
-                </button>
+                <div className="flex gap-2 shrink-0">
+                    <button 
+                        onClick={() => setGameState(prev => ({ ...prev, status: GameStatus.STORY_EDITOR, scpData: null }))}
+                        className="flex-1 py-3 bg-scp-gray/20 hover:bg-scp-gray/40 text-gray-300 hover:text-white font-mono text-sm md:text-base border border-scp-gray hover:border-gray-400 transition-all tracking-widest uppercase backdrop-blur-sm"
+                    >
+                        {t('story_editor.title')}
+                    </button>
+                    <button 
+                        onClick={() => setSaveLoadModalOpen(true)}
+                        className="flex-1 py-3 bg-scp-gray/20 hover:bg-scp-gray/40 text-gray-300 hover:text-white font-mono text-sm md:text-base border border-scp-gray hover:border-gray-400 transition-all tracking-widest uppercase backdrop-blur-sm"
+                    >
+                        {t('save_load.load')}
+                    </button>
+                </div>
             </div>
         )}
 
@@ -328,13 +435,30 @@ const StartScreen: React.FC<StartScreenProps> = ({ setGameState }) => {
         mode="load"
         onLoadGame={async (gameState) => {
             if (gameState.chatHistory) {
-                await restoreChatSession(gameState.chatHistory, gameState.role, language);
+                await restoreChatSession({
+                    history: gameState.chatHistory,
+                    role: gameState.role,
+                    language,
+                    tokenCount: gameState.tokenCount,
+                    summaryContext: gameState.summaryContext
+                });
             }
             setGameState(gameState);
             setSaveLoadModalOpen(false);
         }}
       />
+
+      <GlobalSettingsModal 
+        isOpen={settingsModalOpen} 
+        onClose={() => {
+          setSettingsModalOpen(false);
+          setSettingsAttention(false);
+        }}
+        initialTab={settingsInitialTab}
+        attention={settingsAttention}
+      />
     </div>
+    </>
   );
 };
 

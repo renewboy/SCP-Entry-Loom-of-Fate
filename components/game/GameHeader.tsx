@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { GameState, GameStatus } from '../../types';
-import GameLogo from '../GameLogo';
 import SettingsMenu from './SettingsMenu';
 import { ROLE_TRANSLATIONS } from '../../utils/i18n';
+import StabilityMonitor from './StabilityMonitor';
+import { useWaveformRenderer } from '../../hooks/useWaveformRenderer';
+import { useViewport } from '../../hooks/useViewport';
 
 interface GameHeaderProps {
   gameState: GameState;
@@ -14,69 +16,95 @@ interface GameHeaderProps {
   onLoad: () => void;
   onTerminate: () => void;
   isCritical: boolean;
+  isMemoryEchoActive: boolean;
 }
 
 const GameHeader: React.FC<GameHeaderProps> = ({ 
-    gameState, t, language, isReportOpen, setIsReportOpen, onSave, onLoad, onTerminate, isCritical 
+    gameState, t, language, isReportOpen, setIsReportOpen, onSave, onLoad, onTerminate, isCritical, isMemoryEchoActive
 }) => {
+  const { isMobile } = useViewport();
+  const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  const getStabilityColor = () => {
-    if (gameState.stability > 70) return 'text-scp-term';
-    if (gameState.stability > 30) return 'text-yellow-500';
-    return 'text-scp-accent';
-  };
-
-  const getKantCounterLabel = () => {
-     if (gameState.stability > 70) return t('game.stable');
-     if (gameState.stability > 30) return t('game.fluctuating');
-     return t('game.critical');
-  };
+  useWaveformRenderer(waveformCanvasRef, {
+    stability: gameState.stability,
+    isPlaying: gameState.status === GameStatus.PLAYING,
+  });
 
   const getDisplayRole = (role: string) => {
       if (language === 'zh') return role;
       return ROLE_TRANSLATIONS[role] || role;
   };
 
+  const maxHume = 1.5;
+  const humeValue = (gameState.stability / 100) * maxHume;
+
+  const getStabilityColor = () => {
+    if (gameState.stability > 70) return 'text-scp-term_fix';
+    if (gameState.stability > 30) return 'text-scp-amber';
+    return 'text-scp-accent';
+  };
+
   return (
-      <header className="bg-scp-gray/50 p-4 border-b border-scp-dark/50 relative flex justify-between items-center h-20 shrink-0">
+      <header className="relative flex items-center h-14 shrink-0 scp-ui border-b border-scp-dark/50">
         
-        {/* Left Side: Logo & Kant Counter */}
-        <div className="flex items-center gap-4 z-10 w-1/3">
-           <div className="hidden sm:block">
-              <GameLogo className="h-10 w-10 text-scp-text opacity-90" />
-           </div>
-           <div className="flex flex-col" id="stability-meter">
-              <span className="text-[10px] text-scp-gray font-mono uppercase tracking-tighter">{t('game.stability_label')}</span>
-              <div className="flex items-center gap-2">
-                <span className={`text-xl font-bold font-mono ${getStabilityColor()} ${isCritical ? 'animate-pulse' : ''}`}>
-                   {t('game.stability')}: {gameState.stability.toFixed(0)}%
-                </span>
-                <span className={`text-[10px] font-mono hidden sm:inline-block ${getStabilityColor()}`}>
-                    {getKantCounterLabel()}
-                </span>
-              </div>
-           </div>
+        {/* ===== Layer 0: Waveform Canvas Background ===== */}
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <canvas
+            ref={waveformCanvasRef}
+            className="block w-full h-full pointer-events-none"
+          />
+          <div className="absolute inset-0 pointer-events-none"
+            style={{
+              background: `linear-gradient(90deg, 
+                rgba(0,0,0,0.55) 0%, 
+                rgba(0,0,0,0.15) 20%, 
+                rgba(0,0,0,0.05) 50%, 
+                rgba(0,0,0,0.15) 80%, 
+                rgba(0,0,0,0.55) 100%)`
+            }}
+          />
+          <div className="absolute inset-0 pointer-events-none opacity-20 bg-[repeating-linear-gradient(180deg,transparent,transparent_2px,rgba(255,255,255,0.04)_3px)]" />
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-scp-term/40 to-transparent" />
         </div>
 
-        {/* Center: Title */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <h1 className="text-lg sm:text-2xl font-report tracking-widest text-scp-text uppercase shadow-black drop-shadow-md text-shadow-sm text-center truncate max-w-[90%] px-2">
-             {gameState.scpData?.name}
-          </h1>
-          <span className="text-[10px] text-scp-accent/80 font-mono tracking-[0.2em] uppercase">
-             {gameState.scpData?.designation} // {t('game.archive_access')}
-          </span>
-        </div>
-        
-        {/* Right Side: Controls */}
-        <div className="flex items-center justify-end gap-2 sm:gap-4 z-10 w-1/3">
-             <div className="text-right text-[10px] font-mono text-gray-500 hidden lg:block bg-black/40 p-1 rounded leading-tight">
-                <p>{t('game.role')}: {getDisplayRole(gameState.role)}</p>
-                <p>{t('game.class')}: {gameState.scpData?.containmentClass}</p>
-                <p>{t('game.turn')}: {gameState.turnCount}</p>
+        {/* ===== Layer 1: Content ===== */}
+        <div className="relative z-[1] flex items-center w-full h-full px-3 sm:px-4 gap-2 sm:gap-3">
+          
+          {/* --- Left: HUME + Percentage --- */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className={`font-report tracking-wider uppercase text-shadow-sm font-bold transition-colors duration-500 text-sm sm:text-base whitespace-nowrap ${getStabilityColor()} ${isCritical ? 'animate-pulse' : ''}`}>
+              <span className="opacity-70 text-[10px] sm:text-xs mr-1">{t('game.hume_label')}</span>
+              {humeValue.toFixed(2)}
+              <span className="ml-1 text-[11px] sm:text-sm opacity-80">({gameState.stability.toFixed(0)}%)</span>
             </div>
-            
-            {/* Show "View Report" button if Game Over and Report Minimized */}
+          </div>
+
+          {/* --- Center: Title block --- */}
+          <div className="flex-1 min-w-0 flex flex-col items-center justify-center">
+            {/* SCP Name */}
+            <h1 className="text-sm sm:text-xl font-report tracking-widest text-scp-text uppercase shadow-black drop-shadow-md text-shadow-sm text-center truncate max-w-full leading-tight">
+               {gameState.scpData?.name}
+            </h1>
+
+            <span className="text-[10px] sm:text-[10px] text-scp-accent/80 font-mono tracking-[0.15em] sm:tracking-[0.2em] uppercase truncate max-w-full">
+               {gameState.scpData?.designation} // {gameState.scpData?.containmentClass}
+            </span>
+            {/* Mobile only: role on third line */}
+            {isMobile && (
+              <span className="text-[10px] font-mono tracking-widest text-gray-400 uppercase truncate max-w-full">
+                {t('game.role')}: {getDisplayRole(gameState.role)}
+              </span>
+            )}
+          </div>
+
+          {/* --- Right: Role (PC only) + View Report + Gear --- */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {!isMobile && (
+              <span className="text-[12px] font-report text-gray-400 whitespace-nowrap leading-tight">
+                {t('game.role')}: {getDisplayRole(gameState.role)}
+              </span>
+            )}
+
             {gameState.status === GameStatus.GAME_OVER && !isReportOpen && (
                  <button 
                     onClick={() => setIsReportOpen(true)}
@@ -92,7 +120,14 @@ const GameHeader: React.FC<GameHeaderProps> = ({
               onTerminate={onTerminate}
               t={t}
             />
+          </div>
         </div>
+
+        <StabilityMonitor 
+          stability={gameState.stability}
+          isPlaying={gameState.status === GameStatus.PLAYING}
+          isMemoryEchoActive={isMemoryEchoActive}
+        />
       </header>
   );
 };

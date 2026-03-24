@@ -1,16 +1,22 @@
 
 import React, { useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Message, SCPData, EndingType, GameReviewData, QAPair } from '../types';
+import { Message, SCPData, EndingType, GameReviewData, QAPair, LegacyData, Trait, LegacyItem } from '../types';
+import { Dna, Mic, Package, Radio, RotateCcw, Sparkles } from 'lucide-react';
 import { useTranslation } from '../utils/i18n';
-import { generateGameReview, askNarratorQuestion } from '../services/geminiService';
+import { generateGameReview, askNarratorQuestion, generateAudioDramaScript, generateLegacyData } from '../services/aiService';
+import { stageRagMemories } from '../services/ragStaging';
 import GameReviewReport from './GameReviewReport';
 import QAHistory from './QAHistory';
+import DebugAudioPlayer from './game/DebugAudioPlayer';
+import { AudioDramaScript } from '../types';
 
 interface WorldLineTreeProps {
   messages: Message[];
   scpData: SCPData | null;
   onRestart: () => void;
+  onNewGamePlus: (legacyData: LegacyData) => void;
   onMinimize: () => void;
   backgroundImage: string | null;
   endingType: EndingType;
@@ -19,12 +25,15 @@ interface WorldLineTreeProps {
   qaHistory: QAPair[] | undefined;
   onReviewUpdate: (review: GameReviewData) => void;
   onQAUpdate: (qa: QAPair) => void;
+  currentLegacyData?: LegacyData;
+  saveId?: string;
 }
 
 const WorldLineTree: React.FC<WorldLineTreeProps> = ({ 
   messages, 
   scpData, 
   onRestart, 
+  onNewGamePlus,
   onMinimize, 
   backgroundImage, 
   endingType, 
@@ -32,7 +41,9 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
   gameReview,
   qaHistory = [],
   onReviewUpdate,
-  onQAUpdate
+  onQAUpdate,
+  currentLegacyData,
+  saveId
 }) => {
   const { t, language } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -48,6 +59,15 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
   const [isQaLoading, setIsQaLoading] = useState(false);
   const [streamingAnswer, setStreamingAnswer] = useState('');
   const qaCount = qaHistory.length;
+
+  // New Game+ States
+  const [isGeneratingLegacy, setIsGeneratingLegacy] = useState(false);
+  const [newLegacyData, setNewLegacyData] = useState<Partial<LegacyData> | null>(null);
+  const [showLegacyModal, setShowLegacyModal] = useState(false);
+  
+  // Selection States for Legacy
+  const [selectedTraits, setSelectedTraits] = useState<Trait[]>([]);
+  const [selectedItems, setSelectedItems] = useState<LegacyItem[]>([]);
 
   // Extract Stability History
   const [stabilityHistory, setStabilityHistory] = useState<number[]>([100]);
@@ -84,7 +104,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
     if (!scpData) return;
     setIsGenerating(true);
     try {
-        const review = await generateGameReview(scpData, role, endingType, language, messages, stabilityHistory);
+        const review = await generateGameReview(role, endingType, language);
         onReviewUpdate(review);
         setTimeout(() => {
             reviewRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -95,6 +115,118 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
         setIsGenerating(false);
     }
   };
+
+  const handleNewGamePlusClick = async () => {
+      if (isGeneratingLegacy) return;
+      setIsGeneratingLegacy(true);
+      try {
+          // Generate Legacy Data & Archive Memories (RAG)
+          const generated = await generateLegacyData(endingType || 'UNKNOWN', role, language, saveId, scpData?.designation);
+          if (generated.memoryRecords && generated.memoryRecords.length > 0) {
+            await stageRagMemories(saveId, {
+              scp_number: scpData?.designation || 'UNKNOWN',
+              role,
+              records: generated.memoryRecords
+            });
+          }
+          
+          // Combine with existing legacy data
+          const combinedTraits = [
+              ...(currentLegacyData?.traits || []),
+              ...(generated.traits || [])
+          ];
+          // Remove duplicates by ID or Name
+          const uniqueTraits = Array.from(new Map(combinedTraits.map(item => [item.name, item])).values());
+
+          const combinedItems = [
+              ...(currentLegacyData?.items || []),
+              ...(generated.items || [])
+          ];
+          const uniqueItems = Array.from(new Map(combinedItems.map(item => [item.name, item])).values());
+
+          setNewLegacyData({
+              traits: uniqueTraits,
+              items: uniqueItems,
+              echoes: [
+                  ...(currentLegacyData?.echoes || []),
+                  ...(generated.echoes || [])
+              ],
+              runCount: (currentLegacyData?.runCount || 0) + 1
+          });
+          
+          // Default selection: Select all if <= 5, otherwise select first 5 (user can change)
+          setSelectedTraits(uniqueTraits.slice(0, 5));
+          setSelectedItems(uniqueItems.slice(0, 5));
+
+          setShowLegacyModal(true);
+      } catch (e) {
+          console.error("Legacy generation failed", e);
+      } finally {
+          setIsGeneratingLegacy(false);
+      }
+  };
+
+  const handleConfirmLegacy = () => {
+      if (!newLegacyData) return;
+      
+      const finalLegacyData: LegacyData = {
+          traits: selectedTraits,
+          items: selectedItems,
+          echoes: newLegacyData.echoes || [],
+          runCount: newLegacyData.runCount || 1
+      };
+      
+      onNewGamePlus(finalLegacyData);
+  };
+
+  const toggleTraitSelection = (trait: Trait) => {
+      if (selectedTraits.some(t => t.name === trait.name)) {
+          setSelectedTraits(selectedTraits.filter(t => t.name !== trait.name));
+      } else {
+          if (selectedTraits.length < 5) {
+              setSelectedTraits([...selectedTraits, trait]);
+          }
+      }
+  };
+
+  const toggleItemSelection = (item: LegacyItem) => {
+      if (selectedItems.some(i => i.name === item.name)) {
+          setSelectedItems(selectedItems.filter(i => i.name !== item.name));
+      } else {
+          if (selectedItems.length < 5) {
+              setSelectedItems([...selectedItems, item]);
+          }
+      }
+  };
+
+  const isAudioDramaEnabled = false;
+  const [showAudioDrama, setShowAudioDrama] = useState(false);
+  const [dramaScript, setDramaScript] = useState<AudioDramaScript | null>(null);
+  const [isGeneratingDrama, setIsGeneratingDrama] = useState(false);
+
+  const handleGenerateDrama = async () => {
+    if (!isAudioDramaEnabled) return;
+    if (isGeneratingDrama) return;
+    setIsGeneratingDrama(true);
+    
+    try {
+        const result = await generateAudioDramaScript(
+            messages, 
+            role, 
+            scpData?.designation || "Unknown SCP",
+            language
+        );
+        setDramaScript(result);
+        setShowAudioDrama(true);
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setIsGeneratingDrama(false);
+    }
+  };
+
+  // Removed auto-generation effect to allow opening debug player without generating
+  // useEffect(() => { ... }, [showAudioDrama]);
 
   const handleQaSubmit = async () => {
     if (!qaInput.trim() || isQaLoading || qaCount >= 3) return;
@@ -324,7 +456,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
 
       switch(endingType) {
           case EndingType.CONTAINED:
-              return { title, text, color: "text-scp-term", border: "border-scp-term", bg: "bg-green-900/10" };
+              return { title, text, color: "text-scp-term_fix", border: "border-scp-term_fix", bg: "bg-green-900/10" };
           case EndingType.DEATH:
               return { title, text, color: "text-gray-400", border: "border-gray-500", bg: "bg-gray-900/10" };
           case EndingType.ESCAPED:
@@ -338,37 +470,45 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
   const endConfig = getEndingDisplay();
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-md text-scp-text overflow-y-auto crt border-t border-scp-gray/50">
-      
-      {backgroundImage && (
-        <div className="fixed inset-0 z-0 opacity-20 pointer-events-none">
-            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${backgroundImage})` }}></div>
-            <div className="absolute inset-0 bg-black/50"></div>
-        </div>
-      )}
+    <div className="absolute inset-0 z-[200] flex flex-col bg-black/80 backdrop-blur-md text-scp-text overflow-y-auto crt border-t border-scp-gray/50 scp-ui">
 
-      <div className="sticky top-0 z-20 bg-scp-dark/95 border-b border-scp-gray p-4 flex justify-between items-center backdrop-blur-md shadow-lg shrink-0">
+      <div className="sticky top-0 z-20 bg-scp-dark/80 border-b border-scp-gray p-4 flex flex-col-reverse sm:flex-row sm:justify-between sm:items-center gap-3 backdrop-blur-md shadow-lg shrink-0 scp-window-header">
         <div>
            <h2 className="font-report text-xl md:text-2xl text-scp-term text-shadow-green">{t('report.title')}</h2>
            <p className="font-mono text-[10px] text-gray-500">{t('report.project')}: {scpData?.designation} // {t('report.final_report')}</p>
         </div>
-        <div className="flex gap-2 md:gap-3">
+        <div className="flex w-full sm:w-auto justify-between sm:justify-end gap-2 md:gap-3">
+            {isAudioDramaEnabled && (
+                <button 
+                    onClick={handleGenerateDrama} 
+                    disabled={isGeneratingDrama}
+                    className="hidden sm:flex items-center gap-2 px-3 py-1.5 border border-scp-gray text-scp-term font-mono text-xs hover:border-scp-term hover:bg-scp-term/10 transition-colors shadow-lg"
+                    title="GENERATE AUDIO DRAMA"
+                >
+                    {isGeneratingDrama ? (
+                        <span className="w-3 h-3 border-2 border-scp-term border-t-transparent rounded-full animate-spin"></span>
+                    ) : (
+                        <Mic className="w-4 h-4" />
+                    )}
+                    <span className="hidden lg:inline">{t('report.generate_video_script')}</span>
+                </button>
+            )}
              <button 
                 onClick={onMinimize}
-                className="hidden sm:block px-3 py-1.5 border border-scp-gray text-scp-text font-mono text-xs hover:border-scp-term hover:text-scp-term transition-colors shadow-lg"
+                className="px-2 sm:px-3 py-1 sm:py-1.5 border border-scp-gray text-scp-text font-mono text-[11px] sm:text-xs hover:border-scp-term hover:text-scp-term transition-colors shadow-lg min-h-[36px]"
                 title="MINIMIZE"
             >
                 {t('report.minimize')}
             </button>
             <button 
                 onClick={handleExport}
-                className="hidden sm:block px-3 py-1.5 border border-scp-gray text-scp-text font-mono text-xs hover:border-scp-term hover:text-scp-term transition-colors shadow-lg"
+                className="px-2 sm:px-3 py-1 sm:py-1.5 border border-scp-gray text-scp-text font-mono text-[11px] sm:text-xs hover:border-scp-term hover:text-scp-term transition-colors shadow-lg min-h-[36px]"
             >
                 {t('report.export')}
             </button>
             <button 
                 onClick={onRestart}
-                className="px-4 py-1.5 bg-scp-text text-black font-mono text-xs hover:bg-white transition-colors shadow-lg font-bold"
+                className="px-3 sm:px-4 py-1 sm:py-1.5 bg-scp-text text-black font-mono text-[11px] sm:text-xs hover:bg-white transition-colors shadow-lg font-bold min-h-[36px]"
             >
                 {t('report.close')}
             </button>
@@ -389,7 +529,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                     <div className={`absolute left-4 md:left-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 z-10 ${index === timelineEvents.length - 1 ? 'bg-red-500 border-red-900 animate-pulse' : 'bg-scp-term border-scp-dark'}`}></div>
 
                     <div className="w-full md:w-[45%] pl-10 md:pl-0">
-                        <div className="bg-black/80 border border-scp-gray/30 p-4 rounded hover:border-scp-term/50 transition-colors group backdrop-blur-sm">
+                        <div className="bg-black/80 border border-scp-gray/30 p-4 rounded hover:border-scp-term/50 transition-colors group backdrop-blur-sm scp-window">
                             {event.image && (
                                 <div className="mb-3 overflow-hidden rounded border border-scp-gray/20">
                                     <img src={event.image} alt="Evidence" className="w-full h-32 object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
@@ -407,7 +547,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
          </div>
 
          <div className="flex flex-col items-center justify-center mt-12 mb-20 space-y-8">
-            <div className={`${endConfig.bg} ${endConfig.border} border p-4 text-center rounded max-w-md backdrop-blur-sm shadow-lg w-full`}>
+            <div className={`${endConfig.bg} ${endConfig.border} border p-4 text-center rounded max-w-md backdrop-blur-sm shadow-lg w-full scp-window`}>
                 <h3 className={`font-report text-xl ${endConfig.color} mb-2 uppercase`}>{endConfig.title}</h3>
                 <p className="font-mono text-xs text-gray-300">
                     {endConfig.text}
@@ -416,35 +556,62 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                 </p>
             </div>
 
-            {/* Generate Review Section */}
-            {!gameReview ? (
-                 <button 
-                    onClick={handleGenerateReview}
-                    disabled={isGenerating}
-                    className="group relative px-8 py-3 bg-scp-dark border border-scp-accent/50 hover:border-scp-accent transition-all overflow-hidden"
-                 >
-                    <div className="absolute inset-0 bg-scp-accent/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+            {/* Action Buttons Container */}
+            <div className="flex gap-4 flex-wrap justify-center">
+                {/* Generate Review Button */}
+                {!gameReview && (
+                     <button 
+                        onClick={handleGenerateReview}
+                        disabled={isGenerating}
+                        className="group relative px-8 py-3 bg-scp-dark border border-scp-accent/50 hover:border-scp-accent transition-all overflow-hidden"
+                     >
+                        <div className="absolute inset-0 bg-scp-accent/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
                     <span className="relative font-mono font-bold text-scp-accent text-sm flex items-center gap-2">
-                        {isGenerating ? (
+                            {isGenerating ? (
+                                <>
+                                    <span className="w-3 h-3 border-2 border-scp-accent border-t-transparent rounded-full animate-spin"></span>
+                                    {t('report.generating_review')}
+                                </>
+                            ) : (
+                                <>
+                                <Sparkles className="w-4 h-4" /> {t('report.generate_review')}
+                                </>
+                            )}
+                        </span>
+                     </button>
+                )}
+                
+                {/* New Game+ Button */}
+                <button
+                    onClick={handleNewGamePlusClick}
+                    disabled={isGeneratingLegacy || showLegacyModal}
+                    className="group relative px-8 py-3 bg-scp-dark border border-amber-500/50 hover:border-amber-500 transition-all overflow-hidden"
+                >
+                    <div className="absolute inset-0 bg-amber-500/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                    <span className="relative font-mono font-bold text-amber-500 text-sm flex items-center gap-2">
+                        {isGeneratingLegacy ? (
                             <>
-                                <span className="w-3 h-3 border-2 border-scp-accent border-t-transparent rounded-full animate-spin"></span>
-                                {t('report.generating_review')}
+                                <span className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></span>
+                                {t('legacy.generating') || 'CALCULATING LEGACY...'}
                             </>
                         ) : (
                             <>
-                                <span className="text-lg">✇</span> {t('report.generate_review')}
+                                <RotateCcw className="w-4 h-4" /> {t('legacy.new_game_plus') || 'NEW GAME +'}
                             </>
                         )}
                     </span>
-                 </button>
-            ) : (
+                </button>
+            </div>
+
+            {/* Review Section */}
+            {gameReview && (
                 <div ref={reviewRef} className="w-full animate-in fade-in duration-1000 slide-in-from-bottom-8 space-y-8">
                     <div ref={reviewPrintRef}>
-                        <GameReviewReport data={gameReview} scpData={scpData} stabilityHistory={stabilityHistory} messages={messages} />
+                        <GameReviewReport data={gameReview} scpData={scpData} stabilityHistory={stabilityHistory} messages={messages} role={role} backgroundImage={backgroundImage} />
                     </div>
                     
                     {/* Q&A Section */}
-                    <div className="bg-black/40 border border-scp-gray/30 p-6 rounded-sm shadow-xl backdrop-blur-md">
+                    <div className="bg-black/40 border border-scp-gray/30 p-6 rounded-sm shadow-xl backdrop-blur-md scp-window">
                         <div className="flex items-center justify-between mb-4 border-b border-scp-gray/50 pb-2">
                             <h3 className="font-report text-lg text-scp-text uppercase flex items-center gap-2">
                                 <span className="text-scp-term">?</span> {t('report.qa_title')}
@@ -512,6 +679,151 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                 </div>
             )}
          </div>
+
+      {/* Audio Drama Player Overlay - Rendered via Portal to escape containers */}
+      {isAudioDramaEnabled && showAudioDrama && !isGeneratingDrama && (
+          (() => {
+              const debugPlayer = (
+                  <DebugAudioPlayer 
+                      initialJson={dramaScript ? JSON.stringify(dramaScript, null, 2) : ''}
+                      messages={messages}
+                      onClose={() => { setShowAudioDrama(false); setDramaScript(null); }} 
+                      fallbackImage={backgroundImage}
+                  />
+              );
+              return createPortal(debugPlayer, document.body);
+          })()
+      )}
+
+      {/* Legacy Selection Modal - Using Portal to render at body level */}
+      {showLegacyModal && newLegacyData && createPortal(
+          <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 scp-ui">
+              <div className="scp-window border-2 border-scp-term/50 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow flex flex-col">
+                  <div className="p-6 border-b border-scp-term/30 sticky top-0 bg-scp-dark z-10">
+                      <h2 className="text-2xl font-report text-scp-term mb-2">
+                          {t('legacy.modal_title') || 'LEGACY EXTRACTION'}
+                      </h2>
+                      <p className="font-mono text-xs text-scp-term/70">
+                          {t('legacy.modal_subtitle') || 'Select traits and items to carry over to the next timeline. (Max 5 each)'}
+                      </p>
+                  </div>
+                  
+                  <div className="p-6 space-y-8 flex-1">
+                      {/* Traits Selection */}
+                      <div>
+                          <h3 className="font-mono text-sm text-scp-term mb-4 border-l-2 border-scp-term pl-3 flex justify-between items-center">
+                              <span className="flex items-center gap-2"><Dna className="w-4 h-4" /> {t('legacy.traits') || 'TRAITS'}</span>
+                              <span className="text-xs opacity-70">{selectedTraits.length} / 5</span>
+                          </h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {newLegacyData.traits?.map((trait, idx) => (
+                                  <button
+                                      key={`${trait.name}-${idx}`}
+                                      onClick={() => toggleTraitSelection(trait as Trait)}
+                                      className={`
+                                          p-3 text-left border transition-all relative group scp-window
+                                          ${selectedTraits.some(t => t.name === trait.name) 
+                                              ? 'bg-scp-term/20 border-scp-term text-scp-term' 
+                                              : 'bg-black/40 border-gray-800 text-gray-500 hover:border-gray-600'
+                                          }
+                                      `}
+                                  >
+                                      <div className="flex items-center gap-2 mb-1">
+                                          <span className="text-xl">{trait.icon}</span>
+                                          <span className="font-bold font-mono text-xs">{trait.name}</span>
+                                      </div>
+                                      <p className="text-[10px] font-mono leading-tight opacity-80">{trait.description}</p>
+                                  </button>
+                              ))}
+                              {(!newLegacyData.traits || newLegacyData.traits.length === 0) && (
+                                  <div className="col-span-full text-center py-4 text-xs font-mono text-gray-600 italic">
+                                      {t('legacy.no_traits') || 'No traits generated.'}
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+
+                      {/* Items Selection */}
+                      <div>
+                          <h3 className="font-mono text-sm text-scp-term mb-4 border-l-2 border-scp-term pl-3 flex justify-between items-center">
+                              <span className="flex items-center gap-2"><Package className="w-4 h-4" /> {t('legacy.items') || 'REALITY ANCHORS'}</span>
+                              <span className="text-xs opacity-70">{selectedItems.length} / 5</span>
+                          </h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {newLegacyData.items?.map((item, idx) => (
+                                  <button
+                                      key={`${item.name}-${idx}`}
+                                      onClick={() => toggleItemSelection(item as LegacyItem)}
+                                      className={`
+                                          p-3 text-left border transition-all relative group scp-window
+                                          ${selectedItems.some(i => i.name === item.name) 
+                                              ? 'bg-scp-term/20 border-scp-term text-scp-term' 
+                                              : 'bg-black/40 border-gray-800 text-gray-500 hover:border-gray-600'
+                                          }
+                                      `}
+                                  >
+                                      <div className="flex items-center gap-2 mb-1">
+                                          <span className="text-xl">{item.icon}</span>
+                                          <span className="font-bold font-mono text-xs">{item.name}</span>
+                                      </div>
+                                      <p className="text-[10px] font-mono leading-tight opacity-80">{item.description}</p>
+                                  </button>
+                              ))}
+                              {(!newLegacyData.items || newLegacyData.items.length === 0) && (
+                                  <div className="col-span-full text-center py-4 text-xs font-mono text-gray-600 italic">
+                                      {t('legacy.no_items') || 'No items preserved.'}
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+
+                      {/* Echoes Display (Read-only) */}
+                      {newLegacyData.echoes && newLegacyData.echoes.length > 0 && (
+                          <div>
+                          <h3 className="font-mono text-sm text-scp-term mb-4 border-l-2 border-scp-term pl-3 flex justify-between items-center">
+                              <span className="flex items-center gap-2"><Radio className="w-4 h-4" /> {t('legacy.echoes') || 'WORLD ECHOES'}</span>
+                                  <span className="text-xs opacity-70">{t('common.read_only') || 'READ ONLY'}</span>
+                              </h3>
+                              <div className="space-y-3">
+                                  {[...newLegacyData.echoes].reverse().map((echo, idx) => (
+                                      <div key={idx} className="bg-black/40 border border-scp-term/30 p-3 rounded relative overflow-hidden scp-window">
+                                          <div className="absolute top-0 right-0 p-1">
+                                              <span className="text-[9px] bg-scp-term/20 text-scp-term px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                                  {echo.endingType}
+                                              </span>
+                                          </div>
+                                          <div className="text-xs font-bold text-scp-text/90 font-mono mb-1">
+                                              "{echo.title}"
+                                          </div>
+                                          <p className="text-[10px] text-scp-text/70 font-mono leading-relaxed italic border-l-2 border-scp-term/50 pl-2">
+                                              {echo.summary}
+                                          </p>
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      )}
+                  </div>
+
+                  <div className="p-6 border-t border-scp-term/30 bg-black/40 flex justify-end gap-4 sticky bottom-0">
+                      <button
+                          onClick={() => setShowLegacyModal(false)}
+                          className="px-6 py-2 border border-gray-700 text-gray-400 font-mono text-xs hover:text-white hover:border-gray-500 transition-colors"
+                      >
+                          {t('common.cancel') || 'CANCEL'}
+                      </button>
+                      <button
+                          onClick={handleConfirmLegacy}
+                          className="px-8 py-2 bg-scp-term/20 border border-scp-term/30 text-scp-term font-mono text-xs font-bold hover:border-scp-term hover:text-scp-term transition-all shadow-[0_0_15px_rgba(51,255,0,0.2)]"
+                      >
+                          {t('legacy.confirm_start') || 'INITIATE PROTOCOL'}
+                      </button>
+                  </div>
+              </div>
+          </div>,
+          document.body
+      )}
+
       </div>
     </div>
   );

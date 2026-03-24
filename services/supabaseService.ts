@@ -30,6 +30,216 @@ export const signInWithGoogle = async () => {
   return { error };
 };
 
+// --- Memory / RAG System ---
+
+export const archiveMemories = async (memories: {
+    timeline_id: string;
+    scp_number: string;
+    content: string;
+    embedding: number[];
+    role: string;
+    turn_number: number;
+    tags?: any;
+}[]): Promise<{ error: any }> => {
+    // Check if user is logged in or sandbox
+    const { data: { user } } = await supabase.auth.getUser();
+    const isSandbox = isSandboxUser();
+
+    if (!user && !isSandbox) {
+        console.log("[Supabase] User not logged in - skipping memory archive (RAG requires cloud)");
+        return { error: null };
+    }
+
+    if (memories.length === 0) return { error: null };
+
+    // Get the timeline_id and scp_number from the first memory (assume batch is for same game)
+    const { timeline_id, scp_number } = memories[0];
+
+    // --- Deduplication Strategy: Delete existing memories for this specific SCP run ---
+    console.log(`[Supabase] Cleaning up existing memories for Timeline ${timeline_id} / ${scp_number}...`);
+    
+    // Note: 'user_id' is handled by RLS, but for Sandbox we might need to be careful?
+    // RLS policy: (auth.uid() = user_id OR user_id = SANDBOX_ID)
+    // So simple delete should work for the current user's data.
+    const { error: deleteError } = await supabase
+        .from('memories')
+        .delete()
+        .eq('timeline_id', timeline_id)
+        .eq('scp_number', scp_number); // Only delete memories for this specific SCP in this timeline
+
+    if (deleteError) {
+         console.warn("[Supabase] Failed to clean up old memories (might be first run):", deleteError);
+         // Continue anyway, it might just be no rows found (though delete usually doesn't error on 0 rows)
+    }
+
+    let payload: any[] = memories;
+    if (isSandbox) {
+        console.log("[Supabase] Archiving memories for Sandbox User");
+        payload = memories.map(m => ({ ...m, user_id: SANDBOX_USER_ID }));
+    }
+
+    const { error } = await supabase
+        .from('memories')
+        .insert(payload);
+
+    if (error) {
+        console.error("[Supabase] Failed to archive memories:", error);
+    }
+
+    return { error };
+};
+
+export const duplicateMemories = async (oldTimelineId: string, newTimelineId: string): Promise<{ error: any }> => {
+    // Check if user is logged in or sandbox
+    const { data: { user } } = await supabase.auth.getUser();
+    const isSandbox = isSandboxUser();
+
+    if (!user && !isSandbox) {
+        return { error: null };
+    }
+
+    // 1. Fetch memories from old timeline
+    // Note: We need to fetch ALL memories, so we might need pagination if there are many.
+    // For now, assume < 1000 memories (Supabase default limit is 1000).
+    const { data: oldMemories, error: fetchError } = await supabase
+        .from('memories')
+        .select('*')
+        .eq('timeline_id', oldTimelineId);
+
+    if (fetchError || !oldMemories || oldMemories.length === 0) {
+        return { error: fetchError };
+    }
+
+    console.log(`[Supabase] Duplicating ${oldMemories.length} memories from ${oldTimelineId} to ${newTimelineId}`);
+
+    // 2. Prepare new payload with new timeline_id
+    const newMemories = oldMemories.map(m => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id, created_at, ...rest } = m; // Remove system fields
+        return {
+            ...rest,
+            timeline_id: newTimelineId,
+            user_id: isSandbox ? SANDBOX_USER_ID : (user?.id || rest.user_id)
+        };
+    });
+
+    // 3. Insert into new timeline
+    const { error: insertError } = await supabase
+        .from('memories')
+        .insert(newMemories);
+
+    if (insertError) {
+        console.error("[Supabase] Failed to duplicate memories:", insertError);
+    }
+
+    return { error: insertError };
+};
+
+export const deleteMemoriesByTimelineId = async (timelineId: string): Promise<{ error: any }> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const isSandbox = isSandboxUser();
+
+    if (!user && !isSandbox) {
+        return { error: null };
+    }
+
+    const { error } = await supabase
+        .from('memories')
+        .delete()
+        .eq('timeline_id', timelineId);
+
+    return { error };
+};
+
+export const searchMemories = async (
+    queryEmbedding: number[], 
+    timelineId: string, 
+    threshold = 0.75, 
+    limit = 3
+): Promise<{ data: any[] | null; error: any }> => {
+    // Check if user is logged in or sandbox
+    const { data: { user } } = await supabase.auth.getUser();
+    const isSandbox = isSandboxUser();
+
+    if (!user && !isSandbox) {
+        // Not logged in -> cannot access RAG
+        return { data: [], error: null };
+    }
+    console.log("[Supabase] Searching memories for timeline:", timelineId);
+    // Call the RPC function 'match_memories'
+    const { data, error } = await supabase.rpc('match_memories', {
+        query_embedding: queryEmbedding,
+        match_threshold: threshold,
+        match_count: limit,
+        filter_timeline_id: timelineId
+    });
+    if (error) {
+        console.error("[Supabase] Failed to search memories:", error);
+        return { data: null, error };
+    }
+
+    return { data, error: null };
+};
+
+const normalizeVectorEmbedding = (value: any): number[] | null => {
+    if (Array.isArray(value) && value.every(v => typeof v === 'number')) return value as number[];
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    try {
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed) && parsed.every(v => typeof v === 'number')) return parsed as number[];
+        }
+    } catch {
+    }
+    return null;
+};
+
+export const loadMemoriesByTimelineId = async (
+    timelineId: string
+): Promise<{ data: Array<{
+    id: string;
+    timeline_id: string;
+    scp_number: string;
+    content: string;
+    embedding: number[] | null;
+    role: string;
+    turn_number: number;
+    tags?: any;
+    created_at: string;
+}> | null; error: any }> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const isSandbox = isSandboxUser();
+
+    if (!user && !isSandbox) {
+        return { data: [], error: null };
+    }
+
+    if (!timelineId) return { data: [], error: null };
+
+    const { data, error } = await supabase
+        .from('memories')
+        .select('id,timeline_id,scp_number,content,embedding,role,turn_number,tags,created_at')
+        .eq('timeline_id', timelineId);
+
+    if (error) return { data: null, error };
+
+    const normalized = (data || []).map((m: any) => ({
+        id: m.id,
+        timeline_id: m.timeline_id,
+        scp_number: m.scp_number,
+        content: m.content,
+        embedding: normalizeVectorEmbedding(m.embedding),
+        role: m.role,
+        turn_number: m.turn_number,
+        tags: m.tags,
+        created_at: m.created_at
+    }));
+
+    return { data: normalized, error: null };
+};
+
 export const signOut = async () => {
   if (isSandboxUser()) {
       localStorage.removeItem(SANDBOX_STORAGE_KEY);

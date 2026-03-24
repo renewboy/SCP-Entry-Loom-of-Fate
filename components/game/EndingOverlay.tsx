@@ -31,9 +31,9 @@ const EndingOverlay: React.FC<EndingOverlayProps> = ({
           case EndingType.CONTAINED:
               return {
                   ...texts,
-                  color: "text-scp-term",
+                  color: "text-scp-term_fix",
                   bg: "bg-green-900/90",
-                  bar: "bg-scp-term",
+                  bar: "bg-scp-term_fix",
                   button: "bg-green-800 border-green-500 text-green-100"
               };
           case EndingType.DEATH:

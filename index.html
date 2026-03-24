@@ -2,10 +2,11 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>SCP Entry: Loom of Fate</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Special+Elite&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
@@ -18,19 +19,34 @@
               scp: {
                 dark: '#0a0a0a',
                 gray: '#1a1a1a',
-                accent: '#c32e2e', // Alert Red
+                accent: '#c32e20', // Alert Red
                 text: '#e0e0e0',
                 term: '#33ff00',
+                term_fix: '#33ff00',
+                alert: '#ef4444',
+                amber: '#f59e0b',
+                cyan: '#06b6d4'
               }
             },
             animation: {
               'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
               'scanline': 'scanline 8s linear infinite',
+              'radar-spin': 'radar-spin 4s linear infinite',
+              'blip-pulse': 'blip-pulse 2s cubic-bezier(0, 0, 0.2, 1) infinite',
             },
             keyframes: {
               scanline: {
                 '0%': { transform: 'translateY(-100%)' },
                 '100%': { transform: 'translateY(100%)' }
+              },
+              'radar-spin': {
+                '0%': { transform: 'rotate(0deg)' },
+                '100%': { transform: 'rotate(360deg)' }
+              },
+              'blip-pulse': {
+                '0%': { transform: 'scale(1)', opacity: '1' },
+                '70%': { transform: 'scale(2)', opacity: '0' },
+                '100%': { transform: 'scale(1)', opacity: '0' }
               }
             }
           }
@@ -38,24 +54,266 @@
       }
     </script>
     <style>
-      body {
-        background-color: #050505;
-        color: #e0e0e0;
-        overflow: hidden; /* App handles scroll */
+      :root {
+        --safe-top: env(safe-area-inset-top);
+        --safe-bottom: env(safe-area-inset-bottom);
+        --safe-left: env(safe-area-inset-left);
+        --safe-right: env(safe-area-inset-right);
+
+        --z-base: 0;
+        --z-content: 10;
+        --z-floating: 20;
+        --z-sidebar: 100;
+        --z-overlay: 200;
+        --z-modal: 300;
+        --z-confirmation: 400;
+        --z-system: 500;
+        --z-toast: 900;
+        --z-debug: 999;
+
+        --scp-bg: #050505;
+        --scp-surface: #0a0a0a;
+        --scp-surface-2: #111111;
+        --scp-surface-light: #1c1c1e;
+        --scp-border: rgba(148, 163, 184, 0.15);
+        --scp-border-strong: rgba(148, 163, 184, 0.3);
+        --scp-text: #e2e8f0;
+        --scp-text-dim: rgba(148, 163, 184, 0.6);
+        --scp-term: #33ff00; /* Muted Emerald */
+        --scp-cyan: #06b6d4;
+        --scp-amber: #f59e0b;
+        --scp-alert: #ef4444;
+        --scp-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+        --scp-glow: 0 0 15px rgba(16, 185, 129, 0.15);
+        --scp-scanline-dark: rgba(0, 0, 0, 0.28);
+        --scp-scanline-rgb-r: rgba(255, 0, 0, 0.04);
+        --scp-scanline-rgb-g: rgba(0, 255, 0, 0.02);
+        --scp-scanline-rgb-b: rgba(0, 0, 255, 0.04);
+        --scp-scrollbar-track: #0f0f0f;
+        --scp-scrollbar-thumb: #2d2d2d;
+        --scp-noise-opacity: 0.03;
       }
-      /* Custom Scrollbar */
+      @supports (height: 100dvh) {
+        .h-screen-safe { height: 100dvh; }
+      }
+      @supports not (height: 100dvh) {
+        .h-screen-safe { height: 100vh; }
+      }
+      * { touch-action: manipulation; }
+      .touch-action-none { touch-action: none !important; }
+      * { -webkit-tap-highlight-color: transparent; }
+      body {
+        background-color: var(--scp-bg);
+        color: var(--scp-text);
+        overflow: hidden;
+        background-image: 
+          linear-gradient(rgba(18, 18, 20, 0.95), rgba(18, 18, 20, 0.95)),
+          url('https://www.transparenttextures.com/patterns/cubes.png');
+      }
       ::-webkit-scrollbar {
-        width: 8px;
+        width: 6px;
+        height: 6px;
       }
       ::-webkit-scrollbar-track {
-        background: #1a1a1a;
+        background: var(--scp-scrollbar-track);
       }
       ::-webkit-scrollbar-thumb {
-        background: #333;
-        border-radius: 4px;
+        background: var(--scp-scrollbar-thumb);
+        border-radius: 3px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #c32e2e;
+        background: var(--scp-border-strong);
+      }
+      .scp-range {
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+      }
+      .scp-range::-webkit-slider-runnable-track {
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.2);
+      }
+      .scp-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: #c32e20;
+        margin-top: -5px;
+      }
+      .scp-range::-moz-range-track {
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.2);
+      }
+      .scp-range::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: #c32e20;
+        border: none;
+      }
+      .scp-ui {
+        color: var(--scp-text);
+        letter-spacing: 0.01em;
+      }
+      .scp-panel {
+        background: rgba(15, 15, 18, 0.85);
+        border: 1px solid var(--scp-border);
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(12px);
+        position: relative;
+      }
+      .scp-panel::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; width: 8px; height: 8px;
+        border-top: 2px solid var(--scp-border-strong);
+        border-left: 2px solid var(--scp-border-strong);
+        pointer-events: none;
+      }
+      .scp-panel::after {
+        content: "";
+        position: absolute;
+        bottom: 0; right: 0; width: 8px; height: 8px;
+        border-bottom: 2px solid var(--scp-border-strong);
+        border-right: 2px solid var(--scp-border-strong);
+        pointer-events: none;
+      }
+      .scp-panel-header {
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid var(--scp-border);
+        padding: 0.5rem 1rem;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--scp-text-dim);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .scp-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid transparent;
+        transition: all 0.2s ease;
+      }
+      .scp-card:hover {
+        background: rgba(255, 255, 255, 0.04);
+        border-color: var(--scp-border);
+      }
+      .scp-btn-action {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--scp-border);
+        color: var(--scp-text);
+        font-family: 'JetBrains Mono', monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        transition: all 0.2s ease;
+        position: relative;
+        overflow: hidden;
+      }
+      .scp-btn-action:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: var(--scp-text-dim);
+        box-shadow: 0 0 15px rgba(255, 255, 255, 0.05);
+      }
+      .scp-btn-action:active {
+        transform: translateY(1px);
+      }
+      .scp-btn-primary {
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid var(--scp-amber);
+        color: var(--scp-amber);
+      }
+      .scp-btn-primary:hover {
+        background: rgba(245, 158, 11, 0.2);
+        box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
+      }
+      .scp-btn-danger {
+        background: rgba(220, 38, 38, 0.1);
+        border: 1px solid var(--scp-alert);
+        color: var(--scp-alert);
+      }
+      .scp-btn-danger:hover {
+        background: rgba(220, 38, 38, 0.25);
+        box-shadow: 0 0 20px rgba(220, 38, 38, 0.3);
+      }
+      @media (hover: none) and (pointer: coarse) {
+        .scp-btn-action:hover {
+          background: rgba(255, 255, 255, 0.03);
+          border-color: var(--scp-border);
+          box-shadow: none;
+        }
+        .scp-btn-primary:hover {
+          background: rgba(245, 158, 11, 0.1);
+          box-shadow: none;
+        }
+        .scp-btn-danger:hover {
+          background: rgba(220, 38, 38, 0.1);
+          box-shadow: none;
+        }
+        .scp-card:hover {
+          background: rgba(255, 255, 255, 0.02);
+          border-color: transparent;
+        }
+        .scp-btn-action:active {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: var(--scp-text-dim);
+        }
+        .scp-btn-primary:active {
+          background: rgba(245, 158, 11, 0.2);
+          box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
+        }
+      }
+      .scp-glass {
+        background: rgba(10, 10, 12, 0.7);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+      .scp-window {
+        background: rgba(15, 15, 18, 0.95);
+        border: 1px solid var(--scp-border);
+        box-shadow: var(--scp-shadow);
+      }
+      .scp-window-header {
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), transparent);
+        border-bottom: 1px solid var(--scp-border);
+        color: var(--scp-text);
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+      }
+      .scp-archive {
+        background: #0b0b0b;
+        border: 1px solid var(--scp-border-strong);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04), var(--scp-shadow);
+      }
+      .reading-pane {
+        text-shadow: none;
+      }
+      .reading-pane .typewriter-container {
+        max-width: 42rem;
+      }
+      .scp-alert {
+        border: 1px solid rgba(195, 46, 46, 0.7);
+        box-shadow: 0 0 18px rgba(195, 46, 46, 0.25);
+      }
+      .scp-divider {
+        height: 1px;
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05));
+      }
+      .scp-badge {
+        border: 1px solid var(--scp-border);
+        background: rgba(0, 0, 0, 0.5);
+        color: var(--scp-text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.3em;
+      }
+      .scp-noise {
+        background-image: url('https://www.transparenttextures.com/patterns/noise-lines.png');
+        opacity: var(--scp-noise-opacity);
       }
       .crt::before {
         content: " ";
@@ -65,17 +323,16 @@
         left: 0;
         bottom: 0;
         right: 0;
-        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, var(--scp-scanline-dark) 50%), linear-gradient(90deg, var(--scp-scanline-rgb-r), var(--scp-scanline-rgb-g), var(--scp-scanline-rgb-b));
         z-index: 2;
         background-size: 100% 2px, 3px 100%;
         pointer-events: none;
       }
-      /* Text Shadows for extra glow */
       .text-shadow-green {
-        text-shadow: 0 0 5px rgba(51, 255, 0, 0.5);
+        text-shadow: 0 0 5px rgba(51, 255, 0, 0.45);
       }
       .text-shadow-sm {
-        text-shadow: 0 0 3px rgba(224, 224, 224, 0.3);
+        text-shadow: 0 0 3px rgba(224, 224, 224, 0.28);
       }
       @keyframes scp-stroke {
         from {
@@ -110,6 +367,16 @@
         stroke-dasharray: 0 1000;
         stroke-dashoffset: 500; /* 从中心开始 */
         animation: scp-cycle 2s ease infinite;
+      }
+      .radar-sweep {
+        background: conic-gradient(
+          from 0deg,
+          transparent 0deg,
+          transparent 270deg,
+          rgba(51, 255, 0, 0.1) 310deg,
+          rgba(51, 255, 0, 0.4) 360deg
+        );
+        border-radius: 50%;
       }
     </style>
   <script type="importmap">

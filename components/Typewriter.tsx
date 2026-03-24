@@ -1,5 +1,8 @@
 import React, { useEffect, useState, useRef, useMemo, createContext, useContext } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { RuntimeNPCState } from '../types';
+import NPCDialogue from './game/NPCDialogue';
+import { extractNpcDialogues } from '../utils/npcDialogue';
 
 // Context to determine if we are inside an ordered list
 const ListTypeContext = createContext({ ordered: false });
@@ -9,9 +12,12 @@ interface TypewriterProps {
   isStreaming: boolean;
   onComplete?: () => void;
   onOptionClick?: (text: string) => void;
+  npcs?: RuntimeNPCState[];
+  npcImages?: Record<string, string>;
+  onNpcImageClick?: (url: string) => void;
 }
 
-const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplete, onOptionClick }) => {
+const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplete, onOptionClick, npcs, npcImages, onNpcImageClick }) => {
   const [displayedContent, setDisplayedContent] = useState('');
   const [isVisualTyping, setIsVisualTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -66,7 +72,7 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
         return (
             <li 
                 {...props} 
-                className={isClickable ? "cursor-pointer hover:text-scp-term hover:bg-scp-gray/20 transition-all duration-200 rounded px-2 -ml-2 group relative" : ""}
+                className={isClickable ? "cursor-pointer hover:text-scp-term hover:bg-scp-gray/20 transition-all duration-200 rounded px-2 py-2 -ml-2 group relative min-h-[44px]" : ""}
                 onClick={(e) => {
                     const selection = window.getSelection();
                     // If text is selected, do not trigger the click action
@@ -97,7 +103,7 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
             
             return (
                 <span 
-                    className={`text-scp-term underline decoration-scp-term/50 decoration-1 underline-offset-4 transition-all select-text ${isClickable ? 'cursor-pointer hover:decoration-scp-term hover:text-white hover:bg-scp-term/10 rounded px-1 -mx-1' : ''}`}
+                    className={`text-scp-term underline decoration-scp-term/50 decoration-1 underline-offset-4 transition-all select-text ${isClickable ? 'cursor-pointer hover:decoration-scp-term hover:text-white hover:bg-scp-term/10 rounded px-1 py-1 -mx-1' : ''}`}
                     onClick={(e) => {
                         // Allow text selection without triggering click
                         const selection = window.getSelection();
@@ -127,13 +133,46 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
                 {children}
             </a>
         );
+    },
+    p: ({ children, ...props }: any) => {
+        const segments = extractNpcDialogues(children);
+        if (!segments) {
+            return <p {...props}>{children}</p>;
+        }
+        const nodes = segments.flatMap((segment, index) => {
+            if (segment.type === 'npc' && segment.npcId) {
+                return [
+                    <NPCDialogue
+                        key={`npc-${segment.npcId}-${index}`}
+                        id={segment.npcId}
+                        content={[segment.content]}
+                        npcs={npcs}
+                        npcImages={npcImages}
+                        onImageClick={onNpcImageClick}
+                    />
+                ];
+            }
+            const text = segment.content.trim();
+            if (!text) return [];
+            return [<p key={`npc-text-${index}`} {...props}>{segment.content}</p>];
+        });
+        return <>{nodes}</>;
     }
-  }), [onOptionClick]);
+  }), [onOptionClick, npcs, npcImages, onNpcImageClick]);
 
   // Keep contentRef in sync with prop
   useEffect(() => {
     contentRef.current = content;
   }, [content]);
+
+  // Sync displayed content when streaming ends or content significantly changes (e.g. tag removal)
+  useEffect(() => {
+    if (!isStreaming && content !== displayedContent) {
+        setDisplayedContent(content);
+        displayedLengthRef.current = content.length;
+        setIsVisualTyping(false);
+    }
+  }, [content, isStreaming, displayedContent]);
 
   // Manage Audio Context based on visual typing state
   useEffect(() => {
@@ -233,6 +272,11 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
 
         // Check if fully complete (backend done AND visual typing done)
         if (!isStreaming && currentLen >= target.length) {
+            // Ensure we match exactly if we overshot or if target shrank
+            if (currentLen > target.length || displayedContent !== target) {
+                 setDisplayedContent(target);
+                 displayedLengthRef.current = target.length;
+            }
             setIsVisualTyping(false);
             if (onComplete) onComplete();
             return;
@@ -286,20 +330,34 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
   }, [displayedContent]);
 
   return (
-    <div className={`typewriter-container prose prose-invert prose-p:text-scp-text prose-headings:text-scp-accent max-w-none font-mono text-sm md:text-base leading-relaxed ${isVisualTyping ? 'cursor-active' : ''}`}>
+    <div className={`typewriter-container prose prose-invert prose-p:text-scp-text prose-headings:text-scp-accent max-w-none font-mono text-base md:text-lg leading-7 md:leading-8 tracking-[0.01em] ${isVisualTyping ? 'cursor-active' : ''}`}>
       <style>
         {`
           .typewriter-container ol {
             list-style: decimal !important;
-            padding-left: 2rem !important;
-            margin: 1rem 0 !important;
+            padding-left: 2.25rem !important;
+            margin: 1.1rem 0 !important;
           }
           .typewriter-container ol ol {
             list-style: lower-alpha !important;
-            padding-left: 2.5rem !important;
+            padding-left: 2.75rem !important;
+          }
+          .typewriter-container ul {
+            list-style: disc !important;
+            padding-left: 2.1rem !important;
+            margin: 1.1rem 0 !important;
           }
           .typewriter-container li {
-            margin: 0.5rem 0 !important;
+            margin: 0.65rem 0 !important;
+          }
+          .typewriter-container p {
+            margin: 0.85rem 0 !important;
+          }
+          .typewriter-container h1,
+          .typewriter-container h2,
+          .typewriter-container h3,
+          .typewriter-container h4 {
+            margin: 1.4rem 0 0.8rem !important;
           }
           /* Cursor styling attached to the last element */
           @keyframes cursor-blink {
@@ -310,7 +368,7 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
             content: '▋';
             display: inline-block;
             animation: cursor-blink 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-            color: #33ff00;
+            color: var(--theme-accent, #33ff00);
             margin-left: 4px;
             vertical-align: baseline;
           }
@@ -319,7 +377,7 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
             content: '▋';
             display: inline-block;
             animation: cursor-blink 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-            color: #33ff00;
+            color: var(--theme-accent, #33ff00);
           }
         `}
       </style>

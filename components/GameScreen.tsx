@@ -1,21 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { GameState, GameStatus, Message, EndingType, GameReviewData, QAPair } from '../types';
-import { sendAction, extractVisualPrompt, extractStability, extractEnding, generateImage, getChatHistory, restoreChatSession } from '../services/geminiService';
+import { GameState, GameStatus, EndingType, GameReviewData, QAPair, LegacyData } from '../types';
+import { getChatHistory, getSummaryContext, restoreChatSession, clearMemoryCache } from '../services/aiService';
 import ConfirmationModal from './ConfirmationModal';
 import SaveLoadModal from './SaveLoadModal';
 import WorldLineTree from './WorldLineTree';
+import LegacySidebar from './LegacySidebar';
 import { useTranslation } from '../utils/i18n';
 
-// New Imports
-import { useGameAudio } from '../hooks/useGameAudio';
-import { useGlitchEffect } from '../hooks/useGlitchEffect';
-import VisualEffects from './game/VisualEffects';
 import GameHeader from './game/GameHeader';
 import ChatArea from './game/ChatArea';
 import InputArea from './game/InputArea';
 import EndingOverlay from './game/EndingOverlay';
 import TutorialOverlay from './game/TutorialOverlay';
-import { loadSetting, saveSetting } from '../services/indexedDBService';
+import MapPanel from './game/MapPanel';
+
+import { useMapContext } from '../hooks/useMapContext';
+import { useMapUpdate } from '../hooks/useMapUpdate';
+import { useGameLoop } from '../hooks/useGameLoop';
+import { useGameOverCountdown } from '../hooks/useGameOverCountdown';
+import { useThemeColors } from '../hooks/useThemeColors';
+import { useViewport } from '../hooks/useViewport';
+import MobileDrawer from './common/MobileDrawer';
+import { useTutorial } from '../hooks/useTutorial';
+import { THEME_CSS } from '../styles/themeCss';
 
 interface GameScreenProps {
   gameState: GameState;
@@ -24,268 +31,119 @@ interface GameScreenProps {
 
 const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   const { t, language, setLanguage } = useTranslation();
+  const { isMobile } = useViewport();
+  const [mobileDrawer, setMobileDrawer] = useState<'none' | 'map' | 'legacy'>('none');
   const [input, setInput] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
   const [showAbortModal, setShowAbortModal] = useState(false);
   const [saveLoadModalOpen, setSaveLoadModalOpen] = useState(false);
   const [saveLoadMode, setSaveLoadMode] = useState<'save' | 'load'>('save');
-  
-  // Tutorial State
-  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
-
-  // Game Over Countdown States
-  const [gameOverCountdown, setGameOverCountdown] = useState<number | null>(null);
-  const [isCountdownActive, setIsCountdownActive] = useState(false);
-
-  // Layout States
   const [isReportOpen, setIsReportOpen] = useState(true);
-  const [isEndingOverlayCollapsed, setIsEndingOverlayCollapsed] = useState(false);
+  const [isMemoryEchoActive, setMemoryEchoActive] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Check for tutorial on mount
-  useEffect(() => {
-    const checkTutorial = async () => {
-      // Only show tutorial if game is just starting (turn 0 or 1)
-      if (gameState.turnCount <= 1) {
-        const hasSeenTutorial = await loadSetting('hasSeenTutorial');
-        if (!hasSeenTutorial) {
-          setIsTutorialOpen(true);
-          await saveSetting('hasSeenTutorial', true);
-        }
-      }
-    };
-    checkTutorial();
-  }, [gameState.turnCount]);
+  useThemeColors(gameState.stability);
+  
+  const { isTutorialOpen, closeTutorial } = useTutorial(gameState.turnCount);
 
-  // Auto scroll to bottom of chat
+  const buildMapContext = useMapContext(gameState);
+  const applyMapUpdate = useMapUpdate();
+
+  const { isProcessing, handleSend } = useGameLoop({
+    gameState,
+    setGameState,
+    language,
+    t,
+    setInput,
+    setMemoryEchoActive,
+    buildMapContext,
+    applyMapUpdate
+  });
+
+  const { countdown, isActive: isCountdownActive, cancel: handleCancelCountdown, isCollapsed: isEndingOverlayCollapsed, setIsCollapsed: setIsEndingOverlayCollapsed } = useGameOverCountdown(gameState, setGameState);
+
   useEffect(() => {
     if (scrollRef.current && gameState.status === GameStatus.PLAYING) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [gameState.messages, gameState.status]);
 
-  // Use Custom Hooks
-  const isCritical = useGameAudio(gameState);
-  const isGlitching = useGlitchEffect(gameState);
-
-  // --- Game Over Trigger Logic ---
   useEffect(() => {
-    if (gameState.endingType && gameState.status === GameStatus.PLAYING && gameOverCountdown === null) {
-        setGameOverCountdown(10);
-        setIsCountdownActive(true);
-        setIsEndingOverlayCollapsed(false);
+    if (gameState.status === GameStatus.GAME_OVER) {
+      setIsReportOpen(true);
     }
-  }, [gameState.endingType, gameState.status, gameOverCountdown]);
-
-  // --- Countdown Timer ---
-  useEffect(() => {
-    if (isCountdownActive && gameOverCountdown !== null) {
-        if (gameOverCountdown > 0) {
-            const timer = setTimeout(() => setGameOverCountdown(prev => prev! - 1), 1000);
-            return () => clearTimeout(timer);
-        } else {
-            setGameState(prev => ({ ...prev, status: GameStatus.GAME_OVER }));
-        }
-    }
-  }, [isCountdownActive, gameOverCountdown, setGameState]);
-
-  useEffect(() => {
-      if (gameState.status === GameStatus.GAME_OVER) {
-          setIsReportOpen(true);
-      }
   }, [gameState.status]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isProcessing) return;
-
-    const currentStability = gameState.stability;
-    const newTurnCount = gameState.turnCount + 1;
-    const originalInput = input; // Capture input to restore on error/timeout
-
-    console.log(`[GameScreen] processing turn ${newTurnCount}, stability ${currentStability}`);
-
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      sender: 'user',
-      content: input,
-      timestamp: Date.now()
-    };
-
-    setGameState(prev => ({
-      ...prev,
-      turnCount: newTurnCount,
-      messages: [...prev.messages, userMsg]
-    }));
-    setInput('');
-    setIsProcessing(true);
-
-    const aiMsgId = (Date.now() + 1).toString();
-    setGameState(prev => ({
-      ...prev,
-      messages: [...prev.messages, {
-        id: aiMsgId,
-        sender: 'narrator',
-        content: '',
-        timestamp: Date.now(),
-        isTyping: true
-      }]
-    }));
-
-    try {
-      console.log("[GameScreen] Invoking sendAction stream...");
-      let fullResponse = '';
-      
-      const stream = sendAction(userMsg.content, currentStability, newTurnCount, language);
-      const iterator = stream[Symbol.asyncIterator]();
-      
-      // 30 seconds timeout limit for response stream
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('TIMEOUT')), 30000)
-      );
-
-      while (true) {
-        // Race the stream iterator against the timeout
-        const result = await Promise.race([
-            iterator.next(),
-            timeoutPromise
-        ]);
-
-        if (result.done) break;
-
-        const chunk = result.value;
-        fullResponse += chunk;
-        setGameState(prev => ({
-          ...prev,
-          messages: prev.messages.map(m => 
-            m.id === aiMsgId ? { ...m, content: fullResponse } : m
-          )
-        }));
-      }
-
-      console.log("[GameScreen] Stream completed. Full response length:", fullResponse.length);
-
-      if (!fullResponse) {
-          console.warn("[GameScreen] Warning: Received empty response from model.");
-          // We don't throw here, but flow continues. The regexes below will fail gracefully.
-      }
-
-      // Chain of extraction: Ending -> Stability -> Visual -> Clean Text
-      const endingResult = extractEnding(fullResponse);
-      const textAfterEnding = endingResult.cleanText;
-      let detectedEndingType = endingResult.endingType;
-
-      const stabilityResult = extractStability(textAfterEnding);
-      const textAfterStability = stabilityResult.cleanText;
-      const nextStability = stabilityResult.newStability;
-
-      // Fallback: If stability drops to 0 but no ending tag, force COLLAPSE
-      if (nextStability !== null && nextStability <= 0 && !detectedEndingType) {
-        detectedEndingType = EndingType.COLLAPSE;
-      }
-
-      const visualResult = extractVisualPrompt(textAfterStability);
-      const finalText = visualResult.cleanText;
-      const visualPrompt = visualResult.visualPrompt;
-      
-      const updatedStability = nextStability !== null ? nextStability : gameState.stability;
-
-      setGameState(prev => ({
-        ...prev,
-        stability: updatedStability,
-        endingType: detectedEndingType,
-        messages: prev.messages.map(m => 
-          m.id === aiMsgId ? { 
-              ...m, 
-              content: finalText, 
-              isTyping: false,
-              stabilitySnapshot: updatedStability 
-          } : m
-        )
-      }));
-
-      if (visualPrompt) {
-        generateIllustration(aiMsgId, visualPrompt);
-      }
-
-    } catch (error: any) {
-      console.error("[GameScreen] Game Loop Error:", error);
-      
-      let errorMessage = t('game.err_offline');
-      if (error.message === 'TIMEOUT') {
-          errorMessage = t('game.err_timeout');
-          setInput(originalInput); // Restore user input so they can try again easily
-      }
-
-      // Update UI to reflect error state instead of hanging on loading
-      setGameState(prev => ({
-        ...prev,
-        messages: prev.messages.map(m => 
-          m.id === aiMsgId ? { ...m, content: errorMessage, isTyping: false } : m
-        )
-      }));
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const generateIllustration = async (messageId: string, prompt: string) => {
-    const base64 = await generateImage(prompt + ", dark aesthetic, scp foundation style, cinematic lighting", "16:9");
-    if (base64) {
-      setGameState(prev => ({
-        ...prev,
-        messages: prev.messages.map(m => 
-          m.id === messageId ? { ...m, imageUrl: base64 } : m
-        )
-      }));
-    }
+  const handleSendMessage = () => {
+    void handleSend(input);
   };
 
   const handleAbort = () => {
-    setGameState({
-        status: GameStatus.IDLE,
+    if (gameState.scpData?.designation === 'TEST-RUN') {
+      setGameState(prev => ({
+        ...prev,
+        status: GameStatus.STORY_EDITOR,
         scpData: null,
         role: '',
         messages: [],
-        backgroundImage: null,
-        mainImage: null,
         stability: 100,
-        turnCount: 1,
-        endingType: null,
-        gameReview: null,
-        qaHistory: []
+        turnCount: 0
+      }));
+      setShowAbortModal(false);
+      return;
+    }
+
+    clearMemoryCache();
+    
+    setGameState({
+      status: GameStatus.IDLE,
+      scpData: null,
+      role: '',
+      messages: [],
+      backgroundImage: null,
+      mainImage: null,
+      stability: 100,
+      turnCount: 0,
+      endingType: null,
+      gameReview: null,
+      qaHistory: []
     });
     setShowAbortModal(false);
   };
 
   const handleOpenSaveModal = async () => {
     try {
-        const history = await getChatHistory();
-        setGameState(prev => ({ ...prev, chatHistory: history, language:language }));
-        setSaveLoadMode('save');
-        setSaveLoadModalOpen(true);
+      const history = await getChatHistory();
+      const summaryContext = await getSummaryContext();
+      setGameState(prev => ({ ...prev, chatHistory: history, summaryContext, language }));
+      setSaveLoadMode('save');
+      setSaveLoadModalOpen(true);
     } catch (e) {
-        console.error("Failed to sync chat history before save", e);
-        // Still open modal but maybe warn? Or just proceed.
-        setGameState(prev => ({ ...prev, language }));
-        setSaveLoadMode('save');
-        setSaveLoadModalOpen(true);
+      console.error("Failed to sync chat history before save", e);
+      setGameState(prev => ({ ...prev, language }));
+      setSaveLoadMode('save');
+      setSaveLoadModalOpen(true);
     }
   };
 
   const handleLoadGame = async (newGameState: GameState) => {
+    clearMemoryCache();
+
     if (newGameState.language) {
       setLanguage(newGameState.language);
     }
 
     if (newGameState.chatHistory) {
-        // Restore the chat session in the service
-        // Use the language from the save state if available, otherwise current
-        await restoreChatSession(newGameState.chatHistory, newGameState.role, newGameState.language || language);
+      await restoreChatSession({
+        history: newGameState.chatHistory,
+        role: newGameState.role,
+        language: newGameState.language || language,
+        tokenCount: newGameState.tokenCount,
+        summaryContext: newGameState.summaryContext
+      });
     }
     
-    // Disable typing effect for loaded messages
     const restoredMessages = newGameState.messages.map(msg => ({
       ...msg,
       isTyping: false
@@ -296,63 +154,63 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   };
 
   const handleManualEnter = () => {
-      setGameState(prev => ({ ...prev, status: GameStatus.GAME_OVER }));
+    setGameState(prev => ({ ...prev, status: GameStatus.GAME_OVER }));
   };
 
-  const handleCancelCountdown = () => {
-      setIsCountdownActive(false);
-  };
-
-  // Handler for clicking options in Typewriter
   const handleOptionClick = (text: string) => {
     setInput(text);
     if (inputRef.current) {
-        inputRef.current.focus();
+      inputRef.current.focus();
     }
   };
 
-  // --- Handlers for Updating Game State from Review/QA ---
   const handleReviewUpdate = (review: GameReviewData) => {
-      setGameState(prev => ({ ...prev, gameReview: review }));
+    setGameState(prev => ({ ...prev, gameReview: review }));
   };
 
   const handleQAUpdate = (qa: QAPair) => {
-      setGameState(prev => ({ 
-          ...prev, 
-          qaHistory: [...(prev.qaHistory || []), qa] 
-      }));
+    setGameState(prev => ({ 
+      ...prev, 
+      qaHistory: [...(prev.qaHistory || []), qa] 
+    }));
   };
 
-  // --- Visual Effects Calculation ---
+  const handleNewGamePlus = (legacyData: LegacyData) => {
+    if (gameState.saveId) {
+      clearMemoryCache(gameState.saveId);
+    }
+
+    setGameState(prev => ({
+      status: GameStatus.IDLE,
+      scpData: null,
+      role: '',
+      messages: [],
+      backgroundImage: null,
+      mainImage: null,
+      stability: 100,
+      turnCount: 1,
+      endingType: null,
+      gameReview: null,
+      qaHistory: [],
+      legacy: legacyData,
+      saveId: prev.saveId
+    }));
+  };
+
   const instability = 100 - gameState.stability;
   const isUnstable = instability > 30; 
-  
-  // Noise opacity: Starts at instability 20, ramps up. 
-  const noiseOpacity = Math.min(Math.max((instability - 20) / 140, 0), 0.5);
-
-  const distortionScale = isUnstable ? Math.min((instability - 30) * 0.5, 30) : 0;
-  
-  // Check if we are currently viewing the report to disable effects
   const isViewingReport = gameState.status === GameStatus.GAME_OVER && isReportOpen;
 
   return (
     <>
-    <VisualEffects 
-      isCritical={isCritical}
-      isGlitching={isGlitching}
-      noiseOpacity={noiseOpacity}
-      distortionScale={distortionScale}
-      showNoise={gameState.status === GameStatus.PLAYING}
-    />
-
-    {/* Main Container */}
+    <style>{THEME_CSS}</style>
     <div 
-        className={`relative z-10 w-full max-w-4xl h-[85vh] md:h-[90vh] flex flex-col bg-black/15 shadow-2xl overflow-hidden crt transition-all duration-1000 ${isGlitching && !isViewingReport ? 'animate-shake' : ''}`}
+        className={`relative z-10 w-full max-w-4xl ${isMobile ? 'h-[100dvh]' : 'h-[85vh] md:h-[90vh]'} flex flex-col bg-black/15 scp-ui shadow-2xl overflow-hidden crt transition-all duration-1000`}
         style={isUnstable && !isViewingReport ? { filter: 'url(#signal-interference)' } : {}}
     >
+      {gameState.legacy && <LegacySidebar legacyData={gameState.legacy} isDrawerOpen={mobileDrawer === 'legacy'} onDrawerClose={() => setMobileDrawer('none')} />}
 
-      {/* Main Border */}
-      <div className={`absolute inset-0 border pointer-events-none z-40 transition-colors duration-1000 ${isCritical ? 'border-scp-accent/50' : 'border-scp-gray/50'}`}></div>
+      <div className={`absolute inset-0 border pointer-events-none z-40 transition-colors duration-1000 border-scp-gray/50`}></div>
       
       <GameHeader 
         gameState={gameState} 
@@ -362,8 +220,15 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         setIsReportOpen={setIsReportOpen}
         onSave={handleOpenSaveModal}
         onLoad={() => { setSaveLoadMode('load'); setSaveLoadModalOpen(true); }}
-        onTerminate={() => setShowAbortModal(true)}
-        isCritical={isCritical}
+        onTerminate={() => {
+            if (gameState.scpData?.designation === 'TEST-RUN') {
+                 handleAbort();
+            } else {
+                 setShowAbortModal(true);
+            }
+        }}
+        isCritical={false}
+        isMemoryEchoActive={isMemoryEchoActive}
       />
 
       <ChatArea 
@@ -377,12 +242,32 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
       <InputArea 
         input={input}
         setInput={setInput}
-        handleSend={handleSend}
+        handleSend={handleSendMessage}
         isProcessing={isProcessing}
         gameState={gameState}
         t={t}
         inputRef={inputRef}
       />
+
+      {/* Left-edge legacy tab (mobile only) */}
+      {isMobile && gameState.status === GameStatus.PLAYING && gameState.legacy && mobileDrawer !== 'legacy' && (
+        <button
+          onClick={() => setMobileDrawer('legacy')}
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-[90] w-6 min-h-[56px] flex items-center justify-center bg-black/80 border border-l-0 border-scp-term/40 rounded-r text-scp-term/70 active:bg-scp-term/20"
+        >
+          <span className="text-xs font-mono">›</span>
+        </button>
+      )}
+
+      {/* Right-edge map tab (mobile only) */}
+      {isMobile && gameState.status === GameStatus.PLAYING && mobileDrawer !== 'map' && (
+        <button
+          onClick={() => setMobileDrawer('map')}
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-[90] w-6 min-h-[56px] flex items-center justify-center bg-black/80 border border-r-0 border-scp-term/40 rounded-l text-scp-term/70 active:bg-scp-term/20"
+        >
+          <span className="text-xs font-mono">‹</span>
+        </button>
+      )}
 
       <EndingOverlay 
         gameState={gameState}
@@ -390,18 +275,18 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         isEndingOverlayCollapsed={isEndingOverlayCollapsed}
         setIsEndingOverlayCollapsed={setIsEndingOverlayCollapsed}
         isCountdownActive={isCountdownActive}
-        gameOverCountdown={gameOverCountdown}
+        gameOverCountdown={countdown}
         handleCancelCountdown={handleCancelCountdown}
         handleManualEnter={handleManualEnter}
       />
       
-      {/* World Line Tree Overlay (Game Over State) */}
       {gameState.status === GameStatus.GAME_OVER && (
           <div className={isReportOpen ? 'contents' : 'hidden'}>
             <WorldLineTree 
                 messages={gameState.messages} 
                 scpData={gameState.scpData} 
                 onRestart={handleAbort} 
+                onNewGamePlus={handleNewGamePlus}
                 onMinimize={() => setIsReportOpen(false)}
                 backgroundImage={gameState.backgroundImage}
                 endingType={gameState.endingType || EndingType.UNKNOWN}
@@ -410,6 +295,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
                 qaHistory={gameState.qaHistory}
                 onReviewUpdate={handleReviewUpdate}
                 onQAUpdate={handleQAUpdate}
+                currentLegacyData={gameState.legacy}
+                saveId={gameState.saveId}
             />
           </div>
       )}
@@ -426,7 +313,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
     <TutorialOverlay 
         isVisible={isTutorialOpen}
-        onClose={() => setIsTutorialOpen(false)}
+        onClose={closeTutorial}
         t={t}
     />
 
@@ -436,7 +323,27 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         mode={saveLoadMode}
         currentGameState={gameState}
         onLoadGame={handleLoadGame}
+        onSaveComplete={(id) => setGameState(prev => ({ ...prev, saveId: id }))}
     />
+    {isMobile ? (
+      <MobileDrawer
+        isOpen={mobileDrawer === 'map'}
+        onClose={() => setMobileDrawer('none')}
+        title=""
+        side="right"
+      >
+        <MapPanel 
+          gameState={gameState}
+          onQuickAction={(text) => { setMobileDrawer('none'); handleOptionClick(text); }}
+          fullWidth
+        />
+      </MobileDrawer>
+    ) : (
+      <MapPanel 
+        gameState={gameState}
+        onQuickAction={handleOptionClick}
+      />
+    )}
     </>
   );
 };

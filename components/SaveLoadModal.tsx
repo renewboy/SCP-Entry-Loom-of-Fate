@@ -3,11 +3,14 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from '../utils/i18n';
 import * as IDB from '../services/indexedDBService';
 import * as Cloud from '../services/supabaseService';
+import { flushStagedRagMemoriesToTimeline } from '../services/ragStaging';
 import { SaveGameMetadata } from '../types';
-import { GameState } from '../types';
+import { GameState, GameStatus } from '../types';
 import ConfirmationModal from './ConfirmationModal';
+import CrtSurface from './common/CrtSurface';
 import { User } from '@supabase/supabase-js';
 import { ERROR_CODES } from '../services/indexedDBService';
+import { useViewport } from '../hooks/useViewport';
 
 interface SaveLoadModalProps {
   isOpen: boolean;
@@ -15,10 +18,12 @@ interface SaveLoadModalProps {
   mode: 'save' | 'load';
   currentGameState?: GameState;
   onLoadGame: (gameState: GameState) => void;
+  onSaveComplete?: (id: string) => void;
 }
 
-const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, currentGameState, onLoadGame }) => {
+const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, currentGameState, onLoadGame, onSaveComplete }) => {
   const { t } = useTranslation();
+  const { isMobile } = useViewport();
   const [activeTab, setActiveTab] = useState<'local' | 'cloud'>('local'); // We'll use this just for login view state now
   const [saves, setSaves] = useState<SaveGameMetadata[]>([]);
   const [loading, setLoading] = useState(false);
@@ -48,6 +53,29 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
           fetchSaves();
       }
   }, [user]);
+
+  useEffect(() => {
+    if (!isOpen || !user) return;
+
+    const channel = Cloud.supabase
+      .channel('public:save_games')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'save_games', filter: `user_id=eq.${user.id}` },
+        async () => {
+          const { data: freshCloudData } = await Cloud.loadGames(user.id);
+          if (freshCloudData) {
+            await IDB.saveCloudSavesList(freshCloudData);
+            fetchSaves(user);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      Cloud.supabase.removeChannel(channel);
+    };
+  }, [isOpen, user]);
 
   const checkAuthAndFetch = async () => {
       let currentUser = await Cloud.getCurrentUser();
@@ -135,22 +163,6 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
     if (currentUser) {
         // Try loading from IndexedDB cache first
         let cachedCloudSaves = await IDB.getCloudSavesList(currentUser.id);
-        
-        // Subscribe to Realtime Changes
-        const channel = Cloud.supabase.channel('public:save_games')
-        .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'save_games', filter: `user_id=eq.${currentUser.id}` },
-            async () => {
-                console.log('Cloud saves updated, refreshing...');
-                const { data: freshCloudData } = await Cloud.loadGames(currentUser.id);
-                if (freshCloudData) {
-                    await IDB.saveCloudSavesList(freshCloudData);
-                    fetchSaves(currentUser); // Re-trigger UI update
-                }
-            }
-        )
-        .subscribe();
 
         // If cache is empty, fetch from cloud initially
         if (cachedCloudSaves.length === 0) {
@@ -214,10 +226,6 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
                 // We iterate to avoid blocking the loop too much
                 toDownload.forEach(s => syncCloudToLocal(s));
         }
-
-        // Cleanup subscription on unmount or user change
-        // Note: fetchSaves is not a useEffect, so we can't return a cleanup function here.
-        // We should manage subscription in a useEffect.
     }
 
     // Sort combined list by date
@@ -228,6 +236,62 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
   };
 
     const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
+    
+    const mirrorLocalMemoriesToCloud = async (timelineId: string) => {
+        if (!user || !timelineId) return;
+        const { data } = await IDB.loadLocalMemoriesByTimelineId(timelineId);
+        const items = data || [];
+        if (items.length === 0) return;
+        const byScp = new Map<string, typeof items>();
+        items.forEach(item => {
+            const list = byScp.get(item.scp_number) || [];
+            list.push(item);
+            byScp.set(item.scp_number, list);
+        });
+        for (const group of byScp.values()) {
+            const { error } = await Cloud.archiveMemories(group);
+            if (error) console.error("Failed to mirror local memories to cloud", error);
+        }
+    };
+
+    const syncCloudMemoriesToLocal = async (timelineId: string) => {
+        if (!timelineId) return;
+        const { data, error } = await Cloud.loadMemoriesByTimelineId(timelineId);
+        if (error) {
+            console.error("Failed to load cloud memories", error);
+            return;
+        }
+        const items = (data || []).filter(m => Array.isArray(m.embedding) && m.embedding.length > 0);
+        if (items.length === 0) return;
+        const byScp = new Map<string, typeof items>();
+        items.forEach(item => {
+            const list = byScp.get(item.scp_number) || [];
+            list.push(item);
+            byScp.set(item.scp_number, list);
+        });
+        for (const group of byScp.values()) {
+            const { error: localError } = await IDB.archiveLocalMemories(group.map(m => ({
+                timeline_id: timelineId,
+                scp_number: m.scp_number || 'UNKNOWN',
+                content: m.content,
+                embedding: m.embedding as number[],
+                role: m.role || 'UNKNOWN',
+                turn_number: typeof m.turn_number === 'number' ? m.turn_number : 0,
+                tags: m.tags
+            })));
+            if (localError) console.error("Failed to archive cloud memories to local store", localError);
+        }
+    };
+
+    const downloadCloudSaveToLocal = async (id: string, createdAt?: string) => {
+        const { data: fullState, error } = await Cloud.loadGameFull(id);
+        if (fullState && !error) {
+            await IDB.saveGame(fullState, id, createdAt);
+            await IDB.updateCloudSyncStatus(id, true);
+            await syncCloudMemoriesToLocal(id);
+        }
+        return { data: fullState, error };
+    };
 
     // Sync Logic: Cloud -> Local (Download)
     const syncCloudToLocal = async (cloudSave: SaveGameMetadata) => {
@@ -236,13 +300,8 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
         
         try {
             console.log(`Auto-syncing save ${cloudSave.id} from cloud...`);
-            const { data: fullState, error } = await Cloud.loadGameFull(cloudSave.id);
+            const { data: fullState, error } = await downloadCloudSaveToLocal(cloudSave.id, cloudSave.created_at);
             if (fullState && !error) {
-                // Save to IDB using Cloud Timestamp
-                await IDB.saveGame(fullState, cloudSave.id, cloudSave.created_at);
-                // Update Cache status
-                await IDB.updateCloudSyncStatus(cloudSave.id, true);
-                
                 // Update UI: Mark as synced
                 setSaves(prev => prev.map(s => s.id === cloudSave.id ? { ...s, is_cloud_synced: true } : s));
             } else {
@@ -289,6 +348,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
                     
                     // Update UI state locally to reflect sync
                     setSaves(prev => prev.map(s => s.id === save.id ? { ...s, is_cloud_synced: true } : s));
+                    await mirrorLocalMemoriesToCloud(save.id);
                 }
             }
             
@@ -301,10 +361,40 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
         }
     };
 
+  const handleMemoryUpdates = async (overwriteId: string | undefined, savedId: string | undefined, currentSaveId: string | undefined) => {
+    if (overwriteId && overwriteId !== currentSaveId) {
+      const { error: purgeError } = await Cloud.deleteMemoriesByTimelineId(overwriteId);
+      if (purgeError) console.error("Failed to delete memories for overwritten save", purgeError);
+      const { error: purgeLocalError } = await IDB.deleteLocalMemoriesByTimelineId(overwriteId);
+      if (purgeLocalError) console.error("Failed to delete local memories for overwritten save", purgeLocalError);
+    }
+
+    // --- Memory Duplication Logic ---
+    // If we created a NEW save (overwriteId is undefined), and the previous game state had a saveId (timelineId),
+    // we need to copy the memories from the old timeline to the new timeline.
+    if (!overwriteId && currentSaveId && savedId && savedId !== currentSaveId) {
+      // It's a "Save As" / Branching operation
+      console.log(`[SaveLoadModal] Detected branching save. Duplicating memories from ${currentSaveId} to ${savedId}...`);
+      // We do this asynchronously to not block UI
+      Cloud.duplicateMemories(currentSaveId, savedId).then(({ error }) => {
+        if (error) console.error("Failed to duplicate memories for new save", error);
+        else console.log("Memories duplicated successfully.");
+      });
+      IDB.duplicateLocalMemories(currentSaveId, savedId).then(({ error }) => {
+        if (error) console.error("Failed to duplicate local memories for new save", error);
+      });
+    }
+  };
+
   const executeSave = async (overwriteId?: string) => {
     if (!currentGameState) return;
     setLoading(true);
     setError(null);
+    
+    // Check if this is a "Save As New" operation (no overwriteId)
+    // If so, we are creating a NEW timeline ID (generated by IDB.saveGame or similar)
+    // But wait, IDB.saveGame generates a new UUID if ID is missing.
+    // The currentGameState.saveId might be the OLD one.
     
     // 1. Save to IDB
     const { data: savedData, error } = await IDB.saveGame(currentGameState, overwriteId);
@@ -316,6 +406,17 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
           setError(t('save_load.save_error') + ': ' + error.message);
       }
     } else {
+      // Notify parent of the save ID
+      if (savedData && savedData.id && onSaveComplete) {
+          onSaveComplete(savedData.id);
+      }
+
+      await handleMemoryUpdates(overwriteId, savedData?.id, currentGameState.saveId);
+      if (savedData && savedData.id) {
+        const { payload, error: flushError } = await flushStagedRagMemoriesToTimeline(currentGameState.saveId, savedData.id);
+        if (flushError) console.error("Failed to flush staged memories to local store", flushError);
+      }
+
       // 2. If logged in, Auto-Sync to Cloud
       if (user && savedData && savedData.id) {
           // Trigger background sync for this specific save
@@ -387,7 +488,8 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
     
     if (localData && !localError) {
         // Found locally, just load
-        onLoadGame(localData);
+        // Ensure saveId is injected into GameState
+        onLoadGame({ ...localData, saveId: save.id });
         setLoading(false);
         onClose();
         return;
@@ -400,15 +502,12 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
     // If we are logged in, try fetching from cloud
     if (user) {
         console.log("Local load failed, trying cloud fallback...");
-        const { data: cloudData, error: cloudError } = await Cloud.loadGameFull(save.id);
+        const { data: cloudData, error: cloudError } = await downloadCloudSaveToLocal(save.id, save.created_at);
         
         if (cloudData && !cloudError) {
-             // Cache to local
-            await IDB.saveGame(cloudData, save.id);
-            await IDB.updateCloudSyncStatus(save.id, true);
-            
             setError(t('save_load.download_success')); 
-            onLoadGame(cloudData);
+            // Ensure saveId is injected into GameState
+            onLoadGame({ ...cloudData, saveId: save.id });
             setLoading(false);
             onClose();
             return;
@@ -454,6 +553,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
           
           setError(t('save_load.synced_success'));
           setSaves(prev => prev.map(s => s.id === id ? { ...s, is_cloud_synced: true } : s));
+          await mirrorLocalMemoriesToCloud(id);
           setTimeout(() => setError(null), 2000);
       }
       setLoading(false);
@@ -461,22 +561,30 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
 
   if (!isOpen) return null;
 
+  const isInGame = currentGameState?.status === GameStatus.PLAYING;
+  const accentClasses = {
+    border: isInGame ? 'border-scp-term' : 'border-scp-accent',
+    borderSoft: isInGame ? 'border-scp-term/60' : 'border-scp-accent/50',
+    text: isInGame ? 'text-scp-term' : 'text-scp-accent',
+    bg: isInGame ? 'bg-scp-term' : 'bg-scp-accent',
+    hoverBorder: isInGame ? 'hover:border-scp-term' : 'hover:border-scp-accent',
+    hoverBorderSoft: isInGame ? 'hover:border-scp-term/60' : 'hover:border-scp-accent/50',
+    hoverBg: isInGame ? 'hover:bg-scp-term' : 'hover:bg-scp-accent',
+    hoverText: isInGame ? 'hover:text-black' : 'hover:text-white',
+    hoverIndicator: isInGame ? 'group-hover/btn:text-scp-term' : 'group-hover/btn:text-scp-accent',
+    borderTop: isInGame ? 'border-t-scp-term' : 'border-t-scp-accent'
+  };
+
   const content = (
     <>
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-mono">
-      {/* CRT Scanline Effect Overlay - Red tint for accent */}
-      <div className="pointer-events-none absolute inset-0 z-0 opacity-10" style={{
-          backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 0, 0, 0.02), rgba(0, 0, 255, 0.06))',
-          backgroundSize: '100% 2px, 3px 100%'
-      }}></div>
-
-      <div className="bg-black border-y sm:border border-scp-accent/50 w-full max-w-3xl shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[85vh] relative overflow-hidden group/modal z-10">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-mono scp-ui">
+      <CrtSurface className={`scp-window border-y sm:border ${accentClasses.borderSoft} w-full max-w-3xl shadow-2xl flex flex-col ${isMobile ? 'h-[90dvh] rounded-md' : 'h-[100dvh] sm:h-auto sm:max-h-[85vh]'} relative overflow-hidden group/modal z-10`}>
         
         {/* Header with Login */}
-        <div className="bg-black h-14 w-full flex items-center justify-between px-3 sm:px-6 border-b border-scp-gray relative z-20 shrink-0 gap-2">
+        <div className="bg-black h-14 w-full flex items-center justify-between px-3 sm:px-6 border-b border-scp-gray relative z-20 shrink-0 gap-2 scp-window-header">
            <div className="flex items-center gap-3 min-w-0">
              <div className="flex gap-1 shrink-0">
-                <div className="w-3 h-3 bg-scp-accent rounded-full animate-pulse"></div>
+                <div className={`w-3 h-3 ${accentClasses.bg} rounded-full animate-pulse`}></div>
                 <div className="w-3 h-3 border border-scp-gray rounded-full"></div>
                 <div className="w-3 h-3 border border-scp-gray rounded-full"></div>
              </div>
@@ -522,7 +630,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
                     <div className="relative group/login-btn">
                       <button 
                         onClick={handleLogin}
-                        className="text-xs uppercase px-3 py-1 font-bold transition-colors flex items-center gap-2 bg-scp-dark border border-scp-accent text-scp-accent hover:bg-scp-accent hover:text-white"
+                        className={`text-xs uppercase px-3 py-1 font-bold transition-colors flex items-center gap-2 bg-scp-dark ${accentClasses.border} ${accentClasses.text} ${accentClasses.hoverBg} ${accentClasses.hoverText}`}
                       >
                           <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
                             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -555,7 +663,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
 
           {loading && (
              <div className="absolute inset-0 bg-black/80 z-50 flex flex-col items-center justify-center backdrop-blur-sm">
-                <div className="w-12 h-12 border-2 border-scp-gray border-t-scp-accent rounded-full animate-spin mb-4"></div>
+                <div className={`w-12 h-12 border-2 border-scp-gray ${accentClasses.borderTop} rounded-full animate-spin mb-4`}></div>
                 <div className="font-mono text-scp-text text-sm tracking-widest animate-pulse">{t('save_load.loading')}</div>
              </div>
           )}
@@ -572,10 +680,10 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
               <button
                 onClick={() => handleSaveClick()}
                 disabled={loading}
-                className="w-full p-4 border border-dashed border-scp-gray hover:border-scp-accent hover:bg-scp-gray/10 text-scp-text/60 hover:text-scp-text font-mono transition-all flex items-center justify-between group/btn"
+                className={`w-full p-4 border border-dashed border-scp-gray ${accentClasses.hoverBorder} hover:bg-scp-gray/10 text-scp-text/60 hover:text-scp-text font-mono transition-all flex items-center justify-between group/btn`}
               >
                 <span className="flex items-center gap-4">
-                    <span className="text-2xl group-hover/btn:text-scp-accent transition-colors">+</span>
+                    <span className={`text-2xl ${accentClasses.hoverIndicator} transition-colors`}>+</span>
                     <div className="flex flex-col items-start">
                         <span className="tracking-widest text-lg uppercase font-bold font-report shadow-black drop-shadow-md text-shadow-sm leading-none">{t('save_load.create_new')}</span>
                     </div>
@@ -584,9 +692,9 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
             )}
 
             {saves.map((save, index) => (
-              <div key={save.id} className="group relative bg-scp-gray/10 border border-scp-gray/30 hover:border-scp-accent/50 transition-all duration-200 hover:bg-scp-gray/20">
+              <div key={save.id} className={`group relative bg-scp-gray/10 border border-scp-gray/30 ${accentClasses.hoverBorderSoft} transition-all duration-200 hover:bg-scp-gray/20`}>
                 {/* Selection Indicator */}
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-scp-accent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className={`absolute left-0 top-0 bottom-0 w-1 ${accentClasses.bg} opacity-0 group-hover:opacity-100 transition-opacity`}></div>
                 
                 <div className="p-3 flex gap-3 relative z-10">
                   {/* Index Number */}
@@ -610,7 +718,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
                         className="font-mono text-scp-text text-sm tracking-wide font-bold flex items-start gap-2 whitespace-normal break-words line-clamp-2"
                         title={save.summary}
                      >
-                       <span className="opacity-50 text-scp-accent shrink-0">ID:</span>
+                       <span className={`opacity-50 ${accentClasses.text} shrink-0`}>ID:</span>
                        <span>{save.summary ? save.summary : 'UNKNOWN_DATA_FRAGMENT'}</span>
                      </div>
                      
@@ -624,7 +732,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
                         {(mode === 'load' || activeTab === 'cloud') && (
                           <button
                             onClick={() => handleLoad(save)}
-                            className="text-scp-text hover:text-white text-xs uppercase px-3 py-1 border border-scp-gray hover:border-scp-text transition-colors bg-scp-gray/20 flex items-center gap-2"
+                            className={`text-xs uppercase px-3 py-1 ${accentClasses.hoverText} ${accentClasses.hoverBg} border ${accentClasses.borderSoft} transition-colors`}
                           >
                             {activeTab === 'cloud' ? t('save_load.load_cloud_saves') : t('save_load.load_btn')}
                           </button>
@@ -634,7 +742,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
                         {mode === 'save' && activeTab === 'local' && (
                           <button
                             onClick={() => handleSaveClick(save.id)}
-                            className="text-scp-accent hover:text-white hover:bg-scp-accent text-xs uppercase px-3 py-1 border border-scp-accent/50 transition-colors"
+                            className={`text-xs uppercase px-3 py-1 ${accentClasses.hoverText} ${accentClasses.hoverBg} border ${accentClasses.borderSoft} transition-colors`}
                           >
                             {t('save_load.overwrite')}
                           </button>
@@ -682,7 +790,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
 
                         <button
                           onClick={() => handleDeleteClick(save.id)}
-                          className="text-scp-accent hover:text-white hover:bg-scp-accent text-xs uppercase px-3 py-1 border border-scp-accent/50 transition-colors ml-auto"
+                          className={`text-xs uppercase px-3 py-1 ${accentClasses.hoverText} ${accentClasses.hoverBg} border ${accentClasses.borderSoft} transition-colors ml-auto`}
                         >
                           {t('save_load.delete')}
                         </button>
@@ -693,7 +801,7 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
             ))}
           </div>
         </div>
-      </div>
+      </CrtSurface>
     </div>
 
     <ConfirmationModal
