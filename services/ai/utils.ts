@@ -1,4 +1,4 @@
-import { EndingType, GameReviewData } from '../../types';
+import { EndingType, GameReviewData, NarrativeMedium, NarrativeMediumType } from '../../types';
 import { ImageAspectRatio } from './types';
 
 export const extractVisualPrompt = (text: string): { cleanText: string, visualPrompt: string | null } => {
@@ -225,4 +225,37 @@ export const cleanHistoryText = (text: string): string => {
         .replace(/\[地图状态\][\s\S]*?\[地图状态结束\]/g, '')
         .replace(/【常规回合任务说明】[\s\S]*?【常规回合任务说明结束】/g, '')
         .trim();
+};
+
+// ---- Narrative Medium Extraction ----
+const MEDIUM_BLOCK_REGEX = /\[#(DOC|COMM|ENV|PSI)(?::([^\]]*))?\]\n?([\s\S]*?)\[\/#\1\]/g;
+
+const parseAttrs = (attrStr: string | undefined): Record<string, string> => {
+    const attrs: Record<string, string> = {};
+    if (!attrStr) return attrs;
+    for (const m of attrStr.matchAll(/(\w+)="([^"]*)"/g)) {
+        attrs[m[1]] = m[2];
+    }
+    return attrs;
+};
+
+export const extractNarrativeMedia = (text: string): {
+    cleanText: string;
+    media: NarrativeMedium[];
+} => {
+    const media: NarrativeMedium[] = [];
+    let cleanText = text;
+
+    for (const match of text.matchAll(MEDIUM_BLOCK_REGEX)) {
+        const [raw, typeStr, attrStr, content] = match;
+        media.push({
+            type: typeStr as NarrativeMediumType,
+            attrs: parseAttrs(attrStr),
+            content: content.trim(),
+            raw,
+        });
+        cleanText = cleanText.replace(raw, '');
+    }
+
+    return { cleanText: cleanText.trim(), media };
 };

@@ -84,20 +84,20 @@ export class OpenAIProvider implements AIService {
                 model: config.imageModel,
                 size: imageSizeFromAspectRatio(aspectRatio),
                 prompt: prompt,
-                response_format: responseFormat,
+                response_format: 'b64_json',
                 extra_body: {
                     watermark: false,
                 }
             });
             const item = response.data?.[0];
-            return item?.b64_json ? `data:image/png;base64,${item.b64_json}` : item?.url || null;
+            return item?.b64_json ? `data:image/png;base64,${item.b64_json}` : null;
         } catch (error) {
             return null;
         }
     }
 
-    async generateProfileCandidates(role: string, scpDesignation: string, language: Language): Promise<EntityProfile[]> {
-        const prompt = getProfileCandidatesPrompt(role, scpDesignation, language);
+    async generateProfileCandidates(role: string, scpDesignation: string, language: Language, legacyData?: LegacyData): Promise<EntityProfile[]> {
+        const prompt = getProfileCandidatesPrompt(role, scpDesignation, language, legacyData);
         try {
             const config = await this.getConfig();
             console.log(`[OpenAIProvider] Generating profile candidates for ${role}...`);

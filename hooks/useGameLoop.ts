@@ -211,6 +211,7 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
 
             const visualResult = extractVisualPrompt(textAfterMapUpdate);
             const finalText = visualResult.cleanText;
+
             const visualPrompt = visualResult.visualPrompt;
 
             const updatedStability = nextStability !== null ? nextStability : gameState.stability;
@@ -227,7 +228,7 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
                             ...m,
                             content: finalText,
                             isTyping: false,
-                            stabilitySnapshot: updatedStability
+                            stabilitySnapshot: updatedStability,
                         } : m
                     )
                 };

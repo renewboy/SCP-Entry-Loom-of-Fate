@@ -425,3 +425,13 @@ export interface Memory {
   tags?: any;
   similarity?: number;
 }
+
+// ---- Narrative Medium System ----
+export type NarrativeMediumType = 'DOC' | 'COMM' | 'ENV' | 'PSI';
+
+export interface NarrativeMedium {
+  type: NarrativeMediumType;
+  attrs: Record<string, string>; // title, style, source, time, type, etc.
+  content: string;               // Inner text of the block
+  raw: string;                   // Original matched text, used to strip from narrative
+}

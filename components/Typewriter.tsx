@@ -3,6 +3,8 @@ import ReactMarkdown from 'react-markdown';
 import { RuntimeNPCState } from '../types';
 import NPCDialogue from './game/NPCDialogue';
 import { extractNpcDialogues } from '../utils/npcDialogue';
+import NarrativeMedia from "./game/NarrativeMedia";
+import { splitByNarrativeMedia, hasNarrativeMedia } from "../utils/narrativeMedia";
 
 // Context to determine if we are inside an ordered list
 const ListTypeContext = createContext({ ordered: false });
@@ -323,11 +325,15 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
   }, [content]);
 
   // Pre-process content to wrap SCP-XXX patterns in custom links for styling and interaction
-  const processedContent = useMemo(() => {
-    // Regex matches "SCP-" followed by digits, and optional suffixes like "-JP", "-J", etc.
-    // \b ensures we match word boundaries.
-    return displayedContent.replace(/\b(SCP-\d+(?:-[A-Za-z0-9]+)*)\b/g, '[$1](#scp-$1)');
-  }, [displayedContent]);
+  const processSCPLinks = (text: string) =>
+    text.replace(/\b(SCP-\d+(?:-[A-Za-z0-9]+)*)\b/g, '[$1](#scp-$1)');
+
+  const contentSegments = useMemo(
+    () => hasNarrativeMedia(displayedContent)
+      ? splitByNarrativeMedia(displayedContent)
+      : [{ type: 'text' as const, content: displayedContent }],
+    [displayedContent]
+  );
 
   return (
     <div className={`typewriter-container prose prose-invert prose-p:text-scp-text prose-headings:text-scp-accent max-w-none font-mono text-base md:text-lg leading-7 md:leading-8 tracking-[0.01em] ${isVisualTyping ? 'cursor-active' : ''}`}>
@@ -382,7 +388,20 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
         `}
       </style>
       
-      <ReactMarkdown components={markdownComponents}>{processedContent}</ReactMarkdown>
+      {contentSegments.map((seg, i) =>
+        seg.type === 'media' && seg.mediaType ? (
+          <NarrativeMedia
+            key={`media-${i}`}
+            mediaType={seg.mediaType}
+            content={seg.content}
+            attrs={seg.attrs || {}}
+          />
+        ) : (
+          <ReactMarkdown key={`text-${i}`} components={markdownComponents}>
+            {processSCPLinks(seg.content)}
+          </ReactMarkdown>
+        )
+      )}
       <div ref={bottomRef} />
     </div>
   );

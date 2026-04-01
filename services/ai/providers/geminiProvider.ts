@@ -112,8 +112,8 @@ export class GeminiProvider implements AIService {
         }
     }
 
-    async generateProfileCandidates(role: string, scpDesignation: string, language: Language): Promise<EntityProfile[]> {
-        const prompt = getProfileCandidatesPrompt(role, scpDesignation, language);
+    async generateProfileCandidates(role: string, scpDesignation: string, language: Language, legacyData?: LegacyData): Promise<EntityProfile[]> {
+        const prompt = getProfileCandidatesPrompt(role, scpDesignation, language, legacyData);
         try {
             const config = await this.getConfig();
             console.log(`[GeminiProvider] Generating profile candidates for ${role}...`);
