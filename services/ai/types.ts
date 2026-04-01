@@ -4,7 +4,7 @@ import { AgentStreamEvent } from './streamProtocol';
 
 export interface AIService {
     analyzeSCPUrl(input: string, language: Language, role: string, difficulty: GameDifficulty, legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData>;
-    generateProfileCandidates(role: string, scpDesignation: string, language: Language): Promise<EntityProfile[]>;
+    generateProfileCandidates(role: string, scpDesignation: string, language: Language, legacyData?: LegacyData): Promise<EntityProfile[]>;
     generateImage(prompt: string, aspectRatio?: ImageAspectRatio, responseFormat?: "url" | "b64_json"): Promise<string | null>;
     initializeGameChatStream(scp: SCPData, role: string, language: Language, legacyData: LegacyData | undefined, difficulty: GameDifficulty): AsyncGenerator<string>;
     setCallbacks(callbacks: { onTokenUpdate?: (count: number) => void; onStatusUpdate?: (status: 'idle' | 'generating' | 'summarizing') => void }): void;

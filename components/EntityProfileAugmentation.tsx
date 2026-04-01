@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { EntityProfile, Language } from '../types';
+import { EntityProfile, Language, LegacyData } from '../types';
 import { useTranslation } from '../utils/i18n';
 import { generateProfileCandidates } from '../services/aiService';
 import { loadGlobalSettings, saveGlobalSettings } from '../services/indexedDBService';
@@ -22,6 +22,7 @@ interface EntityProfileAugmentationProps {
     role: string;
     scpDesignation: string;
     language: Language;
+    legacyData?: LegacyData;
     onComplete: (profile: EntityProfile) => void;
     onBack: () => void;
 }
@@ -30,6 +31,7 @@ const EntityProfileAugmentation: React.FC<EntityProfileAugmentationProps> = ({
     role,
     scpDesignation,
     language,
+    legacyData,
     onComplete,
     onBack
 }) => {
@@ -68,7 +70,7 @@ const EntityProfileAugmentation: React.FC<EntityProfileAugmentationProps> = ({
             if (mode === 'reroll') {
                 setSelectedProfile(null);
             }
-            const results = await generateProfileCandidates(role, scpDesignation, language);
+            const results = await generateProfileCandidates(role, scpDesignation, language, legacyData);
             if (results && results.length > 0) {
                 setCandidates(results);
             } else {

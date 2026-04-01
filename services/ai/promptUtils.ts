@@ -8,7 +8,7 @@
  * @returns The enhanced prompt string
  */
 export const enhanceBackgroundPrompt = (description: string): string => {
-    return `Atmospheric, cinematic lighting, abstract horror background representing ${description}, subtle, texture, scp foundation style, dark moody`;
+    return `Atmospheric, cinematic lighting, abstract horror background representing ${description}, gritty film grain texture, scp foundation style, dark moody, shot on 35mm film, raw photograph, desaturated, NOT 3d render, NOT video game, NOT CGI, NOT illustration`;
 };
 
 /**
@@ -17,7 +17,7 @@ export const enhanceBackgroundPrompt = (description: string): string => {
  * @returns The enhanced prompt string
  */
 export const enhanceEntityPrompt = (description: string): string => {
-    return `Close up full body shot of ${description}. detailed, photorealistic, containment cell, scp foundation record photo`;
+    return `Close up full body shot of ${description}. highly detailed, photorealistic, RAW photo, containment cell, scp foundation record photo, film grain, clinical observation, NOT 3d render, NOT video game, NOT CGI, NOT illustration, no SCP designation numbers, no fictional classification labels`;
 };
 
 /**
@@ -26,7 +26,7 @@ export const enhanceEntityPrompt = (description: string): string => {
  * @returns The enhanced prompt string
  */
 export const enhanceNpcPrompt = (description: string): string => {
-    return `${description}, close up portrait, scp foundation record photo, detailed, photorealistic, cinematic lighting, dark atmosphere`;
+    return `${description}, close up portrait, scp foundation record photo, highly detailed, photorealistic, RAW photo, cinematic lighting, dark atmosphere, film grain, cold muted tones, NOT 3d render, NOT video game, NOT CGI, NOT illustration, no SCP designation numbers, no fictional classification labels`;
 };
 
 /**
@@ -35,5 +35,5 @@ export const enhanceNpcPrompt = (description: string): string => {
  * @returns The enhanced prompt string
  */
 export const enhanceScenePrompt = (description: string): string => {
-    return `${description}, dark aesthetic, scp foundation style, cinematic lighting`;
+    return `${description}, dark aesthetic, scp foundation style, cinematic lighting, photorealistic, RAW photo, film grain, desaturated, NOT 3d render, NOT video game, NOT CGI, NOT illustration`;
 };

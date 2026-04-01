@@ -3,13 +3,13 @@ import { AIService, ImageAspectRatio } from "./ai/types";
 import { GeminiProvider } from "./ai/providers/geminiProvider";
 import { OpenAIProvider } from "./ai/providers/openaiProvider";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../types";
-import { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate } from "./ai/utils";
+import { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate, extractNarrativeMedia } from "./ai/utils";
 import { getEmbeddings } from "./ai/providers/embeddingProvider";
 import { hasLocalMemories, searchLocalMemories } from "./indexedDBService";
 import { hasStagedRagMemories, searchStagedRagMemories } from "./ragStaging";
 import { getEffectiveAIConfig } from "./aiConfigService";
 
-export { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate };
+export { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate, extractNarrativeMedia };
 
 interface RecentMemory {
     id: string;
@@ -63,8 +63,8 @@ export const analyzeSCPUrl = async (input: string, language: Language = 'zh', ro
     return (await getProvider()).analyzeSCPUrl(input, language, role, difficulty, legacyData, profile);
 };
 
-export const generateProfileCandidates = async (role: string, scpDesignation: string, language: Language = 'zh'): Promise<EntityProfile[]> => {
-    return (await getProvider()).generateProfileCandidates(role, scpDesignation, language);
+export const generateProfileCandidates = async (role: string, scpDesignation: string, language: Language = 'zh', legacyData?: LegacyData): Promise<EntityProfile[]> => {
+    return (await getProvider()).generateProfileCandidates(role, scpDesignation, language, legacyData);
 };
 
 export const initializeGameChatStream = async (scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData, difficulty: GameDifficulty = 'normal'): Promise<AsyncGenerator<string>> => {

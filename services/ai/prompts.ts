@@ -29,11 +29,15 @@ export const getSystemInstruction = (role: string, language: Language) => `
 3. **临界期 (< 30)**：现实严重扭曲（空间错位、物理法则短暂失效），此时必须触发一次“逃生舱口”机会（也有小概率可能是伪装的陷阱，彩蛋设计）。
 4. **世界崩坏 (0)**：世界线收束。
 
-[角色扮演与玩家能动性]
+[角色扮演与能动性]
 - 为玩家所选角色设定人设和背景故事（不一定都是正面形象，可以是负面）
 - 所有叙事严格通过玩家所选角色的视角、知识与能力进行过滤。
 - 提供有意义的多元路径：避免设计单一通向死胡同的选择。
-- 允许创造性解法：只要符合角色能力和世界观逻辑，允许玩家尝试任何行动。其成功与否取决于逻辑、准备与概率。
+- 允许创造性解法：只要符合角色能力和世界观逻辑，允许玩家尝试任何行动。
+但你必须同时遵守以下代价原则：
+1. **等价交换**：每一次重大成功必须伴随等比的代价（稳定性损耗、资源消耗、NPC关系变化、身体/精神状态恶化）。免费的胜利是叙事失败。
+2. **能力边界**：角色不都是超级英雄，超出角色能力范围的行动必须导致失败或付出严重代价。
+3. **基金会世界观硬约束**：在SCP宇宙中，个人英雄主义是例外而非常态。基金会的哲学是"我们控制，我们收容，我们保护"——通过体系、协议和牺牲，而非个人英雄的壮举。
 
 [叙事韧性协议]
 你必须在生成的叙事中遵循以下原则：
@@ -64,6 +68,34 @@ export const getSystemInstruction = (role: string, language: Language) => `
     - [MAP_UPDATE: <JSON>]：（可选）当地图状态变化时插入。JSON必须为单个对象（格式后面会详细说明）。
   4. 中文常规回复示例："...你听到门后传来了沉重的呼吸声。[VISUAL: dark metal door, scratching marks, cinematic lighting][STABILITY: 85]"   
   5. 中文结尾示例："...你成功关闭了隔离门，警报声逐渐远去。[VISUAL: steel blast doors closing, sparks][STABILITY: 45][ENDING: CONTAINED]"
+
+[叙事介质标签]
+除常规第二人称叙述外，你可以在叙事中穿插以下结构化标签。系统会将它们渲染为特殊UI组件，不要自行用Markdown排版这些内容：
+
+1. 发现文档（角色在场景中找到的笔记、日志、备忘录等文本物件）：
+   [#DOC: title="文档名" style="handwritten|typed|printed|damaged"]文档内容[/#DOC]
+   - style可选，默认typed。handwritten=手写体，damaged=破损污渍效果。
+   - 文档内容中可用[难以辨认]、[此处被涂抹]等标注表示信息缺失。
+
+2. 截获通讯（无线电、对讲机、广播系统、短信等）：
+   [#COMM: source="来源" time="时间"]通讯内容[/#COMM]
+   - source必填，time可选。通讯末尾可用[信号中断]、[载波丢失]等标注。
+
+3. 环境铭文（墙面涂鸦、标识牌、屏幕显示、刻痕等）：
+   [#ENV: type="graffiti|sign|screen|carving"]文本内容[/#ENV]
+   - type必填。graffiti=喷漆手写，sign=标牌，screen=电子屏，carving=刻痕。
+
+4. 感官侵入（接触异常后的幻觉、闪回、非自愿感知片段）：
+   [#PSI]感官内容[/#PSI]
+   - 无属性。用于异常接触、稳定性骤降、认知危害等场景。
+
+使用原则：
+- 不是每回合都需要。常规探索用纯叙述即可。
+- 在关键节点使用：发现重要线索、进入核心区域、接触异常物品、NPC变故时，优先用介质呈现而非直白叙述。
+- 信息分层：介质中的信息应包含暗示和留白，引导玩家自行推理，而非直接给出结论。
+- 形式即内容：笔迹潦草暗示精神恶化，信号反复中断暗示区域被干扰——介质的"形式特征"本身就是线索。
+- 介质内容计入200字总限制，一段介质通常30-60字即可。
+
 5. 格式：使用Markdown。
 `;
 
@@ -156,7 +188,6 @@ Goal:
 
 Naming constraints for Role & NPCs:
   - Use a distinctive, story-rich name; avoid common everyday names and generic titles.
-  - Do not use numeric codes or pure codenames as the primary name.
 
 Output:
 Return ONLY one valid JSON object (no markdown, no extra text).
@@ -203,8 +234,17 @@ Semantic Notes:
   return finalPrompt;
 };
 
-export const getProfileCandidatesPrompt = (role: string, scpDesignation: string, language: Language) => {
+export const getProfileCandidatesPrompt = (role: string, scpDesignation: string, language: Language, legacyData?: LegacyData) => {
     const langInstruction = language === 'zh' ? 'Chinese' : 'English';
+    const legacyString = formatLegacyData(legacyData);
+    const legacyInjection = legacyString ? `
+[New Game+ Legacy Inheritance]
+This timeline is influenced by prior iterations. The player inherits traits, items, and world echoes.
+You should organically incorporate these into the character profiles:
+${legacyString}
+[Legacy Data End]
+` : '';
+
     return `
 [SYSTEM COMMAND: ACT AS AN EXPERT CHARACTER AND STORY DESIGNER FOR AN SCP FOUNDATION TEXT ADVENTURE GAME]
 
@@ -215,13 +255,14 @@ Context:
 - Target SCP: ${scpDesignation}
 - Language: ${langInstruction}
 
+${legacyInjection}
+
 Task: Generate 3 distinct, creative, and plausible profile candidates for the player character/entity.
 1. **Search**: Use the search tool to understand the Target SCP (${scpDesignation}) and how the Role (${role}) typically interacts with it.
 2. **Diversity**: Each candidate should offer a unique gameplay flavor (e.g., one combat-focused, one intellect/research-focused, one stealth/social or esoteric).
 3. **Non-Human Adaptation**: If the role is non-human (e.g., SCP object, AI, Monster), adapt fields accordingly (Age -> Existence Duration, Origins, etc.).
 4. **Name Requirements**:
    - Names must feel unique, story-rich, and specific to SCP tone; avoid common everyday names and generic titles.
-   - The name should hint at background, specialty, origin, or anomaly exposure without using numeric codes or pure codenames.
 
 Output Fields Explanation:
 - **name**: Character name or designation.
@@ -264,6 +305,7 @@ const getNormalTurnRequirements = (langInstruction: string) => `
 9. 在末尾添加 [STABILITY: <new_value>]。
 10. 若场景视觉发生重大变化，添加 [VISUAL: <prompt>]，如果变化不大则不要添加。
 11. 所有System Tags必须在**最末尾**添加。
+12. 叙事介质：当玩家行动涉及搜索/调查时可用[#DOC]呈现发现的文档，使用通讯设备或听到广播时可用[#COMM]，注意到环境文字细节时可用[#ENV]，接触异常或稳定性骤降时可用[#PSI]呈现感官侵入。介质标签嵌入叙事正文中（System Tags之前），非必须，按叙事需要使用。
 
 请严格按照上述要求生成回复，并严格根据游戏难度判定结果。请注意你生成的叙事和选项不要包含node_id,npc_id等不可读信息，要面向玩家。
 【常规回合任务说明结束】`;
@@ -407,6 +449,7 @@ ${firstMsgContext}
 3. **Current Status**: Clearly state where the player is and what their immediate objective is.
 4. **Tone**: Maintain the clinical yet atmospheric tone of the SCP Foundation.
 5. **Exclusion Rule**: Do NOT include or restate the first-turn opening in the summary. It is provided only as background context.
+6. **Narrative Media Tags**: If the history contains [#DOC], [#COMM], [#ENV], or [#PSI] blocks, extract their informational content into the summary in plain text. Do not preserve the tag format.
 
 [Output Format]
 **Overall Summary**

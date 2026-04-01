@@ -241,6 +241,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
                   role={selectedRole === Role.CUSTOM ? customRole : selectedRole}
                   scpDesignation={urlInput}
                   language={language}
+                  legacyData={legacyData}
                   onComplete={handleProfileComplete}
                   onBack={handleProfileBack}
               />
