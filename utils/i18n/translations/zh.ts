@@ -90,6 +90,20 @@ export const zh = {
     access_granted: "访问权限已获批",
     entering_zone: "进入区域",
     system_msg: "系统消息",
+    narrative_media: {
+      doc_header_classified: "机密档案",
+      doc_header_level: "等级",
+      doc_footer_file: "档案",
+      doc_footer_page: "页码",
+      doc_footer_of: "/ 共",
+      doc_damaged_tag: "已损毁",
+      comm_signal_intercepted: "截获信号",
+      comm_signal_lost: "信号丢失",
+      comm_rec: "REC",
+      env_scan_label: "环境扫描",
+      env_scan_source: "来源",
+      psi_pressure_label: "灵能压强",
+    },
   },
   endings: {
     contained: {

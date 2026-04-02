@@ -90,6 +90,20 @@ export const en = {
     access_granted: "ACCESS GRANTED",
     entering_zone: "ENTERING ZONE",
     system_msg: "SYSTEM_MSG",
+    narrative_media: {
+      doc_header_classified: "CLASSIFIED",
+      doc_header_level: "LEVEL",
+      doc_footer_file: "FILE",
+      doc_footer_page: "PAGE",
+      doc_footer_of: "OF",
+      doc_damaged_tag: "DAMAGED",
+      comm_signal_intercepted: "INTERCEPTED SIGNAL",
+      comm_signal_lost: "SIGNAL LOST",
+      comm_rec: "REC",
+      env_scan_label: "ENVIRONMENTAL SCAN",
+      env_scan_source: "SOURCE",
+      psi_pressure_label: "PSYCHIC PRESSURE",
+    },
   },
   endings: {
     contained: {

@@ -35,13 +35,14 @@ const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollR
                    <p className="font-mono text-xs text-scp-term mb-1 opacity-70">{t('game.action_log')}</p>
                 )}
                 
-                <Typewriter 
-                  content={msg.content} 
+                <Typewriter
+                  content={msg.content}
                   isStreaming={!!msg.isTyping}
-                  onOptionClick={onOptionClick} 
+                  onOptionClick={onOptionClick}
                   npcs={gameState.npcs}
                   npcImages={gameState.scpData?.npcImages}
                   onNpcImageClick={setLightboxImage}
+                  stability={gameState.stability}
                 />
 
                 {msg.imageUrl && (
