@@ -17,9 +17,10 @@ interface TypewriterProps {
   npcs?: RuntimeNPCState[];
   npcImages?: Record<string, string>;
   onNpcImageClick?: (url: string) => void;
+  stability?: number;
 }
 
-const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplete, onOptionClick, npcs, npcImages, onNpcImageClick }) => {
+const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplete, onOptionClick, npcs, npcImages, onNpcImageClick, stability }) => {
   const [displayedContent, setDisplayedContent] = useState('');
   const [isVisualTyping, setIsVisualTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -395,6 +396,7 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
             mediaType={seg.mediaType}
             content={seg.content}
             attrs={seg.attrs || {}}
+            stability={stability}
           />
         ) : (
           <ReactMarkdown key={`text-${i}`} components={markdownComponents}>
