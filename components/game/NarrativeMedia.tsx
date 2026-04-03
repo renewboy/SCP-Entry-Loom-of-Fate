@@ -52,22 +52,13 @@ const DocMedia: React.FC<{ content: string; attrs: Record<string, string>; stabi
       ? 'font-mono text-stone-300/85'
       : 'font-report text-stone-200/95';
 
-  const containerStyle: React.CSSProperties = isDamaged ? {
-    clipPath: 'polygon(0 0, 100% 0, 98% 100%, 2% 98%, 1% 95%, 3% 100%, 97% 99%)',
-    boxShadow: glitchIntensity > 0
-      ? `inset 0 0 ${20 * glitchIntensity}px rgba(195, 46, 46, ${0.15 + glitchIntensity * 0.2})`
-      : undefined,
-  } : glitchIntensity > 0 ? {
+  const containerStyle: React.CSSProperties = glitchIntensity > 0 ? {
     boxShadow: `inset 0 0 ${12 * glitchIntensity}px rgba(195, 46, 46, ${0.08 + glitchIntensity * 0.15})`,
   } : undefined;
 
   return (
     <div className="my-4 animate-in fade-in duration-700">
       <div className="scp-archive rounded-sm overflow-hidden relative" style={containerStyle}>
-        {isDamaged && (
-          <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-red-950/10 to-red-900/20" />
-        )}
-
         <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.04] border-b border-white/10">
           <div className="flex items-center gap-2">
             <span className="text-xs select-none text-red-500/70 font-black tracking-widest">⚠</span>
@@ -76,21 +67,12 @@ const DocMedia: React.FC<{ content: string; attrs: Record<string, string>; stabi
             </span>
             {isDamaged && (
               <span
-                className="ml-1 relative inline-flex items-center -rotate-12 whitespace-nowrap shrink-0 rounded-none px-2 py-[1px] overflow-hidden mix-blend-screen"
+                className="ml-1 inline-flex items-center whitespace-nowrap shrink-0 px-2 py-[1px] border border-red-700/45 bg-red-950/15"
                 style={{
-                  boxShadow: '0 0 14px rgba(127, 29, 29, 0.18), inset 0 0 0 1px rgba(127, 29, 29, 0.28)',
+                  boxShadow: '0 0 10px rgba(127, 29, 29, 0.12)',
                 }}
               >
-                <span className="absolute inset-0 pointer-events-none opacity-[0.18] bg-[url('https://www.transparenttextures.com/patterns/noise-lines.png')] mix-blend-overlay" />
-                <span className="absolute inset-0 pointer-events-none opacity-[0.22] bg-[repeating-linear-gradient(135deg,rgba(239,68,68,0.08),rgba(239,68,68,0.08)_2px,transparent_2px,transparent_7px)]" />
-                <span className="absolute inset-0 pointer-events-none border-2 border-red-700/55" />
-                <span className="absolute inset-0 pointer-events-none border border-red-950/25 translate-x-[0.5px] translate-y-[0.5px]" />
-                <span className="absolute inset-0 flex items-center justify-center pointer-events-none translate-x-[0.6px] translate-y-[0.6px] opacity-35">
-                  <span className="text-[9px] font-report font-bold text-red-600/40 tracking-[0.35em] uppercase">
-                    {t('game.narrative_media.doc_damaged_tag')}
-                  </span>
-                </span>
-                <span className="relative text-[9px] font-report font-bold text-red-500/70 tracking-[0.35em] uppercase [text-shadow:0_0_10px_rgba(239,68,68,0.12)]">
+                <span className="text-[9px] font-report font-bold text-red-500/70 tracking-[0.35em] uppercase">
                   {t('game.narrative_media.doc_damaged_tag')}
                 </span>
               </span>

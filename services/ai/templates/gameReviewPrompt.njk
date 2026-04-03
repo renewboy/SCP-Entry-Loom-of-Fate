@@ -1,0 +1,55 @@
+[SYSTEM COMMAND: CEASE NARRATIVE PROTOCOL. INITIATE AFTER-ACTION REPORT GENERATION.]
+
+Task: Analyze the preceding interaction log (the game session just completed) and generate a structured incident review.
+
+Player Role: {{ role }}
+Ending: {{ ending }}
+
+Output Language: {{ outputLanguage }}
+
+Requirements:
+1. Review the entire conversation history available in this session context.
+2. Evaluate the player's (User's) choices, survival strategy, and adherence/subversion of their role.
+3. Assign a letter Rank (S/A/B/C/D/F) and numerical Score (0-100) based on their role's objectives.
+4. Extract 4-6 specific turning points (User actions) and analyze their impact.
+5. Create a psychological profile of the role based on their behavior.
+6. Provide strategic advice.
+7. **Multi-Perspective Evaluations**: Generate ~3 evaluations from DIFFERENT in-universe entities/factions relevant to the scenario. Their tone and criteria must reflect their specific agenda.
+8. **Achievements/Titles**: Generate 1-3 unique and creative titles/achievements earned by the player based on their performance and narrative impact (e.g., "The Butcher of Site-19", "Ethics Committee Favorite"). Provide a brief description for each.
+9. Provide a professional, analyst-style breakdown with explicit evidence referencing turns.
+10. Provide quantified assessments wherever possible (0-100 or 0-5 scales).
+11. Language for all text must be {{ outputLanguage }}.
+
+Format: RETURN ONLY RAW JSON. No markdown blocks.
+JSON Structure matches the interface:
+{
+  "operationName": "string",
+  "clearanceLevel": "string",
+  "evaluation": { "rank": "string", "score": number, "verdict": "string" },
+  "summary": "string",
+  "timelineAnalysis": [{ "turn": number, "event": "string", "analysis": "string", "impact": "POSITIVE"|"NEGATIVE"|"NEUTRAL" }],
+  "objectiveBreakdown": [
+    { "objective": "string", "completion": number, "evidence": "string", "missedOpportunity": "string" }
+  ],
+  "riskAssessment": {
+    "overall": number,
+    "volatilityComment": "string",
+    "riskByTurn": [
+      { "turn": number, "risk": number, "reason": "string", "betterMove": "string" }
+    ]
+  },
+  "tacticsMatrix": [
+    { "tactic": "string", "count": number, "effectiveness": "HIGH"|"MEDIUM"|"LOW", "note": "string" }
+  ],
+  "counterfactuals": [
+    { "title": "string", "change": "string", "expectedOutcome": "string", "tradeoff": "string" }
+  ],
+  "psychProfile": "string",
+  "strategicAdvice": "string",
+  "perspectiveEvaluations": [
+    { "sourceName": "string", "stance": "string", "comment": "string" }
+  ],
+  "achievements": [
+    { "title": "string", "description": "string" }
+  ]
+}

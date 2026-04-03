@@ -1,5 +1,5 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { AIService, ImageAspectRatio } from "../types";
+import { AIService, ContextPromptAnchors, ImageAspectRatio } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt, getCompressionPrompt } from "../prompts";
 import { getEditorAssistantPrompt, getEditorAssistantContext, editorTools } from "../editorPrompts";
@@ -215,6 +215,7 @@ export class OpenAIProvider implements AIService {
         language: Language = 'zh', 
         ragContext?: string, 
         mapContext?: ((enhanced?: boolean) => string),
+        promptAnchors?: ContextPromptAnchors,
         signal?: AbortSignal
     ): AsyncGenerator<string> {
         console.log(`[OpenAIProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}`);
@@ -234,7 +235,7 @@ export class OpenAIProvider implements AIService {
         }
 
         const resolvedMapContext = mapContext ? mapContext(this.currentTokenCount > tokenLimit) : undefined;
-        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, resolvedMapContext);
+        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, resolvedMapContext, promptAnchors);
 
         // Inject summary if exists
         const messagesToSend = this.buildMessages(contextPrompt);

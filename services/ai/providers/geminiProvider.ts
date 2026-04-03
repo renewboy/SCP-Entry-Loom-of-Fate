@@ -1,5 +1,5 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { AIService, ImageAspectRatio } from "../types";
+import { AIService, ContextPromptAnchors, ImageAspectRatio } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
 import { aiConfig } from "../../../config/aiConfig";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt, getCompressionPrompt } from "../prompts";
@@ -280,6 +280,7 @@ export class GeminiProvider implements AIService {
     async *initializeGameChatStream(scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData, difficulty: GameDifficulty = 'normal'): AsyncGenerator<string> {
         console.log(`[GeminiProvider] Initializing chat stream for ${scp.designation} as ${role} in ${language}`);
         this.systemInstruction = getSystemInstruction(role, language);
+        console.log(`[GeminiProvider] initializeGameChatStream System instruction: ${this.systemInstruction}`);
         this.temperature = aiConfig.generation.temperature;
         this.cachedContentName = null;
         this.gameReviewHistory = [];
@@ -334,6 +335,7 @@ export class GeminiProvider implements AIService {
         language: Language = 'zh', 
         ragContext?: string, 
         mapContext?: ((enhanced?: boolean) => string),
+        promptAnchors?: ContextPromptAnchors,
         signal?: AbortSignal
     ): AsyncGenerator<string> {
         console.log(`[GeminiProvider] sendAction called. Input: "${action}", Stability: ${currentStability}, Turn: ${turnCount}, Language: ${language}`);
@@ -348,12 +350,12 @@ export class GeminiProvider implements AIService {
         }
 
         const resolvedMapContext = mapContext ? mapContext(this.currentTokenCount > tokenLimit) : undefined;
-        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, resolvedMapContext);
+        const contextPrompt = getContextPrompt(action, currentStability, turnCount, language, ragContext, resolvedMapContext, promptAnchors);
 
         try {
             const cachedContent = await this.ensureCachedContentName();
             console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
-
+            console.log(`[GeminiProvider] System instruction: ${this.systemInstruction}`);
             let fullResponse = "";
             for await (const chunk of streamSse<any>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,

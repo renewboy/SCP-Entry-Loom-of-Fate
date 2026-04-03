@@ -1,5 +1,5 @@
 import { Content } from "@google/genai";
-import { AIService, ImageAspectRatio } from "./ai/types";
+import { AIService, ContextPromptAnchors, ImageAspectRatio } from "./ai/types";
 import { GeminiProvider } from "./ai/providers/geminiProvider";
 import { OpenAIProvider } from "./ai/providers/openaiProvider";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../types";
@@ -30,6 +30,7 @@ export const clearMemoryCache = (timelineId?: string) => {
 let aiProvider: AIService | null = null;
 let cachedProviderType: string | null = null;
 let mapContextProvider: ((enhanced?: boolean) => string) | null = null;
+let contextPromptAnchorProvider: (() => ContextPromptAnchors | undefined) | null = null;
 
 const getProvider = async (): Promise<AIService> => {
     const effectiveConfig = await getEffectiveAIConfig();
@@ -131,6 +132,10 @@ export const setMapContextProvider = (provider: ((enhanced?: boolean) => string)
     mapContextProvider = provider;
 };
 
+export const setContextPromptAnchorProvider = (provider: (() => ContextPromptAnchors | undefined) | null) => {
+    contextPromptAnchorProvider = provider;
+};
+
 export const sendAction = async function* (
     action: string, 
     currentStability: number, 
@@ -165,6 +170,7 @@ export const sendAction = async function* (
         language, 
         ragContext, 
         mapContextProvider || undefined,
+        contextPromptAnchorProvider?.(),
         signal
     );
     for await (const chunk of generator) {

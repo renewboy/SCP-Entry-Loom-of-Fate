@@ -1,0 +1,43 @@
+[系统状态]
+Current Stability: {{currentStability}}
+Turn: {{turnCount}}
+User Action: "{{action}}"
+Output Language: {{outputLanguage}}
+
+{% if anchorBeforeItems.length %}
+[前置上下文锚点]
+{% for item in anchorBeforeItems %}
+{{ item }}
+{% if not loop.last %}
+
+{% endif %}
+{% endfor %}
+[前置上下文锚点结束]
+{% endif %}
+
+{% if ragContext %}
+[记忆回响]
+以下事件发生在之前的时间线中。角色感觉到一种潜意识的回响或既视感：
+{{ ragContext }}
+指令：利用这些回响来增加微妙的氛围细节、既视感或直觉警告，并可能影响叙事走向和休谟场稳定性。
+[记忆回响结束]
+{% endif %}
+
+{% if mapContext %}
+[地图状态]
+{{ mapContext }}
+[地图状态结束]
+{% endif %}
+
+{{normalTurnReminder}}
+
+{% if anchorAfterItems.length %}
+[后置上下文锚点]
+{% for item in anchorAfterItems %}
+{{ item }}
+{% if not loop.last %}
+
+{% endif %}
+{% endfor %}
+[后置上下文锚点结束]
+{% endif %}

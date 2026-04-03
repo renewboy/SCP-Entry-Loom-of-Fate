@@ -30,6 +30,7 @@ interface GameScreenProps {
 }
 
 const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
+  const AUTO_SCROLL_THRESHOLD = 80;
   const { t, language, setLanguage } = useTranslation();
   const { isMobile } = useViewport();
   const [mobileDrawer, setMobileDrawer] = useState<'none' | 'map' | 'legacy'>('none');
@@ -39,9 +40,11 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   const [saveLoadMode, setSaveLoadMode] = useState<'save' | 'load'>('save');
   const [isReportOpen, setIsReportOpen] = useState(true);
   const [isMemoryEchoActive, setMemoryEchoActive] = useState(false);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const shouldAutoScrollRef = useRef(true);
 
   useThemeColors(gameState.stability);
   
@@ -64,10 +67,21 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   const { countdown, isActive: isCountdownActive, cancel: handleCancelCountdown, isCollapsed: isEndingOverlayCollapsed, setIsCollapsed: setIsEndingOverlayCollapsed } = useGameOverCountdown(gameState, setGameState);
 
   useEffect(() => {
-    if (scrollRef.current && gameState.status === GameStatus.PLAYING) {
+    if (scrollRef.current && gameState.status === GameStatus.PLAYING && shouldAutoScroll) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [gameState.messages, gameState.status]);
+  }, [gameState.messages, gameState.status, shouldAutoScroll]);
+
+  useEffect(() => {
+    shouldAutoScrollRef.current = shouldAutoScroll;
+  }, [shouldAutoScroll]);
+
+  useEffect(() => {
+    if (gameState.status !== GameStatus.PLAYING || gameState.messages.length === 0) {
+      shouldAutoScrollRef.current = true;
+      setShouldAutoScroll(true);
+    }
+  }, [gameState.status, gameState.messages.length]);
 
   useEffect(() => {
     if (gameState.status === GameStatus.GAME_OVER) {
@@ -77,6 +91,19 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
   const handleSendMessage = () => {
     void handleSend(input);
+  };
+
+  const handleChatScroll = () => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const nextShouldAutoScroll = distanceFromBottom <= AUTO_SCROLL_THRESHOLD;
+
+    if (nextShouldAutoScroll !== shouldAutoScrollRef.current) {
+      shouldAutoScrollRef.current = nextShouldAutoScroll;
+      setShouldAutoScroll(nextShouldAutoScroll);
+    }
   };
 
   const handleAbort = () => {
@@ -236,6 +263,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         t={t}
         isProcessing={isProcessing}
         scrollRef={scrollRef}
+        shouldAutoScroll={shouldAutoScroll}
+        onScroll={handleChatScroll}
         onOptionClick={handleOptionClick}
       />
 
