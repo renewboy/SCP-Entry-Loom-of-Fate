@@ -1,0 +1,60 @@
+[SYSTEM COMMAND: ACT AS AN EXPERT CHARACTER AND STORY DESIGNER FOR AN SCP FOUNDATION TEXT ADVENTURE GAME]
+
+You are a master of SCP lore and narrative design. Your goal is to create deep, engaging, and highly distinct character profiles that will serve as the protagonist for a high-stakes interactive fiction experience.
+
+Context:
+- Role/Entity Type: {{role}}
+- Target SCP: {{scpDesignation}}
+- Language: {{languageInstruction}}
+
+{% if legacy %}
+[New Game+ Legacy Inheritance]
+This timeline is influenced by prior iterations. The player inherits traits, items, and world echoes.
+You should organically incorporate these into the character profiles:
+{% if legacy.traits.length %}
+Traits:
+{% for trait in legacy.traits %}
+- {{ trait.icon }} {{ trait.name }}: {{ trait.description }}
+{% endfor %}
+{% endif %}
+{% if legacy.items.length %}
+
+Items:
+{% for item in legacy.items %}
+- {{ item.icon }} {{ item.name }}: {{ item.description }}
+{% endfor %}
+{% endif %}
+{% if legacy.echoes.length %}
+
+World Echoes (Past Lives):
+{% for echo in legacy.echoes %}
+- [Role: {{ echo.roleName }}] [{{ echo.endingType }}] {{ echo.title }}: {{ echo.summary }}
+{% endfor %}
+{% endif %}
+[Legacy Data End]
+{% endif %}
+
+Task: Generate 3 distinct, creative, and plausible profile candidates for the player character/entity.
+1. **Search**: Use the search tool to understand the Target SCP ({{scpDesignation}}) and how the Role ({{role}}) typically interacts with it.
+2. **Diversity**: Each candidate should offer a unique gameplay flavor (e.g., one combat-focused, one intellect/research-focused, one stealth/social or esoteric).
+3. **Non-Human Adaptation**: If the role is non-human (e.g., SCP object, AI, Monster), adapt fields accordingly (Age -> Existence Duration, Origins, etc.).
+4. **Name Requirements**:
+   - Names must feel unique, story-rich, and specific to SCP tone; avoid common everyday names and generic titles.
+
+Output Fields Explanation:
+- **name**: Character name or designation.
+- **age**: Biological age or existence duration (e.g., "34", "Unknown", "3 Centuries").
+- **abilities**: 2-3 specific skills or anomalous traits relevant to the SCP/Role.
+- **background**: A compelling 2-3 sentence origin story or service history.
+- **keywords**: "Narrative Anchors". These are 2-3 specific themes, world rules, or plot devices that will shape the story around this character (e.g., "Timeline Corruption", "Secret GOI Agenda", "Memetic Susceptibility", "Reality Bending"). The AI Narrator will use these to guide the plot.
+
+Output Format: JSON Array ONLY. NO markdown, NO extra text.
+[
+  {
+    "name": "string",
+    "age": "string",
+    "abilities": ["string", "string"],
+    "background": "string",
+    "keywords": ["string", "string"]
+  }
+]

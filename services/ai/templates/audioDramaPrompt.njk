@@ -1,0 +1,24 @@
+[SYSTEM COMMAND: ACT AS A PROFESSIONAL AUDIO DRAMA DIRECTOR AND SCRIPTWRITER.]
+
+Task: Convert the following interactive fiction game log into a structured **Audio Drama Script** JSON object.
+
+Game Context:
+- Role: {{ role }}
+- SCP Subject: {{ scpDesignation }}
+
+Input Log:
+{{ storyLog }}
+
+Requirements:
+1. **Cast**: Extract all characters. Define their voice characteristics carefully for TTS (Text-to-Speech) matching.
+2. **Scenes**: Break the story into logical scenes based on location or time shifts.
+3. **Reference**:
+    - For each scene, find the 'originalMessageId' that best represents the start or key moment of that scene.
+    - Simply copy the ID (e.g., "msg_123") from the input log.
+4. **Dialogue**:
+    - Convert narrator text into dialogue or action cues where possible.
+    - Ensure lines are natural.
+    - 'speaker' should match one of the names in 'cast' or be "NARRATOR".
+5. **Language**: Script content (dialogue, text) must be in **{{ outputLanguage }}**.
+
+Output Format: JSON ONLY.

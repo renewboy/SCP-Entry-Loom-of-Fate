@@ -1,0 +1,70 @@
+游戏设定：
+- 玩家角色：{{role}}
+- 目标：{{scpDesignation}}
+- 项目等级：{{containmentClass}}
+- 游戏难度：{{difficulty}}
+- 回合: 1
+{% if hasStoryDraft %}
+[补充设定]
+角色详细设定: {{ storyDraftRoleDetails }}
+故事背景: {{ storyDraftBackground }}
+叙事约束: {{ storyDraftNarrativeConstraints }}
+初始场景补充设定: {{ storyDraftOpeningPrompt }}
+[补充设定结束]
+{% endif %}
+{% if hasLegacy %}
+[已激活遗产继承系统 - 开启新周目]
+当前时间线受到先前迭代周期的因果影响。玩家角色从过去的世界线中继承了以下特质、物品与记忆回响。
+请将这些要素有机融入叙事与角色初始状态：
+{% if legacy.traits.length %}
+Traits:
+{% for trait in legacy.traits %}
+- {{ trait.icon }} {{ trait.name }}: {{ trait.description }}
+{% endfor %}
+{% endif %}
+{% if legacy.items.length %}
+
+Items:
+{% for item in legacy.items %}
+- {{ item.icon }} {{ item.name }}: {{ item.description }}
+{% endfor %}
+{% endif %}
+{% if legacy.echoes.length %}
+
+World Echoes (Past Lives):
+{% for echo in legacy.echoes %}
+- [Role: {{ echo.roleName }}] [{{ echo.endingType }}] {{ echo.title }}: {{ echo.summary }}
+{% endfor %}
+{% endif %}
+[遗产数据结束]
+{% endif %}
+{% if hasMapBlueprint %}
+[地图蓝图]
+{{ mapBlueprintJson }}
+[地图蓝图结束]
+指令：起始遭遇必须发生在startNodeId对应地点；从地图中提取节点位置、信息、任务、NPC等信息，移动仅允许在edges定义的邻接节点之间发生。
+{% endif %}
+
+现在开始游戏，请使用 Search 工具检索{{scpDesignation}}的所有关键资料{% if hasLegacy %}(不要搜索遗产相关数据，只搜索本次SCP的资料){% endif %}，严格按以下格式，用{{outputLanguage}}生成内容：
+- **目标**：{{scpDesignation}}
+
+- **项目等级**：{{containmentClass}}
+
+- **扰动等级（如有）**：
+
+- **风险等级（如有）**：
+
+- **特殊收容措施**
+
+- **项目描述**
+
+- **角色简介**
+(如果存在继承特质，请将其融入此处)
+
+- "{{role}}"的初始遭遇场景, 主线任务等, 200-300字, {{outputLanguage}}。{% if hasLegacy %} （如果存在继承物品，请提及角色已持有它们）{% endif %}
+- 3个初始互动选项。
+- [STABILITY: 100]
+- [VISUAL: prompt] (可选)
+
+主要搜索源: https://scp-wiki.wikidot.com/, https://scp-wiki-cn.wikidot.com/, google
+Hint: 你可以拼接搜索源网址 and SCP目标, 得到目标的档案网页, 例如: https://scp-wiki.wikidot.com/[designation]

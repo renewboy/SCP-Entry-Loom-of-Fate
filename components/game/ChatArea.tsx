@@ -8,10 +8,12 @@ interface ChatAreaProps {
   t: (key: string) => string;
   isProcessing: boolean;
   scrollRef: React.RefObject<HTMLDivElement>;
+  shouldAutoScroll: boolean;
+  onScroll: () => void;
   onOptionClick: (text: string) => void;
 }
 
-const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollRef, onOptionClick }) => {
+const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollRef, shouldAutoScroll, onScroll, onOptionClick }) => {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   return (
@@ -19,6 +21,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollR
         <div 
           id="chat-area"
           ref={scrollRef}
+          onScroll={onScroll}
           className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scroll-smooth text-shadow-sm scp-ui"
         >
           {gameState.stability < 30 && (
@@ -38,6 +41,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollR
                 <Typewriter
                   content={msg.content}
                   isStreaming={!!msg.isTyping}
+                  shouldAutoScroll={shouldAutoScroll}
                   onOptionClick={onOptionClick}
                   npcs={gameState.npcs}
                   npcImages={gameState.scpData?.npcImages}

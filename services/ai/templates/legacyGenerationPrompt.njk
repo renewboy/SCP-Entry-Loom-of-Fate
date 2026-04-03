@@ -1,0 +1,45 @@
+[SYSTEM COMMAND: INITIATE NEW GAME+ LEGACY EXTRACTION AND MEMORY ARCHIVAL]
+
+Task: Analyze the completed timeline (ending: {{ending}}, role: {{role}}).
+1. Extract "Legacy Data" for the next playthrough (New Game+).
+Based on the player's actions, achievements, and final state, generate Traits, Items, and a World Echo.
+2. Review the entire timeline turn-by-turn and generate "Memory Records" for RAG (Retrieval-Augmented Generation).
+
+Requirements:
+1. **Traits**: Generate 0 to 3 character traits (Perks/Curses) that reflect the character's experiences or mutation.
+   - effectType: POSITIVE, NEGATIVE, or NEUTRAL.
+   - icon: A single relevant Emoji.
+2. **Items**: Generate 0 to 3 key items the character might have preserved, carried over, or conceptually inherited.
+   - icon: A single relevant Emoji.
+3. **World Echo**: Generate EXACTLY ONE "World Echo" - a summary of the conclusion.
+   - roleName: The specific character name from THIS run.
+4. **Memory Records (RAG)**:
+   - Iterate through every significant turn/event in the history.
+   - Generate a concise, objective summary of what happened in that specific moment (Scene -> Action -> Consequence).
+   - Skip a turn if it had little to no significant change (e.g., repeated action).
+   - "keywords": Extract 2-3 key entities or concepts involved.
+5. **Language**: All text content must be in {{outputLanguage}}.
+
+Format: RETURN ONLY RAW JSON. No markdown.
+{
+  "traits": [
+    { "id": "string_id", "name": "string", "description": "string", "effectType": "POSITIVE"|"NEGATIVE"|"NEUTRAL", "icon": "emoji" }
+  ],
+  "items": [
+    { "id": "string_id", "name": "string", "description": "string", "icon": "emoji" }
+  ],
+  "echo": {
+    "id": "string_id",
+    "title": "string",
+    "summary": "string (3-5 sentences, summarizing role, key event, outcome, and fate. Be specific and narrative.)",
+    "endingType": "{{ending}}",
+    "roleName": "string"
+  },
+  "memoryRecords": [
+    {
+      "turn": number,
+      "summary": "string or null",
+      "keywords": ["string", "string"]
+    }
+  ]
+}

@@ -2,6 +2,11 @@ import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScrip
 import { EditorChatMessage } from './editorAssistantTypes';
 import { AgentStreamEvent } from './streamProtocol';
 
+export interface ContextPromptAnchors {
+    anchorBefore?: string[];
+    anchorAfter?: string[];
+}
+
 export interface AIService {
     analyzeSCPUrl(input: string, language: Language, role: string, difficulty: GameDifficulty, legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData>;
     generateProfileCandidates(role: string, scpDesignation: string, language: Language, legacyData?: LegacyData): Promise<EntityProfile[]>;
@@ -16,6 +21,7 @@ export interface AIService {
         language: Language, 
         ragContext?: string, 
         mapContext?: ((enhanced?: boolean) => string),
+        promptAnchors?: ContextPromptAnchors,
         signal?: AbortSignal
     ): AsyncGenerator<string>;
     getChatHistory(): Promise<any[]>;

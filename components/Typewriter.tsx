@@ -12,6 +12,7 @@ const ListTypeContext = createContext({ ordered: false });
 interface TypewriterProps {
   content: string;
   isStreaming: boolean;
+  shouldAutoScroll?: boolean;
   onComplete?: () => void;
   onOptionClick?: (text: string) => void;
   npcs?: RuntimeNPCState[];
@@ -20,7 +21,7 @@ interface TypewriterProps {
   stability?: number;
 }
 
-const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplete, onOptionClick, npcs, npcImages, onNpcImageClick, stability }) => {
+const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, shouldAutoScroll = true, onComplete, onOptionClick, npcs, npcImages, onNpcImageClick, stability }) => {
   const [displayedContent, setDisplayedContent] = useState('');
   const [isVisualTyping, setIsVisualTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -32,6 +33,7 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
   // Buffering Refs for slow typing effect
   const contentRef = useRef(content);
   const displayedLengthRef = useRef(0);
+  const shouldAutoScrollRef = useRef(shouldAutoScroll);
 
   // Custom renderer for list items to make them clickable, and for auto-linked SCP numbers
   const markdownComponents = useMemo(() => ({
@@ -168,6 +170,10 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
     contentRef.current = content;
   }, [content]);
 
+  useEffect(() => {
+    shouldAutoScrollRef.current = shouldAutoScroll;
+  }, [shouldAutoScroll]);
+
   // Sync displayed content when streaming ends or content significantly changes (e.g. tag removal)
   useEffect(() => {
     if (!isStreaming && content !== displayedContent) {
@@ -298,7 +304,7 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, onComplet
             
             playKeystrokeSound();
 
-            if (bottomRef.current) {
+            if (shouldAutoScrollRef.current && bottomRef.current) {
                 bottomRef.current.scrollIntoView({ behavior: "smooth" });
             }
 

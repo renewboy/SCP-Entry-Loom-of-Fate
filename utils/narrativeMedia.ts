@@ -7,7 +7,7 @@ export interface NarrativeMediaSegment {
   attrs?: Record<string, string>;
 }
 
-const MEDIUM_BLOCK_REGEX = /\[#(DOC|COMM|ENV|PSI)(?::([^\]]*))?\]\n?([\s\S]*?)\[\/#\1\]/g;
+const MEDIUM_BLOCK_REGEX = /\[#(DOC|COMM|ENV|PSI)(?::([^\]]*))?\]\n?([\s\S]*?)\[\/\s*#\1\s*\]/g;
 
 const parseAttrs = (attrStr: string | undefined): Record<string, string> => {
   const attrs: Record<string, string> = {};
