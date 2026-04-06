@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { GameState, EndingType, Message, Language } from '../types';
 import {
     sendAction,
@@ -39,6 +39,7 @@ interface UseGameLoopReturn {
 export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
     const { gameState, setGameState, language, t, setInput, setMemoryEchoActive, buildMapContext, applyMapUpdate } = options;
     const [isProcessing, setIsProcessing] = useState(false);
+    const processingRef = useRef(false);
 
     const generateIllustration = useCallback(async (messageId: string, prompt: string) => {
         const settings = await loadGlobalSettings();
@@ -60,7 +61,9 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
     }, [setGameState]);
 
     const handleSend = useCallback(async (input: string) => {
-        if (!input.trim() || isProcessing) return;
+        if (!input.trim() || isProcessing || processingRef.current) return;
+
+        processingRef.current = true;
 
         const currentStability = gameState.stability;
         const newTurnCount = gameState.turnCount + 1;
@@ -272,6 +275,7 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
             }));
 
         } finally {
+            processingRef.current = false;
             setIsProcessing(false);
         }
     }, [gameState, setGameState, language, t, setInput, setMemoryEchoActive, buildMapContext, applyMapUpdate, isProcessing, generateIllustration]);

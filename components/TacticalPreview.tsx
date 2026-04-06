@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { GameState, GameStatus } from '../types';
 import { useTranslation } from '../utils/i18n';
 import { useViewport } from '../hooks/useViewport';
@@ -18,6 +18,7 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
     const { isMobile, width } = useViewport();
     const [selection, setSelection] = useState<{ type: 'node' | 'edge' | 'npc' | 'objective', id: string } | null>(null);
     const [isStarting, setIsStarting] = useState(false);
+    const isStartingRef = useRef(false);
     
     // Check if returning from editor
     const isReturn = gameState.returnFromEditor;
@@ -72,8 +73,9 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
     };
 
     const handleStartWeave = async () => {
-        if (!gameState.scpData || isStarting) return;
+        if (!gameState.scpData || isStarting || isStartingRef.current) return;
         
+        isStartingRef.current = true;
         setIsStarting(true);
         setGameState(prev => ({
             ...prev,

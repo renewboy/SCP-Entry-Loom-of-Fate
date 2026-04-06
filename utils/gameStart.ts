@@ -11,10 +11,35 @@ interface StartGameParams {
     t: (key: string) => string;
 }
 
+const inFlightStartProcesses = new Map<string, Promise<void>>();
+
+const getStartGameKey = ({ gameState, language }: Pick<StartGameParams, 'gameState' | 'language'>): string | null => {
+    if (!gameState.scpData) return null;
+
+    return JSON.stringify({
+        designation: gameState.scpData.designation,
+        role: gameState.role,
+        language,
+        legacy: Boolean(gameState.legacy),
+        blueprintId: gameState.scpData.mapBlueprint?.id ?? null,
+        blueprintTitle: gameState.scpData.mapBlueprint?.title ?? null
+    });
+};
+
 export const startGameProcess = async ({ gameState, setGameState, language, t }: StartGameParams) => {
     if (!gameState.scpData) return;
-    
-    try {
+    void t;
+
+    const startKey = getStartGameKey({ gameState, language });
+    if (startKey) {
+        const existingProcess = inFlightStartProcesses.get(startKey);
+        if (existingProcess) {
+            await existingProcess;
+            return;
+        }
+    }
+
+    const run = (async () => {
         const settings = await loadGlobalSettings();
         const difficulty = settings.difficulty || 'normal';
         
@@ -189,8 +214,20 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
             });
         }
 
-    } catch (e) {
+    })().catch((e) => {
         console.error("Error starting game process:", e);
         throw e;
+    });
+
+    if (startKey) {
+        inFlightStartProcesses.set(startKey, run);
+    }
+
+    try {
+        await run;
+    } finally {
+        if (startKey && inFlightStartProcesses.get(startKey) === run) {
+            inFlightStartProcesses.delete(startKey);
+        }
     }
 };
