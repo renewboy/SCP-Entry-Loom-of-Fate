@@ -97,20 +97,24 @@ export const safeParseJson = (text: string): any | null => {
   const jsonBlockMatch = text.match(/```json\s*([\s\S]*?)\s*```/i);
   if (jsonBlockMatch && jsonBlockMatch[1]) {
     candidates.push(jsonBlockMatch[1].trim());
+    console.log(`[safeParseJson] Found JSON block: ${jsonBlockMatch[1].trim()}`);
   }
-
   // 2. Fallback: Raw text stripped of markdown
   const raw = text.replace(/```json/g, '').replace(/```/g, '').trim();
   candidates.push(raw);
-
+  console.log(`[safeParseJson] Found raw text: ${raw}`);
   // 3. Fallback: Heuristic extraction
   const extracted = extractJsonObject(raw);
-  if (extracted) candidates.push(extracted);
+  if (extracted) {
+    candidates.push(extracted);
+    console.log(`[safeParseJson] Heuristic extraction: ${extracted}`);
+  }
 
   const uniqueCandidates = Array.from(new Set(candidates)).filter(Boolean);
 
   for (const candidate of uniqueCandidates) {
     try {
+      console.log(`[safeParseJson] Successfully parsed JSON: ${candidate}`);
       return JSON.parse(candidate);
     } catch {
       try {
@@ -118,6 +122,7 @@ export const safeParseJson = (text: string): any | null => {
         const cleaned = candidate.replace(/,\s*([}\]])/g, '$1');
         return JSON.parse(cleaned);
       } catch {
+        console.log(`[safeParseJson] Failed to parse JSON: ${candidate}`);
         continue;
       }
     }

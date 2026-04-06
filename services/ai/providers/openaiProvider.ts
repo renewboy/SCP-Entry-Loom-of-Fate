@@ -152,7 +152,9 @@ export class OpenAIProvider implements AIService {
                 text: { format: { type: "json_object" } },
                 ...({"thinking": {"type": "enabled"}}) as any,
             });
+            console.log(`[OpenAIProvider] Raw response for analysis: ${JSON.stringify(response)}`);
             const text = getOpenAIText(response);
+            console.log(`[OpenAIProvider] Analysis response text: ${text}`);
             if (!text) throw new Error("No response from analysis");
 
             const parsed = safeParseJson(text);

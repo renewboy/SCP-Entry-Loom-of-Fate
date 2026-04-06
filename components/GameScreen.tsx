@@ -24,13 +24,14 @@ import MobileDrawer from './common/MobileDrawer';
 import { useTutorial } from '../hooks/useTutorial';
 import { THEME_CSS } from '../styles/themeCss';
 
+const AUTO_SCROLL_THRESHOLD_PX = 72;
+
 interface GameScreenProps {
   gameState: GameState;
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
 }
 
 const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
-  const AUTO_SCROLL_THRESHOLD = 80;
   const { t, language, setLanguage } = useTranslation();
   const { isMobile } = useViewport();
   const [mobileDrawer, setMobileDrawer] = useState<'none' | 'map' | 'legacy'>('none');
@@ -40,11 +41,12 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   const [saveLoadMode, setSaveLoadMode] = useState<'save' | 'load'>('save');
   const [isReportOpen, setIsReportOpen] = useState(true);
   const [isMemoryEchoActive, setMemoryEchoActive] = useState(false);
-  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const shouldAutoScrollRef = useRef(true);
+  const autoScrollRef = useRef(true);
+  const programmaticScrollRef = useRef(false);
+  const userScrollIntentRef = useRef(false);
 
   useThemeColors(gameState.stability);
   
@@ -66,22 +68,64 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
 
   const { countdown, isActive: isCountdownActive, cancel: handleCancelCountdown, isCollapsed: isEndingOverlayCollapsed, setIsCollapsed: setIsEndingOverlayCollapsed } = useGameOverCountdown(gameState, setGameState);
 
-  useEffect(() => {
-    if (scrollRef.current && gameState.status === GameStatus.PLAYING && shouldAutoScroll) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  const isNearBottom = (container: HTMLDivElement) => (
+    container.scrollHeight - container.scrollTop - container.clientHeight <= AUTO_SCROLL_THRESHOLD_PX
+  );
+
+  const scrollChatToBottom = () => {
+    const container = scrollRef.current;
+    if (!container) {
+      return;
     }
-  }, [gameState.messages, gameState.status, shouldAutoScroll]);
+
+    programmaticScrollRef.current = true;
+    container.scrollTop = container.scrollHeight;
+
+    window.setTimeout(() => {
+      programmaticScrollRef.current = false;
+    }, 120);
+  };
+
+  const handleChatUserScrollIntent = (forceDisable = false) => {
+    if (programmaticScrollRef.current) {
+      return;
+    }
+
+    userScrollIntentRef.current = true;
+
+    if (forceDisable) {
+      autoScrollRef.current = false;
+      return;
+    }
+
+    const container = scrollRef.current;
+    if (container && !isNearBottom(container)) {
+      autoScrollRef.current = false;
+    }
+  };
+
+  const handleChatScroll = () => {
+    const container = scrollRef.current;
+    if (!container || programmaticScrollRef.current) {
+      return;
+    }
+
+    if (isNearBottom(container)) {
+      autoScrollRef.current = true;
+      userScrollIntentRef.current = false;
+      return;
+    }
+
+    if (userScrollIntentRef.current) {
+      autoScrollRef.current = false;
+    }
+  };
 
   useEffect(() => {
-    shouldAutoScrollRef.current = shouldAutoScroll;
-  }, [shouldAutoScroll]);
-
-  useEffect(() => {
-    if (gameState.status !== GameStatus.PLAYING || gameState.messages.length === 0) {
-      shouldAutoScrollRef.current = true;
-      setShouldAutoScroll(true);
+    if (gameState.status === GameStatus.PLAYING && autoScrollRef.current) {
+      scrollChatToBottom();
     }
-  }, [gameState.status, gameState.messages.length]);
+  }, [gameState.messages, gameState.status]);
 
   useEffect(() => {
     if (gameState.status === GameStatus.GAME_OVER) {
@@ -90,20 +134,12 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   }, [gameState.status]);
 
   const handleSendMessage = () => {
+    autoScrollRef.current = true;
+    userScrollIntentRef.current = false;
+    requestAnimationFrame(() => {
+      scrollChatToBottom();
+    });
     void handleSend(input);
-  };
-
-  const handleChatScroll = () => {
-    const container = scrollRef.current;
-    if (!container) return;
-
-    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    const nextShouldAutoScroll = distanceFromBottom <= AUTO_SCROLL_THRESHOLD;
-
-    if (nextShouldAutoScroll !== shouldAutoScrollRef.current) {
-      shouldAutoScrollRef.current = nextShouldAutoScroll;
-      setShouldAutoScroll(nextShouldAutoScroll);
-    }
   };
 
   const handleAbort = () => {
@@ -263,8 +299,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         t={t}
         isProcessing={isProcessing}
         scrollRef={scrollRef}
-        shouldAutoScroll={shouldAutoScroll}
         onScroll={handleChatScroll}
+        onUserScrollIntent={handleChatUserScrollIntent}
+        shouldAutoScroll={autoScrollRef.current}
         onOptionClick={handleOptionClick}
       />
 
