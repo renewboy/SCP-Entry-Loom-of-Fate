@@ -163,4 +163,34 @@ describe('useGameLoop', () => {
     expect(input).toBe('wait');
     expect(result.current.api.isProcessing).toBe(false);
   });
+
+  it('同步连续触发两次时只发起一次发送', async () => {
+    sendActionMock.mockReturnValue(createStream(['Only once']));
+
+    const { result } = renderHook(() => {
+      const [gameState, setGameState] = useState(createState());
+      const [input, setInput] = useState('');
+      const [memoryEchoActive, setMemoryEchoActive] = useState(false);
+      const api = useGameLoop({
+        gameState,
+        setGameState,
+        language: 'en',
+        t: (key: string) => key,
+        setInput,
+        setMemoryEchoActive,
+        buildMapContext: () => 'map',
+        applyMapUpdate: (prev) => prev
+      });
+      return { api, state: { gameState, input, memoryEchoActive } };
+    });
+
+    await act(async () => {
+      await Promise.all([
+        result.current.api.handleSend('go'),
+        result.current.api.handleSend('go')
+      ]);
+    });
+
+    expect(sendActionMock).toHaveBeenCalledTimes(1);
+  });
 });

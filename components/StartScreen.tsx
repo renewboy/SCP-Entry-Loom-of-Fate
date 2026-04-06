@@ -36,6 +36,8 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
   const { isMobile } = useViewport();
   const LOADING_MESSAGES = React.useMemo(() => t('start.loading_msgs') as string[], [t]);
   const autoStartRef = useRef(false);
+  const analysisInFlightRef = useRef(false);
+  const startFlowRef = useRef(false);
 
   const [urlInput, setUrlInput] = useState('');
   const [selectedRole, setSelectedRole] = useState<Role>(Role.RESEARCHER);
@@ -137,6 +139,10 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
   };
 
   const startAnalysis = async (profile?: EntityProfile) => {
+    if (analysisInFlightRef.current) return;
+
+    analysisInFlightRef.current = true;
+    startFlowRef.current = true;
     setLoadingStep(t('start.loading_access'));
 
     try {
@@ -165,11 +171,16 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
       console.error(e);
       setError(t('start.error_conn'));
       setLoadingStep(null);
+    } finally {
+      analysisInFlightRef.current = false;
+      startFlowRef.current = false;
     }
   };
 
   const handleStart = async () => {
-    if (!urlInput.trim() || loadingStep) return;
+    if (!urlInput.trim() || loadingStep || startFlowRef.current || analysisInFlightRef.current) return;
+
+    startFlowRef.current = true;
     setError(null);
     setCanRetryInit(false);
     setLoadingStep(t('start.loading_checking_ai'));
@@ -180,6 +191,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
       setSettingsAttention(true);
       setSettingsModalOpen(true);
       setLoadingStep(null);
+      startFlowRef.current = false;
       return;
     }
     
@@ -188,23 +200,26 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
         setLoadingStep(null);
         setGameState(prev => ({ ...prev, status: GameStatus.ENTITY_PROFILE }));
         setShowProfileAugmentation(true);
+        startFlowRef.current = false;
         return;
     }
 
-    startAnalysis(entityProfile);
+    void startAnalysis(entityProfile);
   };
 
   const handleProfileComplete = (profile: EntityProfile) => {
+      if (analysisInFlightRef.current || startFlowRef.current) return;
       setEntityProfile(profile);
       setShowProfileAugmentation(false);
       setGameState(prev => ({ ...prev, status: GameStatus.IDLE }));
-      startAnalysis(profile);
+      void startAnalysis(profile);
   };
 
   const handleProfileBack = () => {
+      if (analysisInFlightRef.current || startFlowRef.current) return;
       setShowProfileAugmentation(false);
       setGameState(prev => ({ ...prev, status: GameStatus.IDLE }));
-      startAnalysis(entityProfile);
+      void startAnalysis(entityProfile);
   };
 
   const handleRetryInit = async () => {

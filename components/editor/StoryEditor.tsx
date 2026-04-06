@@ -272,6 +272,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
     }, [selectionState, setBlueprint, setSelection]);
 
     const [isStarting, setIsStarting] = useState(false);
+    const isStartingRef = useRef(false);
     const [showValidationErrors, setShowValidationErrors] = useState(false);
 
     const {
@@ -471,10 +472,15 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
     };
 
     const handleSaveAndPlay = async () => {
+        if (isStartingRef.current) {
+            return;
+        }
+
         if (!validateInputs()) {
             return;
         }
 
+        isStartingRef.current = true;
         setIsStarting(true);
         try {
             const finalScpData: SCPData = {
@@ -508,6 +514,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
             console.error(e);
             alert(t('start.error_conn'));
         } finally {
+            isStartingRef.current = false;
             setIsStarting(false);
         }
     };
