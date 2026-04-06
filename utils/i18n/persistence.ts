@@ -1,9 +1,10 @@
 import { saveSetting, loadSetting } from '../../services/indexedDBService';
 import { Language } from '../../types';
+import { isSupportedLanguage } from './languages';
 
 export const loadLanguage = async () => {
   const savedLang = await loadSetting('language');
-  if (savedLang && (savedLang === 'en' || savedLang === 'zh')) {
+  if (isSupportedLanguage(savedLang)) {
     return savedLang as Language;
   }
   return undefined;

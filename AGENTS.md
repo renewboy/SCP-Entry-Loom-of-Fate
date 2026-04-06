@@ -71,8 +71,11 @@
 ### 6. i18n (Lightweight Pattern)
 - **Dictionary structure**: Nested object keys (e.g., `game.stability_label`)
 - **Persistence**: IndexedDB stores active language preference
+- **React usage**: Components should read localized strings via `useTranslation()` / `t(key)`
+- **Non-React usage**: Services and prompt builders should use `translate(language, key)` instead of hand-written `zh/en` ternaries
+- **Shared metadata location**: Cross-layer strings like language labels, prompt output labels, boot keywords, and locale are stored under `translations.i18n.*`
 - **No pluralization/gender rules** — all manual key paths
-- **Character name injection**: Handled separately at role-selection time
+- **Character name injection**: Handled separately at role-selection time via `roleTranslations.ts`
 
 ## Development Workflows
 
@@ -102,7 +105,7 @@ npm run pack:dir         # Electron builder (unsigned macOS)
 | Purpose | Files |
 |---------|-------|
 | **Game State & Types** | `types.ts`, `services/aiService.ts` |
-| **Streaming & Parsing** | `services/ai/utils.ts`, `components/GameScreen.tsx` (line 172–182) |
+| **Streaming & Parsing** | `services/ai/utils.ts`, `components/GameScreen.tsx` |
 | **Prompt/Tags Rules** | `services/ai/prompts.ts` (system instruction, tag format spec) |
 | **Provider Implementations** | `services/ai/providers/{geminiProvider, openaiProvider}.ts` |
 | **Game Loop & Rendering** | `hooks/useGameLoop.ts`, `components/GameScreen.tsx`, `components/Typewriter.tsx` |
@@ -121,6 +124,7 @@ npm run pack:dir         # Electron builder (unsigned macOS)
 
 ### Modifying Prompt Rules
 - All prompt templates in `services/ai/prompts.ts`
+- Prompt-facing language labels come from `translations.i18n.prompt_language_labels.*`
 - Tag formats & extraction logic in `services/ai/utils.ts`
 - UI side effects in relevant hooks/components (e.g., `useMapUpdate.ts` for `[MAP_UPDATE]`)
 

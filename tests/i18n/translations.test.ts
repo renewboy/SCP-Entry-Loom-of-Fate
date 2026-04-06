@@ -9,30 +9,39 @@ const getValueByPath = (source: Record<string, unknown>, path: string) => {
 };
 
 describe('translations', () => {
-  it('中英文均包含关键文案', () => {
+  it('中英日文均包含关键文案', () => {
+    const zhTranslations = translations.zh as Record<string, unknown>;
+    const enTranslations = translations.en as Record<string, unknown>;
+    const jaTranslations = translations.ja as Record<string, unknown>;
     const requiredKeys = [
-      'app.switch_lang',
       'start.btn_start',
       'game.input_placeholder',
       'endings.contained.title',
       'modal.title',
-      'report.title'
+      'report.title',
+      'ai.session_lost',
+      'ai.causal_sync_timeout'
     ];
 
     requiredKeys.forEach(key => {
-      const zhValue = getValueByPath(translations.zh, key);
-      const enValue = getValueByPath(translations.en, key);
+      const zhValue = getValueByPath(zhTranslations, key);
+      const enValue = getValueByPath(enTranslations, key);
+      const jaValue = getValueByPath(jaTranslations, key);
       expect(typeof zhValue).toBe('string');
       expect(typeof enValue).toBe('string');
+      expect(typeof jaValue).toBe('string');
     });
   });
 
   it('启动加载提示包含多条文案', () => {
-    const zhLoading = translations.zh.start.loading_msgs;
-    const enLoading = translations.en.start.loading_msgs;
+    const zhLoading = (translations.zh as any).start.loading_msgs as string[];
+    const enLoading = (translations.en as any).start.loading_msgs as string[];
+    const jaLoading = (translations.ja as any).start.loading_msgs as string[];
     expect(Array.isArray(zhLoading)).toBe(true);
     expect(Array.isArray(enLoading)).toBe(true);
+    expect(Array.isArray(jaLoading)).toBe(true);
     expect(zhLoading.length).toBeGreaterThan(0);
     expect(enLoading.length).toBeGreaterThan(0);
+    expect(jaLoading.length).toBeGreaterThan(0);
   });
 });

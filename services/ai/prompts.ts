@@ -1,4 +1,5 @@
 import { GameDifficulty, Language, MapBlueprint, StoryDraft, LegacyData, EntityProfile } from '../../types';
+import { translate } from '../../utils/i18n';
 import { ContextPromptAnchors } from './types';
 import { joinPromptSections, renderPromptTemplate } from './promptTemplateEngine';
 import systemInstructionTemplate from './templates/systemInstruction.njk?raw';
@@ -15,11 +16,11 @@ import qaPromptTemplate from './templates/qaPrompt.njk?raw';
 
 export const getSystemInstruction = (_role: string, language: Language) =>
     renderPromptTemplate(systemInstructionTemplate, {
-        outputLanguage: language === 'zh' ? '中文' : '英文'
+        outputLanguage: translate(language, 'i18n.prompt_language_labels.zh')
     });
 
 export const getAnalyzeSCPPrompt = (input: string, language: Language, role: string, difficulty: GameDifficulty, legacyData?: LegacyData, profile?: EntityProfile) => {
-    const langInstruction = language === 'zh' ? 'Chinese' : 'English';
+    const langInstruction = translate(language, 'i18n.prompt_language_labels.en');
     return renderPromptTemplate(analyzeScpPromptTemplate, {
         input,
         role,
@@ -31,7 +32,7 @@ export const getAnalyzeSCPPrompt = (input: string, language: Language, role: str
 };
 
 export const getProfileCandidatesPrompt = (role: string, scpDesignation: string, language: Language, legacyData?: LegacyData) => {
-    const langInstruction = language === 'zh' ? 'Chinese' : 'English';
+    const langInstruction = translate(language, 'i18n.prompt_language_labels.en');
     return renderPromptTemplate(profileCandidatesPromptTemplate, {
         role,
         scpDesignation,
@@ -56,7 +57,7 @@ export const getStartGamePrompt = (
     storyDraft?: StoryDraft,
     npcVisuals?: Record<string, string>
 ) => {
-    const langInstruction = language === 'zh' ? '中文' : '英文';
+    const langInstruction = translate(language, 'i18n.prompt_language_labels.zh');
     const isEmptyStoryDraft = Object.values(storyDraft || {}).every(value => !value);
     const sanitizedMapBlueprint = mapBlueprint ? {
         ...mapBlueprint,
@@ -88,7 +89,7 @@ export const getLegacyGenerationPrompt = (ending: string, role: string, language
     return renderPromptTemplate(legacyGenerationPromptTemplate, {
         ending,
         role,
-        outputLanguage: language === 'zh' ? 'Chinese' : 'English'
+        outputLanguage: translate(language, 'i18n.prompt_language_labels.en')
     });
 };
 
@@ -97,7 +98,7 @@ export const getCompressionPrompt = (historyText: string, language: Language, fi
         hasFirstMessageContent: Boolean(firstMessageContent),
         firstMessageContent: firstMessageContent || '',
         historyText,
-        outputLanguage: language === 'zh' ? 'Chinese' : 'English'
+        outputLanguage: translate(language, 'i18n.prompt_language_labels.en')
     });
 }
 
@@ -110,7 +111,7 @@ export const getContextPrompt = (
     mapContext?: string,
     promptAnchors?: ContextPromptAnchors
 ) => {
-    const langInstruction = language === 'zh' ? '中文' : '英文';
+    const langInstruction = translate(language, 'i18n.prompt_language_labels.zh');
     const normalTurnReminder = getNormalTurnRequirements(langInstruction);
 
     const contextPrompt = renderPromptTemplate(contextPromptTemplate, {
@@ -133,7 +134,7 @@ export const getAudioDramaPrompt = (storyLog: string, role: string, scpDesignati
         storyLog,
         role,
         scpDesignation,
-        outputLanguage: language === 'zh' ? 'Chinese' : 'English'
+        outputLanguage: translate(language, 'i18n.prompt_language_labels.en')
     });
 };
 
@@ -141,13 +142,13 @@ export const getGameReviewPrompt = (role: string, ending: string, language: Lang
     return renderPromptTemplate(gameReviewPromptTemplate, {
         role,
         ending,
-        outputLanguage: language === 'zh' ? 'Chinese' : 'English'
+        outputLanguage: translate(language, 'i18n.prompt_language_labels.en')
     });
 };
 
 export const getQAPrompt = (question: string, language: Language) => {
     return renderPromptTemplate(qaPromptTemplate, {
         question,
-        outputLanguage: language === 'zh' ? '中文' : '英文'
+        outputLanguage: translate(language, 'i18n.prompt_language_labels.zh')
     });
 };

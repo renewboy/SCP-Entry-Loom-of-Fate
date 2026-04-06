@@ -233,7 +233,6 @@ const BootSequenceOverlay: React.FC<BootSequenceOverlayProps> = ({ onComplete, s
   ], []);
 
   const archiveSections = useMemo(() => {
-    const lk = language === 'zh' ? 'zh' : 'en';
     const a  = SCP_10042_LOF_ARCHIVE;
     return [
       {
@@ -244,22 +243,24 @@ const BootSequenceOverlay: React.FC<BootSequenceOverlayProps> = ({ onComplete, s
       {
         id: 'procedures', kind: 'text' as const,
         title: t('boot.scp_procedures'),
-        content: a.special_containment_procedures[lk],
+        content: a.special_containment_procedures[language] || a.special_containment_procedures.en || a.special_containment_procedures.zh || '',
       },
       {
         id: 'description', kind: 'text' as const,
-        title: t('boot.scp_desc'), content: a.description[lk],
+        title: t('boot.scp_desc'), content: a.description[language] || a.description.en || a.description.zh || '',
       },
       {
         id: 'features', kind: 'features' as const,
         title: t('boot.features_title'),
         items: a.features.map(f => ({
-          id: f.id, name: f.name[lk], desc: f.desc[lk],
+          id: f.id,
+          name: f.name[language] || f.name.en || f.name.zh || '',
+          desc: f.desc[language] || f.desc.en || f.desc.zh || '',
         })),
       },
       {
         id: 'warning', kind: 'warning' as const,
-        title: t('boot.scp_warning'), content: a.warning[lk],
+        title: t('boot.scp_warning'), content: a.warning[language] || a.warning.en || a.warning.zh || '',
       },
     ];
   }, [language, t]);
@@ -399,11 +400,7 @@ const BootSequenceOverlay: React.FC<BootSequenceOverlayProps> = ({ onComplete, s
   }, [phase, isPaused]);
 
   // ── Keywords for glitch highlighting ─────────────────────────────────────
-  const keywords = useMemo(() =>
-    language === 'zh'
-      ? ['Keter', '模因', '世界回响', '记忆锚定', '现实崩溃', 'RAISA', 'MTF', '命运织机']
-      : ['Keter', 'Memetic', 'World Echo', 'Memory Anchoring', 'Reality Collapse', 'RAISA', 'MTF', 'Loom of Fate'],
-  [language]);
+  const keywords = useMemo(() => t('i18n.boot_keywords') as string[], [t]);
 
   const escapeRegExp = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 

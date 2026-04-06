@@ -20,7 +20,7 @@ interface GlobalSettingsModalProps {
 type SettingsTab = 'game' | 'ai';
 
 const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClose, initialTab = 'game', attention = false }) => {
-    const { t, language } = useTranslation();
+    const { t } = useTranslation();
     const [settings, setSettings] = useState<GlobalSettings | null>(null);
     const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
     const [aiSettings, setAiSettings] = useState<AISettings | null>(null);
@@ -189,7 +189,7 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
                     <div className="flex items-center gap-3">
                         <div className="w-3 h-3 bg-scp-accent rounded-full animate-pulse"></div>
                         <span className="font-report text-xl tracking-widest text-scp-text uppercase shadow-black drop-shadow-md text-shadow-sm">
-                            {t('settings.title') || (language === 'zh' ? '系统设置' : 'SYSTEM SETTINGS')}
+                            {t('settings.title')}
                         </span>
                     </div>
                     <button 

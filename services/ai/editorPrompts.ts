@@ -1,4 +1,5 @@
 import { Language, SCPData, GameDifficulty, LegacyData } from "../../types";
+import { translate } from "../../utils/i18n";
 
 const formatLegacyData = (legacyData?: LegacyData) => {
     if (!legacyData) return '';
@@ -12,7 +13,7 @@ const formatLegacyData = (legacyData?: LegacyData) => {
 };
 
 export const getEditorAssistantPrompt = (language: Language, difficulty?: GameDifficulty, legacyData?: LegacyData) => {
-    const langInstruction = language === 'zh' ? 'Chinese' : 'English';
+    const langInstruction = translate(language, 'i18n.prompt_language_labels.en');
     const difficultySection = difficulty ? `
 [Difficulty Guidance]
 Current game difficulty: ${difficulty}

@@ -1,10 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Language } from '../../types';
-import { translations } from './translations';
+import { translate } from './translations';
 import { loadLanguage, saveLanguage } from './persistence';
+import { defaultLanguage, getLanguagePack } from './languages';
+import type { LanguagePack } from './languages';
 
 interface LanguageContextType {
   language: Language;
+  pack: LanguagePack;
   setLanguage: (lang: Language) => void;
   t: (key: string, params?: Record<string, string | number>) => any;
 }
@@ -12,7 +15,7 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<Language>('en');
+  const [language, setLanguageState] = useState<Language>(defaultLanguage);
 
   useEffect(() => {
     const initLanguage = async () => {
@@ -30,26 +33,13 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   const t = (path: string, params?: Record<string, string | number>) => {
-    const keys = path.split('.');
-    let value: any = translations[language];
-
-    for (const key of keys) {
-      if (value && typeof value === 'object' && key in value) {
-        value = value[key as keyof typeof value];
-      } else {
-        return path;
-      }
-    }
-
-    if (typeof value === 'string' && params) {
-      return value.replace(/{(\w+)}/g, (_, k) => params[k] !== undefined ? String(params[k]) : `{${k}}`);
-    }
-
-    return value;
+    return translate(language, path, params);
   };
 
+  const pack = getLanguagePack(language);
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={{ language, pack, setLanguage, t }}>
       {children}
     </LanguageContext.Provider>
   );

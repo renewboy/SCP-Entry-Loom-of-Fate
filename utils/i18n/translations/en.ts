@@ -1,6 +1,19 @@
 export const en = {
+  i18n: {
+    language_label: "English",
+    languages: {
+      zh: "Chinese",
+      en: "English",
+      ja: "Japanese",
+    },
+    prompt_language_labels: {
+      zh: "英文",
+      en: "English",
+    },
+    locale: "en-US",
+    boot_keywords: ['Keter', 'Memetic', 'World Echo', 'Memory Anchoring', 'Reality Collapse', 'RAISA', 'MTF', 'Loom of Fate'],
+  },
   app: {
-    switch_lang: "中文",
     appendix: "Appendix A",
     footer: "SECURE. CONTAIN. PROTECT. // TERMINAL_ID: 8829-AZ",
     license: "License: CC BY-SA 3.0",
@@ -73,7 +86,6 @@ export const en = {
     map_review_objective: "Review mission",
     map_go: "Go to",
     map_talk: "Talk to",
-    map_reset: "RESET",
     map_start: "Start",
     map_main_hint: "Main mission",
     map_side_hint: "Side mission",
@@ -217,6 +229,10 @@ export const en = {
     qa_remaining: "REMAINING QUESTIONS",
     qa_finished: "Q&A SESSION CLOSED",
     generate_video_script: "GENERATE AUDIO DRAMA SCRIPT",
+  },
+  ai: {
+    session_lost: "Session connection lost.",
+    causal_sync_timeout: "Causal sync timeout.",
   },
   save_load: {
     save: "Save Game",

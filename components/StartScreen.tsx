@@ -7,7 +7,7 @@ import { GameState, GameStatus, Role, LegacyData, EntityProfile } from '../types
 import ParticleText from './ParticleText';
 import BootSequenceOverlay from './BootSequenceOverlay';
 import SaveLoadModal from './SaveLoadModal';
-import { useTranslation, ROLE_TRANSLATIONS } from '../utils/i18n';
+import { useTranslation, getRoleTranslation } from '../utils/i18n';
 import GameLogo from './GameLogo';
 import LegacySidebar from './LegacySidebar';
 import GlobalSettingsModal from './GlobalSettingsModal';
@@ -229,8 +229,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
 
   const getRoleDisplay = (role: Role) => {
     if (role === Role.CUSTOM) return t('start.role_custom_opt');
-    if (language === 'zh') return `> ${role}`;
-    return `> ${ROLE_TRANSLATIONS[role] || role}`;
+    return `> ${getRoleTranslation(role, language)}`;
   };
 
 

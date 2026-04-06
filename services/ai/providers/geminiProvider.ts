@@ -8,6 +8,7 @@ import { normalizeGameReviewData, safeParseJson, cleanHistoryText } from "../uti
 import { AudioDramaSchema } from "../schemas";
 import { postJson, streamSse } from "./backendClient";
 import { getEffectiveAIConfig } from "../../aiConfigService";
+import { translate } from "../../../utils/i18n";
 import { AgentStreamEvent } from "../streamProtocol";
 import { EditorChatMessage, toGeminiContents } from "../editorAssistantTypes";
 
@@ -95,7 +96,6 @@ export class GeminiProvider implements AIService {
                     }
                 },
             });
-            console.log(`[GeminiProvider] Analysis response: ${JSON.stringify(response)}`);
             const text = getGeminiText(response);
             if (!text) throw new Error("No response from analysis");
 
@@ -522,7 +522,7 @@ export class GeminiProvider implements AIService {
             this.qaHistory.push({ role: "model", parts: [{ text: fullResponse }] });
             await this.logTokenCount([...this.history, ...this.gameReviewHistory, ...this.qaHistory]);
         } catch (error) {
-            yield language === 'zh' ? "因果同步超时。" : "Causal sync timeout.";
+            yield translate(language, 'ai.causal_sync_timeout');
         }
     }
 

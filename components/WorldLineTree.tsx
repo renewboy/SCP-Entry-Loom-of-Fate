@@ -287,7 +287,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
     }
 
     const title = `${scpData?.designation || 'SCP'}_Incident_Report`;
-    const dateStr = new Date().toLocaleString(language === 'zh' ? 'zh-CN' : 'en-US');
+    const dateStr = new Date().toLocaleString(t('i18n.locale') as string);
     
     // Labels for print report
     const lbl = {

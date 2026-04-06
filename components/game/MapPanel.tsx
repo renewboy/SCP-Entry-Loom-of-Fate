@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { RotateCcw } from 'lucide-react';
 import { GameState } from '../../types';
 import { useTranslation } from '../../utils/i18n';
 import { buildLayout } from '../../utils/mapLayout';
@@ -95,9 +96,10 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction, fullWidth
       </div>
       <button
         onClick={resetView}
-        className="px-2 py-1 flex items-center justify-center text-[11px] font-mono text-scp-text/60 hover:text-scp-term border border-scp-term/30 bg-black/80"
+        aria-label="Reset map view"
+        className="w-8 h-8 flex items-center justify-center text-scp-text/60 hover:text-scp-term border border-scp-term/30 bg-black/80"
       >
-        {t('game.map_reset')}
+        <RotateCcw className="w-3.5 h-3.5" strokeWidth={1.75} />
       </button>
     </div>
   );
