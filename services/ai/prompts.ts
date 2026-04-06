@@ -45,13 +45,24 @@ const getNormalTurnRequirements = (langInstruction: string) =>
         outputLanguage: langInstruction
     });
 
-export const getStartGamePrompt = (role: string, scpDesignation: string, containmentClass: string, language: Language, difficulty: GameDifficulty, legacyData?: LegacyData, mapBlueprint?: MapBlueprint, storyDraft?: StoryDraft) => {
+export const getStartGamePrompt = (
+    role: string,
+    scpDesignation: string,
+    containmentClass: string,
+    language: Language,
+    difficulty: GameDifficulty,
+    legacyData?: LegacyData,
+    mapBlueprint?: MapBlueprint,
+    storyDraft?: StoryDraft,
+    npcVisuals?: Record<string, string>
+) => {
     const langInstruction = language === 'zh' ? '中文' : '英文';
     const isEmptyStoryDraft = Object.values(storyDraft || {}).every(value => !value);
     const sanitizedMapBlueprint = mapBlueprint ? {
         ...mapBlueprint,
         nodes: mapBlueprint.nodes.map(({ layout, ...rest }) => rest)
     } : null;
+    const hasNpcVisuals = Boolean(npcVisuals && Object.keys(npcVisuals).length > 0);
 
     return renderPromptTemplate(startGamePromptTemplate, {
         role,
@@ -67,6 +78,8 @@ export const getStartGamePrompt = (role: string, scpDesignation: string, contain
         legacy: legacyData || null,
         hasMapBlueprint: Boolean(sanitizedMapBlueprint),
         mapBlueprintJson: sanitizedMapBlueprint ? JSON.stringify(sanitizedMapBlueprint) : '',
+        hasNpcVisuals,
+        npcVisualsJson: hasNpcVisuals ? JSON.stringify(npcVisuals) : '',
         outputLanguage: langInstruction,
     });
 };

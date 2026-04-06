@@ -81,6 +81,7 @@ export interface Message {
   imageUrl?: string; // If the message comes with an illustration
   isTyping?: boolean; // For stream effect
   stabilitySnapshot?: number; // Snapshot of stability at this message, used for history chart
+  turnIndex: number; // Explicit turn number for timeline navigation
 }
 
 export interface StoryDraft {

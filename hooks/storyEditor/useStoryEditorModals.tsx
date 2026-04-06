@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import type { ReactNode, Dispatch, SetStateAction } from 'react';
 import { MapBlueprint, SCPData } from '../../types';
 import { applyLayoutToBlueprint } from '../../utils/mapLayout';
 
@@ -34,19 +33,29 @@ export const useStoryEditorModals = ({
     const applyImportText = (text: string) => {
         try {
             const json = JSON.parse(text);
-            if (json.nodes && json.edges) {
-                setBlueprint(applyLayoutToBlueprint(json, { width: 720, height: 420, paddingX: 60, paddingY: 50 }), 'immediate');
-                setScpData(prev => ({
-                    ...prev,
-                    storyDraft: json.storyDraft || prev.storyDraft,
-                    designation: json.designation || prev.designation,
-                    name: json.name || prev.name
-                }), 'immediate');
-                setImportError('');
-                closeModal();
-            } else {
-                setImportError(t('map_editor.validation_error'));
-            }
+            const importedData: SCPData = {
+                designation: json.designation,
+                name: json.name,
+                containmentClass: json.containmentClass,
+                role: json.role,
+                storyDraft: {
+                    roleDetails: json.storyDraft.roleDetails,
+                    storyBackground: json.storyDraft.storyBackground,
+                    narrativeConstraints: json.storyDraft.narrativeConstraints,
+                    openingPrompt: json.storyDraft.openingPrompt
+                },
+                visualDescription: json.visualDescription,
+                entityDescription: json.entityDescription,
+                npcVisuals: json.npcVisuals,
+                npcImages: scpData.npcImages,
+                mapBlueprint: applyLayoutToBlueprint(json.mapBlueprint, { width: 720, height: 420, paddingX: 60, paddingY: 50 })
+            };
+
+            setBlueprint(importedData.mapBlueprint, 'immediate');
+            setScpData(importedData, 'immediate');
+            setPromptsFromData(importedData);
+            setImportError('');
+            closeModal();
         } catch (e) {
             setImportError(t('map_editor.json_error'));
         }
@@ -90,14 +99,20 @@ export const useStoryEditorModals = ({
     };
 
     const exportData = {
-        ...blueprint,
-        storyDraft: {
-            ...scpData.storyDraft,
-            backgroundImage: undefined,
-            entityImage: undefined
-        },
         designation: scpData.designation,
-        name: scpData.name
+        name: scpData.name,
+        containmentClass: scpData.containmentClass,
+        role: scpData.role,
+        storyDraft: {
+            roleDetails: scpData.storyDraft?.roleDetails,
+            storyBackground: scpData.storyDraft?.storyBackground,
+            narrativeConstraints: scpData.storyDraft?.narrativeConstraints,
+            openingPrompt: scpData.storyDraft?.openingPrompt
+        },
+        visualDescription: scpData.visualDescription,
+        entityDescription: scpData.entityDescription,
+        npcVisuals: scpData.npcVisuals,
+        mapBlueprint: blueprint
     };
     const exportJson = JSON.stringify(exportData, null, 2);
     const handleSaveToFile = () => {

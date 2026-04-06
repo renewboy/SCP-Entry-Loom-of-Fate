@@ -72,7 +72,8 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
             id: Date.now().toString(),
             sender: 'user',
             content: input,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            turnIndex: newTurnCount
         };
 
         setGameState(prev => ({
@@ -91,7 +92,8 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
                 sender: 'narrator',
                 content: '',
                 timestamp: Date.now(),
-                isTyping: true
+                isTyping: true,
+                turnIndex: newTurnCount
             }]
         }));
 

@@ -33,7 +33,7 @@ const DebugAudioPlayer: React.FC<DebugAudioPlayerProps> = ({ onClose, messages =
 
     // Use passed messages or fall back to a mock for standalone testing
     const activeMessages: Message[] = messages.length > 0 ? messages : [
-        { id: 'msg_1', sender: 'narrator', content: 'test', timestamp: 0, imageUrl: 'https://placehold.co/600x400/1a1a1a/FFF?text=Scene+1' },
+        { id: 'msg_1', sender: 'narrator', content: 'test', timestamp: 0, imageUrl: 'https://placehold.co/600x400/1a1a1a/FFF?text=Scene+1', turnIndex: 1 },
     ];
 
     if (script) {

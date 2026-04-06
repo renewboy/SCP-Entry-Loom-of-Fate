@@ -49,7 +49,14 @@ Goal:
 3) Extract:
   - official title (localized to {{languageInstruction}})
   - containmentClass.
-4) Generate story draft fields (concise, in {{languageInstruction}}):
+4) Rewrite role and generate story draft fields (concise, in {{languageInstruction}}):
+  - role:
+{% if profile %}
+    - change role to profile.name
+{% else %}
+    - If the user input role is a generic title like "Civilian", or "Researcher", change it to specific named identity.
+    - the name must avoid common everyday names and generic titles.
+{% endif %}
   - storyDraft.roleDetails: short profile of the player role.
   - storyDraft.storyBackground: brief overarching premise and context.
 5) Generate two ENGLISH visual strings for image templates:
@@ -112,6 +119,7 @@ Structure:
   "designation": "e.g., SCP-682",
   "name": "localized title in {{languageInstruction}}",
   "containmentClass": "The class in {{languageInstruction}}",
+  "role": "string in {{languageInstruction}}",
   "storyDraft": {
     "roleDetails": "string",
     "storyBackground": "string"

@@ -148,14 +148,14 @@ export class OpenAIProvider implements AIService {
                 chatModel: config.chatModel,
                 input: prompt,
                 tools: [{ type: "web_search" }],
-                text: { format: { type: "json_object" } }
+                text: { format: { type: "json_object" } },
+                ...({"thinking": {"type": "enabled"}}) as any,
             });
             const text = getOpenAIText(response);
             if (!text) throw new Error("No response from analysis");
 
             const parsed = safeParseJson(text);
             if (!parsed) throw new Error("Failed to parse analysis JSON");
-            parsed.role = role;
             return parsed as SCPData;
 
         } catch (e) {
@@ -174,7 +174,7 @@ export class OpenAIProvider implements AIService {
         console.log(`[OpenAIProvider] Initializing chat stream for ${scp.designation} as ${role} in ${language}`);
         this.systemInstruction = getSystemInstruction(role, language);
         const config = await this.getConfig();
-        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyData, scp.mapBlueprint, scp.storyDraft);
+        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyData, scp.mapBlueprint, scp.storyDraft, scp.npcVisuals);
 
         console.log("[OpenAIProvider] Sending start message... ");
         this.messages = [

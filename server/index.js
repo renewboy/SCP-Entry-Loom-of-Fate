@@ -157,9 +157,9 @@ const server = http.createServer(async (req, res) => {
         openaiAvailable: !!openaiApiKey,
       });
     }
+    const body = await parseJsonBody(req);
 
     if (req.method === "POST" && pathname === "/api/ai/gemini/generate-content") {
-      const body = await parseJsonBody(req);
       const effectiveApiKey = body.apiKey || geminiApiKey;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
       const client = getGeminiClient(effectiveApiKey);
@@ -168,7 +168,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && pathname === "/api/ai/gemini/cache") {
-      const body = await parseJsonBody(req);
       const effectiveApiKey = body.apiKey || geminiApiKey;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
       const client = getGeminiClient(effectiveApiKey);
@@ -227,7 +226,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && pathname === "/api/ai/gemini/count-tokens") {
-      const body = await parseJsonBody(req);
       const effectiveApiKey = body.apiKey || geminiApiKey;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
       const client = getGeminiClient(effectiveApiKey);
@@ -236,7 +234,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && pathname === "/api/ai/gemini/chat-stream") {
-      const body = await parseJsonBody(req);
       const effectiveApiKey = body.apiKey || geminiApiKey;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
       const client = getGeminiClient(effectiveApiKey);
@@ -250,7 +247,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && pathname === "/api/ai/gemini/embeddings") {
-      const body = await parseJsonBody(req);
       const effectiveApiKey = body.apiKey || geminiApiKey;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
       const client = getGeminiClient(effectiveApiKey);
@@ -259,7 +255,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && pathname === "/api/ai/gemini/generate-image") {
-      const body = await parseJsonBody(req);
       const effectiveApiKey = body.apiKey || geminiApiKey;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
       const client = getGeminiClient(effectiveApiKey);
@@ -272,24 +267,26 @@ const server = http.createServer(async (req, res) => {
       });
       return sendJson(res, 200, response);
     }
+    const {
+      apiKey,
+      baseUrl,
+      chatModel,
+      ...resBody
+    } = body;
 
     if (req.method === "POST" && pathname === "/api/ai/openai/response") {
-      const body = await parseJsonBody(req);
       const effectiveApiKey = body.apiKey || openaiApiKey;
       const effectiveBaseUrl = body.baseUrl || openaiBaseUrl;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
       const client = new OpenAI({ apiKey: effectiveApiKey, baseURL: effectiveBaseUrl || undefined });
       const response = await client.responses.create({
         model: body.chatModel || openaiChatModel,
-        input: body.input,
-        tools: body.tools,
-        text: body.text,
+        ...resBody,
       });
       return sendJson(res, 200, response);
     }
 
     if (req.method === "POST" && pathname === "/api/ai/openai/response-stream") {
-      const body = await parseJsonBody(req);
       const effectiveApiKey = body.apiKey || openaiApiKey;
       const effectiveBaseUrl = body.baseUrl || openaiBaseUrl;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
@@ -297,10 +294,8 @@ const server = http.createServer(async (req, res) => {
       startSse(res);
       const stream = await client.responses.create({
         model: body.chatModel || openaiChatModel,
-        input: body.input,
-        tools: body.tools,
         stream: true,
-        text: body.text,
+        ...resBody,
       });
       for await (const event of stream) {
         writeSse(res, event);
@@ -310,15 +305,13 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && pathname === "/api/ai/openai/generate-image") {
-      const body = await parseJsonBody(req);
       const effectiveApiKey = body.apiKey || openaiApiKey;
       const effectiveBaseUrl = body.baseUrl || openaiBaseUrl;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
       const client = new OpenAI({ apiKey: effectiveApiKey, baseURL: effectiveBaseUrl || undefined });
       const response = await client.images.generate({
         model: body.model || openaiImageModel,
-        prompt: body.prompt,
-        size: body.size,
+        ...resBody,
       });
       return sendJson(res, 200, response);
     }
@@ -329,6 +322,7 @@ const server = http.createServer(async (req, res) => {
       res.end();
       return;
     }
+    console.error(`[ai-server] ${error?.message}, ${error?.stack}`);
     return sendJson(res, 500, { error: String(error?.message || error) });
   }
 });
