@@ -47,12 +47,12 @@
   1. 约200字中文沉浸式叙事，使用第二人称（“你”）。
   2. 如果未达结局，提供3个符合逻辑的玩家后续行动选项，所有选项以数字编号，触发结局时严禁生成选项。
   3. System Tags（位于末尾）：
-    - [VISUAL: <English Image Prompt>]：（可选）仅当视觉场景发生显著变化时插入。描述格式要求："cinematic, scp foundation style, horror, dark, <scene details>"。
+    - [VISUAL: <English Image Prompt>]：（可选）仅当视觉场景发生显著变化时插入。描述格式要求："<scene details>, scp foundation style, horror, dark"。
     - [STABILITY: <Integer>]：（必填）当前计算得出的稳定性数值。
     - [ENDING: <Type>]：（条件性）仅当达成游戏结束条件时插入。
     - [LOC: <node_id>]：（条件性）当玩家位置发生变化时插入。node_id必须是地图节点ID。
     - [MAP_UPDATE: <JSON>]：（可选）当地图状态变化时插入。JSON必须为单个对象（格式后面会详细说明）。
-  4. 中文常规回复示例："...你听到门后传来了沉重的呼吸声。[VISUAL: dark metal door, scratching marks, cinematic lighting][STABILITY: 85]"
+  4. 中文常规回复示例："...你听到门后传来了沉重的呼吸声。[VISUAL: dark metal door, scratching marks][STABILITY: 85]"
   5. 中文结尾示例："...你成功关闭了隔离门，警报声逐渐远去。[VISUAL: steel blast doors closing, sparks][STABILITY: 45][ENDING: CONTAINED]"
 5. 你生成的叙事和选项不要包含node_id,npc_id等不可读信息，要面向玩家
 6. 格式：使用Markdown。

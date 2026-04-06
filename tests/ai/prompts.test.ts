@@ -34,13 +34,17 @@ describe('ai prompts', () => {
     const prompt = getAnalyzeSCPPrompt('SCP-173', 'zh', '研究员', 'normal', {
       traits: [{ id: 't1', name: '冷静', description: '面对异常保持镇定', effectType: 'POSITIVE', icon: '🧠' }],
       items: [],
-      echoes: []
+      echoes: [],
+      runCount: 1
     });
 
     expect(prompt).toContain('User Input: SCP-173');
     expect(prompt).toContain('Player Role: 研究员');
     expect(prompt).toContain('Traits:');
     expect(prompt).toContain('冷静');
+    expect(prompt).toContain('4) Rewrite role and generate story draft fields');
+    expect(prompt).toContain('If the user input role is a generic title like "Civilian", or "Researcher", change it to specific named identity.');
+    expect(prompt).toContain('"role": "string in Chinese"');
   });
 
   it('开局提示通过模板保留地图和补充设定', () => {
@@ -65,12 +69,19 @@ describe('ai prompts', () => {
         storyBackground: '设施刚刚失联',
         narrativeConstraints: '',
         openingPrompt: ''
+      },
+      {
+        npc_researcher_01: 'Pale senior researcher, silver-rimmed glasses, lab coat, tired eyes',
+        npc_guard_01: 'Heavily armored guard, black visor, compact rifle, scarred jaw'
       }
     );
 
     expect(prompt).toContain('玩家角色：机动特遣队');
     expect(prompt).toContain('[补充设定]');
     expect(prompt).toContain('[地图蓝图]');
+    expect(prompt).toContain('[NPC视觉参考]');
+    expect(prompt).toContain('npc_researcher_01');
+    expect(prompt).toContain('silver-rimmed glasses');
     expect(prompt).toContain('SCP-173');
   });
 });

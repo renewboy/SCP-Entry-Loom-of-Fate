@@ -140,7 +140,8 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
                         sender: 'narrator',
                         content: fullText,
                         timestamp: Date.now(),
-                        isTyping: true
+                        isTyping: true,
+                        turnIndex: 0
                     }]
                 }));
                 isFirstChunk = false;

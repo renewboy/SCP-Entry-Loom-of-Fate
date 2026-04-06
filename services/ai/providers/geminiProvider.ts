@@ -14,7 +14,7 @@ import { EditorChatMessage, toGeminiContents } from "../editorAssistantTypes";
 const INIT_EMPTY_MAX_RETRIES = 3;
 
 const getGeminiText = (response: any): string => {
-    return response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    return response.candidates?.[0]?.content?.parts?.at(-1)?.text || "";
 };
 
 export class GeminiProvider implements AIService {
@@ -90,14 +90,17 @@ export class GeminiProvider implements AIService {
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 config: {
                     tools: [{ googleSearch: {} }],
+                    thinkingConfig: {
+                        includeThoughts: true,
+                    }
                 },
             });
+            console.log(`[GeminiProvider] Analysis response: ${JSON.stringify(response)}`);
             const text = getGeminiText(response);
             if (!text) throw new Error("No response from analysis");
 
             const parsed = safeParseJson(text);
             if (!parsed) throw new Error("Failed to parse analysis JSON");
-            parsed.role = role;
             return parsed as SCPData;
 
         } catch (e) {
@@ -116,7 +119,7 @@ export class GeminiProvider implements AIService {
         const prompt = getProfileCandidatesPrompt(role, scpDesignation, language, legacyData);
         try {
             const config = await this.getConfig();
-            console.log(`[GeminiProvider] Generating profile candidates for ${role}...`);
+            console.log(`[GeminiProvider] Generating profile candidates for ${role}, config is ${JSON.stringify(config)}`);
             const response = await postJson<any>("/api/ai/gemini/generate-content", {
                 apiKey: config.apiKey,
                 model: config.chatModel,
@@ -286,7 +289,7 @@ export class GeminiProvider implements AIService {
         this.gameReviewHistory = [];
         this.qaHistory = [];
         const config = await this.getConfig();
-        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyData, scp.mapBlueprint, scp.storyDraft);
+        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyData, scp.mapBlueprint, scp.storyDraft, scp.npcVisuals);
         console.log(`[GeminiProvider] Sending start message...`);
 
         if (this.callbacks.onStatusUpdate) this.callbacks.onStatusUpdate('generating');

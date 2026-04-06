@@ -38,11 +38,19 @@ World Echoes (Past Lives):
 {% endif %}
 [遗产数据结束]
 {% endif %}
+
 {% if hasMapBlueprint %}
 [地图蓝图]
 {{ mapBlueprintJson }}
 [地图蓝图结束]
 指令：起始遭遇必须发生在startNodeId对应地点；从地图中提取节点位置、信息、任务、NPC等信息，移动仅允许在edges定义的邻接节点之间发生。
+{% endif %}
+
+{% if hasNpcVisuals %}
+[NPC外观]
+{{ npcVisualsJson }}
+[NPC外观结束]
+指令：当NPC出场、被提及或触发视觉描写时，优先参考对应NPC ID的外观提示词，保持形象一致。
 {% endif %}
 
 现在开始游戏，请使用 Search 工具检索{{scpDesignation}}的所有关键资料{% if hasLegacy %}(不要搜索遗产相关数据，只搜索本次SCP的资料){% endif %}，严格按以下格式，用{{outputLanguage}}生成内容：

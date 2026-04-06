@@ -45,10 +45,10 @@ const GameHeader: React.FC<GameHeaderProps> = ({
   };
 
   return (
-      <header className="relative flex items-center h-14 shrink-0 scp-ui border-b border-scp-dark/50">
+      <header className="relative isolate z-[70] flex items-center h-14 shrink-0 scp-ui border-b border-scp-dark/50">
         
         {/* ===== Layer 0: Waveform Canvas Background ===== */}
-        <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="absolute inset-0 -z-10 pointer-events-none">
           <canvas
             ref={waveformCanvasRef}
             className="block w-full h-full pointer-events-none"
@@ -56,19 +56,25 @@ const GameHeader: React.FC<GameHeaderProps> = ({
           <div className="absolute inset-0 pointer-events-none"
             style={{
               background: `linear-gradient(90deg, 
-                rgba(0,0,0,0.55) 0%, 
-                rgba(0,0,0,0.15) 20%, 
-                rgba(0,0,0,0.05) 50%, 
-                rgba(0,0,0,0.15) 80%, 
-                rgba(0,0,0,0.55) 100%)`
+                rgba(0,0,0,0.78) 0%, 
+                rgba(0,0,0,0.38) 20%, 
+                rgba(0,0,0,0.20) 50%, 
+                rgba(0,0,0,0.38) 80%, 
+                rgba(0,0,0,0.78) 100%)`
             }}
           />
-          <div className="absolute inset-0 pointer-events-none opacity-20 bg-[repeating-linear-gradient(180deg,transparent,transparent_2px,rgba(255,255,255,0.04)_3px)]" />
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: 'linear-gradient(180deg, rgba(0,0,0,0.70) 0%, rgba(0,0,0,0.18) 40%, rgba(0,0,0,0.18) 60%, rgba(0,0,0,0.70) 100%)'
+            }}
+          />
+          <div className="absolute inset-0 pointer-events-none opacity-12 bg-[repeating-linear-gradient(180deg,transparent,transparent_2px,rgba(255,255,255,0.04)_3px)]" />
           <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-scp-term/40 to-transparent" />
         </div>
 
         {/* ===== Layer 1: Content ===== */}
-        <div className="relative z-[1] flex items-center w-full h-full px-3 sm:px-4 gap-2 sm:gap-3">
+        <div className="relative z-10 flex items-center w-full h-full px-3 sm:px-4 gap-2 sm:gap-3">
           
           {/* --- Left: HUME + Percentage --- */}
           <div className="flex items-center gap-2 shrink-0">

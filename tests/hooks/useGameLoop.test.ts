@@ -106,9 +106,11 @@ describe('useGameLoop', () => {
       expect(gameState.stability).toBe(88);
       expect(gameState.map?.currentNodeId).toBe('node_b');
       expect(gameState.map?.discoveredNodeIds).toContain('node_b');
+      expect(gameState.messages[0]?.turnIndex).toBe(1);
       const lastMessage = gameState.messages.at(-1);
       expect(lastMessage?.content).toBe('Story');
       expect(lastMessage?.isTyping).toBe(false);
+      expect(lastMessage?.turnIndex).toBe(1);
     });
 
     expect(applyMapUpdate).toHaveBeenCalled();

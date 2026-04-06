@@ -153,7 +153,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
           ...prev,
           status: GameStatus.TACTICAL_PREVIEW,
           scpData,
-          role: finalRole,
+          role: scpData.role,
           stability: 100,
           turnCount: 0,
           inventory: [],

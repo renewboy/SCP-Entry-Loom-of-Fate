@@ -41,7 +41,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onSave, onLoad, onTerminate
       </button>
       
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-48 scp-window border border-scp-gray shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-sm flex flex-col p-2 space-y-2">
+        <div className="absolute right-0 top-full z-[80] mt-2 w-48 scp-window border border-scp-gray shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-sm flex flex-col p-2 space-y-2">
            {/* Mobile-only: Show role & class info at top */}
            {hasMobileInfo && (
              <>

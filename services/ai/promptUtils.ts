@@ -8,7 +8,7 @@
  * @returns The enhanced prompt string
  */
 export const enhanceBackgroundPrompt = (description: string): string => {
-    return `Atmospheric, cinematic lighting, abstract horror background representing ${description}, gritty film grain texture, scp foundation style, dark moody, shot on 35mm film, raw photograph, desaturated, NOT 3d render, NOT video game, NOT CGI, NOT illustration`;
+    return `Atmospheric, cinematic lighting, abstract horror background representing ${description}, gritty film grain texture, scp foundation style, clinical, dark moody, shot on 35mm film, raw photograph, desaturated, NOT 3d render, NOT video game, NOT CGI, NOT illustration`;
 };
 
 /**
@@ -35,5 +35,5 @@ export const enhanceNpcPrompt = (description: string): string => {
  * @returns The enhanced prompt string
  */
 export const enhanceScenePrompt = (description: string): string => {
-    return `${description}, dark aesthetic, scp foundation style, cinematic lighting, photorealistic, RAW photo, film grain, desaturated, NOT 3d render, NOT video game, NOT CGI, NOT illustration`;
+    return `${description}, dark aesthetic, scp foundation style, cinematic lighting, photorealistic, RAW photo, film grain, clinical, desaturated, NOT 3d render, NOT video game, NOT CGI, NOT illustration`;
 };
