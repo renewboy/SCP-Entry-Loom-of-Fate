@@ -6,6 +6,7 @@ interface TurnTimelineProps {
   turns: ChatTurn[];
   activeTurn: number | null;
   onJump: (turnNumber: number) => void;
+  t: (key: string) => string;
   isMobile?: boolean;
   isOpen?: boolean;
   onClose?: () => void;
@@ -16,6 +17,7 @@ const TurnTimeline: React.FC<TurnTimelineProps> = ({
   turns,
   activeTurn,
   onJump,
+  t,
   isMobile = false,
   isOpen = true,
   onClose,
@@ -54,7 +56,7 @@ const TurnTimeline: React.FC<TurnTimelineProps> = ({
 
       {isMobile && (
         <div className="mb-3 flex items-center justify-between border-b border-scp-gray/20 pb-2">
-          <span className="font-mono text-[10px] tracking-[0.3em]" style={{ color: 'var(--theme-accent)' }}>TURNS</span>
+          <span className="font-mono text-[10px] tracking-[0.3em]" style={{ color: 'var(--theme-accent)' }}>{t('game.turns')}</span>
           <button
             type="button"
             onClick={onClose}
@@ -84,9 +86,9 @@ const TurnTimeline: React.FC<TurnTimelineProps> = ({
                 key={turn.anchorId}
                 type="button"
                 onClick={() => onJump(turn.turnNumber)}
-                title={`T-${String(turn.turnNumber).padStart(2, '0')}`}
+                title={`${t('game.turn')} ${String(turn.turnNumber).padStart(2, '0')}`}
                 className="group relative z-10 flex h-8 w-8 items-center justify-center outline-none focus:outline-none focus:ring-0"
-                aria-label={`Jump to turn ${turn.turnNumber}`}
+                aria-label={`${t('game.turn')} ${turn.turnNumber}`}
                 style={{ outline: 'none' }}
               >
                 {isActive && (
@@ -111,7 +113,7 @@ const TurnTimeline: React.FC<TurnTimelineProps> = ({
                   } ${isActive ? 'opacity-100' : ''}`}
                   style={{ border: '1px solid var(--theme-accent-underline)', color: 'var(--theme-accent)' }}
                 >
-                  T-{String(turn.turnNumber).padStart(2, '0')}
+                  {t('game.turn')}-{String(turn.turnNumber).padStart(2, '0')}
                 </span>
               </button>
             );
