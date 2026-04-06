@@ -44,6 +44,7 @@ export const en = {
     role: "Role",
     class: "Class",
     turn: "Turn",
+    turns: "TURNS",
     view_report: "VIEW REPORT",
     terminate: "TERMINATE",
     alert_integrity: "[ALERT] Reality Veil structural integrity compromised. Irreversible causal entanglement detected. Emergency severing recommended.",

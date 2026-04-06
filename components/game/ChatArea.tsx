@@ -158,7 +158,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollR
                       boxShadow: '0 0 12px var(--theme-accent-soft)'
                     }}
                   >
-                    TURN {String(turn.turnNumber).padStart(2, '0')}
+                    {t('game.turn')} {String(turn.turnNumber).padStart(2, '0')}
                   </div>
                   <div
                     className="h-px flex-1"
@@ -180,6 +180,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollR
               turns={turns}
               activeTurn={activeTurn}
               onJump={jumpToTurn}
+              t={t}
               onCollapse={() => setDesktopTimelineCollapsed(true)}
             />
           )}
@@ -188,6 +189,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollR
             turns={turns}
             activeTurn={activeTurn}
             onJump={jumpToTurn}
+            t={t}
             isMobile
             isOpen={mobileTimelineOpen}
             onClose={() => setMobileTimelineOpen(false)}

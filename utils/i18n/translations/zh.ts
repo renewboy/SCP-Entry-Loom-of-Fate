@@ -44,6 +44,7 @@ export const zh = {
     role: "角色",
     class: "项目等级",
     turn: "回合",
+    turns: "回合",
     view_report: "查看报告",
     terminate: "终止编织",
     alert_integrity: "[警报] 现实帷幕结构完整性严重受损。织机检测到不可逆的因果纠缠。建议立即启动紧急阻断程序。",
