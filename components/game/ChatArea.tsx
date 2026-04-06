@@ -10,12 +10,22 @@ interface ChatAreaProps {
   t: (key: string) => string;
   isProcessing: boolean;
   scrollRef: React.RefObject<HTMLDivElement>;
-  shouldAutoScroll: boolean;
   onScroll: () => void;
+  onUserScrollIntent: (forceDisable?: boolean) => void;
+  shouldAutoScroll: boolean;
   onOptionClick: (text: string) => void;
 }
 
-const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollRef, shouldAutoScroll, onScroll, onOptionClick }) => {
+const ChatArea: React.FC<ChatAreaProps> = ({
+  gameState,
+  t,
+  isProcessing,
+  scrollRef,
+  onScroll,
+  onUserScrollIntent,
+  shouldAutoScroll,
+  onOptionClick
+}) => {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [mobileTimelineOpen, setMobileTimelineOpen] = useState(false);
   const [desktopTimelineCollapsed, setDesktopTimelineCollapsed] = useState(false);
@@ -52,6 +62,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollR
 
     setActiveTurn(turnNumber);
     setMobileTimelineOpen(false);
+    onUserScrollIntent(true);
 
     requestAnimationFrame(() => {
       const containerRect = container.getBoundingClientRect();
@@ -60,6 +71,20 @@ const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollR
 
       container.scrollTo({
         top: Math.max(nextTop, 0),
+        behavior: 'smooth'
+      });
+    });
+  };
+
+  const handleGeneratedImageLoad = () => {
+    const container = scrollRef.current;
+    if (!container || !shouldAutoScroll) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      container.scrollTo({
+        top: container.scrollHeight,
         behavior: 'smooth'
       });
     });
@@ -76,6 +101,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollR
           content={msg.content}
           isStreaming={!!msg.isTyping}
           shouldAutoScroll={shouldAutoScroll}
+          scrollContainerRef={scrollRef}
           onOptionClick={onOptionClick}
           npcs={gameState.npcs}
           npcImages={gameState.scpData?.npcImages}
@@ -88,7 +114,12 @@ const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollR
             className="mt-4 border-2 border-scp-gray/50 p-1 animate-pulse-slow bg-black/90 shadow-lg cursor-zoom-in"
             onClick={() => setLightboxImage(msg.imageUrl)}
           >
-            <img src={msg.imageUrl} alt="Generated visual" className="w-full h-auto grayscale hover:grayscale-0 transition-all duration-700" />
+            <img
+              src={msg.imageUrl}
+              alt="Generated visual"
+              className="w-full h-auto grayscale hover:grayscale-0 transition-all duration-700"
+              onLoad={handleGeneratedImageLoad}
+            />
             <p className="text-[10px] text-center text-scp-gray mt-1 font-mono">{t('game.visual_log')}_{msg.id.slice(-4)}</p>
           </div>
         )}
@@ -126,6 +157,9 @@ const ChatArea: React.FC<ChatAreaProps> = ({ gameState, t, isProcessing, scrollR
             id="chat-area"
             ref={scrollRef}
             onScroll={onScroll}
+            onWheel={() => onUserScrollIntent()}
+            onTouchStart={() => onUserScrollIntent()}
+            onPointerDown={() => onUserScrollIntent()}
             className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scroll-smooth text-shadow-sm scp-ui"
           >
             {gameState.stability < 30 && (

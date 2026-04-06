@@ -12,19 +12,30 @@ const ListTypeContext = createContext({ ordered: false });
 interface TypewriterProps {
   content: string;
   isStreaming: boolean;
-  shouldAutoScroll?: boolean;
   onComplete?: () => void;
   onOptionClick?: (text: string) => void;
+  shouldAutoScroll?: boolean;
+  scrollContainerRef?: React.RefObject<HTMLDivElement>;
   npcs?: RuntimeNPCState[];
   npcImages?: Record<string, string>;
   onNpcImageClick?: (url: string) => void;
   stability?: number;
 }
 
-const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, shouldAutoScroll = true, onComplete, onOptionClick, npcs, npcImages, onNpcImageClick, stability }) => {
+const Typewriter: React.FC<TypewriterProps> = ({
+  content,
+  isStreaming,
+  onComplete,
+  onOptionClick,
+  shouldAutoScroll = false,
+  scrollContainerRef,
+  npcs,
+  npcImages,
+  onNpcImageClick,
+  stability
+}) => {
   const [displayedContent, setDisplayedContent] = useState('');
   const [isVisualTyping, setIsVisualTyping] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
 
   // Audio Refs
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -304,8 +315,13 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, shouldAut
             
             playKeystrokeSound();
 
-            if (shouldAutoScrollRef.current && bottomRef.current) {
-                bottomRef.current.scrollIntoView({ behavior: "smooth" });
+            if (shouldAutoScrollRef.current && scrollContainerRef?.current) {
+                requestAnimationFrame(() => {
+                    if (!shouldAutoScrollRef.current || !scrollContainerRef.current) {
+                        return;
+                    }
+                    scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+                });
             }
 
             const delay = 50 + Math.random() * 40;
@@ -342,6 +358,8 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, shouldAut
     [displayedContent]
   );
 
+  const showEmptyCursorAnchor = isVisualTyping && displayedContent.length === 0;
+
   return (
     <div className={`typewriter-container prose prose-invert prose-p:text-scp-text prose-headings:text-scp-accent max-w-none font-mono text-base md:text-lg leading-7 md:leading-8 tracking-[0.01em] ${isVisualTyping ? 'cursor-active' : ''}`}>
       <style>
@@ -372,7 +390,7 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, shouldAut
           .typewriter-container h4 {
             margin: 1.4rem 0 0.8rem !important;
           }
-          /* Cursor styling attached to the last element */
+          /* Cursor styling stays attached to the latest rendered node. */
           @keyframes cursor-blink {
             0%, 100% { opacity: 1; }
             50% { opacity: 0; }
@@ -385,8 +403,7 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, shouldAut
             margin-left: 4px;
             vertical-align: baseline;
           }
-          /* Fallback for empty content */
-          .typewriter-container.cursor-active:empty::after {
+          .typewriter-container.cursor-active .typewriter-empty-cursor::after {
             content: '▋';
             display: inline-block;
             animation: cursor-blink 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -410,7 +427,9 @@ const Typewriter: React.FC<TypewriterProps> = ({ content, isStreaming, shouldAut
           </ReactMarkdown>
         )
       )}
-      <div ref={bottomRef} />
+      {showEmptyCursorAnchor && (
+        <span aria-hidden="true" className="typewriter-empty-cursor" />
+      )}
     </div>
   );
 };
