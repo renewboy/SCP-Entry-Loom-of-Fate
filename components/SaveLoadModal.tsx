@@ -23,6 +23,7 @@ interface SaveLoadModalProps {
 
 const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, currentGameState, onLoadGame, onSaveComplete }) => {
   const { t } = useTranslation();
+  const locale = t('i18n.locale') as string;
   const { isMobile } = useViewport();
   const [activeTab, setActiveTab] = useState<'local' | 'cloud'>('local'); // We'll use this just for login view state now
   const [saves, setSaves] = useState<SaveGameMetadata[]>([]);
@@ -723,8 +724,8 @@ const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose, mode, cu
                      </div>
                      
                      <div className="flex items-center gap-4 text-[10px] font-mono text-scp-text/60 uppercase tracking-wider">
-                        <span>{new Date(save.created_at).toLocaleDateString()}</span>
-                        <span>{new Date(save.created_at).toLocaleTimeString()}</span>
+                        <span>{new Date(save.created_at).toLocaleDateString(locale)}</span>
+                        <span>{new Date(save.created_at).toLocaleTimeString(locale)}</span>
                      </div>
 
                      <div className="flex gap-3 mt-2 opacity-60 group-hover:opacity-100 transition-opacity">

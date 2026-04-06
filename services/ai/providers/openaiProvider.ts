@@ -9,6 +9,7 @@ import { postJson, streamSse } from "./backendClient";
 import { aiConfig } from "../../../config/aiConfig";
 import { imageSizeFromAspectRatio } from "../utils";
 import { getEffectiveAIConfig } from "../../aiConfigService";
+import { translate } from "../../../utils/i18n";
 import { AgentStreamEvent } from "../streamProtocol";
 import { EditorChatMessage, toOpenAIMessages } from "../editorAssistantTypes";
 
@@ -429,7 +430,7 @@ export class OpenAIProvider implements AIService {
 
     async *askNarratorQuestion(question: string, language: Language): AsyncGenerator<string> {
         if (this.messages.length === 0) {
-            yield language === 'zh' ? "会话连接已丢失。" : "Session connection lost.";
+            yield translate(language, 'ai.session_lost');
             return;
         }
         const config = await this.getConfig();
@@ -455,7 +456,7 @@ export class OpenAIProvider implements AIService {
             this.qaHistory.push({ role: "user", content: prompt });
             this.qaHistory.push({ role: "assistant", content: fullResponse });
         } catch (error) {
-            yield language === 'zh' ? "因果同步超时。" : "Causal sync timeout.";
+            yield translate(language, 'ai.causal_sync_timeout');
         }
     }
 

@@ -127,7 +127,14 @@ flowchart TB
 - **编辑器持久化**：草稿与编辑缓存落地 IndexedDB。[indexedDBService.ts](services/indexedDBService.ts) [storyEditorCache.ts](services/storyEditorCache.ts)
 
 ### 5.6 i18n 层
-- 轻量语言 Provider + 持久化 + 角色名翻译入口。[provider.tsx](utils/i18n/provider.tsx) [persistence.ts](utils/i18n/persistence.ts) [i18n/index.ts](utils/i18n/index.ts)
+- 轻量语言 Provider + translation 字典树 + 持久化 + 角色名翻译入口。[provider.tsx](utils/i18n/provider.tsx) [translations/index.ts](utils/i18n/translations/index.ts) [persistence.ts](utils/i18n/persistence.ts) [roleTranslations.ts](utils/i18n/roleTranslations.ts)
+- React 组件内统一通过 `useTranslation()` 获取 `t()`、`language`、`setLanguage`；非 React 文件统一通过 `translate(language, key)` 读取文案。
+- `translations.i18n.*` 承载跨层复用的语言元数据，包括：
+  - `i18n.languages.*`：语言显示名
+  - `i18n.prompt_language_labels.*`：Prompt 内部使用的目标语言名称
+  - `i18n.locale`：日期时间 locale
+  - `i18n.boot_keywords`：BootSequence 关键词
+- `utils/i18n/languages/index.ts` 当前仅负责支持语言注册表、默认语言与合法性校验。
 
 ### 5.7 主题与样式层
 - Tailwind 扩展、色板与 CSS 变量：统一为 SCP 视觉风格提供基色与特效。  
@@ -185,5 +192,12 @@ flowchart TB
 ---
 
 ## 10. 国际化（i18n）
-- 轻量 Context + 字典树查找 + 参数插值；语言在 IndexedDB 中持久化。  
-- 入口与实现：[i18n/index.ts](utils/i18n/index.ts) [provider.tsx](utils/i18n/provider.tsx) [persistence.ts](utils/i18n/persistence.ts)
+- 轻量 Context + translation 字典树查找 + 参数插值；语言在 IndexedDB 中持久化。  
+- 入口与实现：[i18n/index.ts](utils/i18n/index.ts) [provider.tsx](utils/i18n/provider.tsx) [translations/index.ts](utils/i18n/translations/index.ts) [persistence.ts](utils/i18n/persistence.ts)
+- 语言切换入口位于 [App.tsx](App.tsx)，交互形态为下拉列表；可选语言来自 `languagePacks` 注册表。
+- UI 组件内优先使用 `t('path.to.key')`：
+  - 示例：`t('i18n.locale')`、`t('i18n.languages.zh')`
+- 非 React 场景统一使用 `translate(language, key)`：
+  - 示例：Prompt 语言注入与 Provider 错误文案读取
+- Prompt 语言名不再在业务代码中手写 `Chinese/English` 或 `中文/英文` 三元分支，而是统一从 `translations.i18n.prompt_language_labels.*` 读取。
+- BootSequence、语言标签、locale 等跨层字符串也统一定义在 `translations.i18n.*`，避免额外 helper 层漂移。

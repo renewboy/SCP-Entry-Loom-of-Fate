@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { AudioDramaScript, AudioDramaScene, AudioDramaLine, Message } from '../../types';
+import { AudioDramaScript, AudioDramaScene, AudioDramaLine, Message, Language } from '../../types';
 import { ttsService } from '../../services/ttsService';
 import { useTranslation } from '../../utils/i18n';
 import GameLogo from '../GameLogo';
@@ -12,7 +12,7 @@ interface AudioDramaPlayerProps {
   script: AudioDramaScript;
   messages: Message[];
   onClose: () => void;
-  language: 'zh' | 'en';
+  language: Language;
   fallbackImage?: string | null;
 }
 

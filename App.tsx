@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { GameState, GameStatus } from './types';
 import StartScreen from './components/StartScreen';
 import GameScreen from './components/GameScreen';
-import { LanguageProvider, useTranslation } from './utils/i18n';
+import { LanguageProvider, useTranslation, languagePacks } from './utils/i18n';
 import { pauseBgm, playBgm, resumeBgm, stopBgm, setBgmVolume } from './services/bgmService';
 import { subscribeAIConfigMissing } from './services/events';
 import GlobalSettingsModal from './components/GlobalSettingsModal';
@@ -20,17 +19,92 @@ import { useViewport } from './hooks/useViewport';
 const LanguageToggle = ({ status }: { status: GameStatus }) => {
     const { language, setLanguage, t } = useTranslation();
     const { isMobile } = useViewport();
+    const availableLanguages = Object.values(languagePacks);
+    const [isOpen, setIsOpen] = useState(false);
     
     // In mobile, only show language toggle on StartScreen (IDLE, ANALYZING, ENTITY_PROFILE)
     const isStartScreen = status === GameStatus.IDLE || status === GameStatus.ANALYZING || status === GameStatus.ENTITY_PROFILE;
     
+    useEffect(() => {
+      if (isMobile && !isStartScreen) {
+        setIsOpen(false);
+      }
+    }, [isMobile, isStartScreen]);
+
+    const isInGame = status === GameStatus.PLAYING || status === GameStatus.GAME_OVER;
+    const accentClasses = {
+        border: isInGame ? 'border-scp-term' : 'border-scp-accent',
+        borderSoft: isInGame ? 'border-scp-term/60' : 'border-scp-accent/50',
+        text: isInGame ? 'text-scp-term' : 'text-scp-accent',
+        bg: isInGame ? 'bg-scp-term' : 'bg-scp-accent',
+        hoverBorder: isInGame ? 'hover:border-scp-term' : 'hover:border-scp-accent',
+        hoverBorderSoft: isInGame ? 'hover:border-scp-term/60' : 'hover:border-scp-accent/50',
+        hoverBg: isInGame ? 'hover:bg-scp-term/15' : 'hover:bg-scp-accent/15',
+        activeText: isInGame ? 'text-scp-term' : 'text-scp-accent'
+    };
+    
     return (
-        <button 
-            onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
-            className={`fixed top-2 right-4 z-[60] px-2 py-1 bg-black/80 border border-scp-gray/60 text-scp-text/80 font-mono text-xs hover:border-scp-term hover:text-scp-term hover:shadow-[0_0_10px_rgba(51,255,0,0.4)] transition-all backdrop-blur-md active:scale-95 ${isMobile && !isStartScreen ? "hidden" : ""}`}
-        >
-            {t('app.switch_lang')}
-        </button>
+        <>
+            {isOpen && (
+                <button
+                    type="button"
+                    aria-label="Close language menu"
+                    onClick={() => setIsOpen(false)}
+                    className="fixed inset-0 z-[59] cursor-default"
+                />
+            )}
+            <div className={`fixed top-2 right-4 z-[60] ${isMobile && !isStartScreen ? "hidden" : ""}`}>
+                <button
+                    type="button"
+                    onClick={() => setIsOpen((prev) => !prev)}
+                    aria-label="Language selector"
+                    aria-haspopup="listbox"
+                    aria-expanded={isOpen}
+                    className={`min-w-[84px] px-2.5 py-1.5 bg-black/85 border font-mono text-xs tracking-wider backdrop-blur-sm transition-all duration-200 rounded-sm scp-ui ${
+                        isOpen
+                            ? `${accentClasses.border} text-scp-text shadow-[0_0_18px_rgba(224,224,224,0.22)]`
+                            : `border-scp-gray/70 text-gray-300 hover:text-white ${accentClasses.hoverBorder}`
+                    }`}
+                >
+                    <span className="flex items-center justify-between gap-2">
+                        <span>{t(`i18n.languages.${language}`)}</span>
+                        <span className={`text-xs transition-transform duration-200 ${isOpen ? `rotate-180 ${accentClasses.text}` : ''}`}>▾</span>
+                    </span>
+                </button>
+
+                {isOpen && (
+                    <div className={`absolute right-0 mt-1.5 min-w-full overflow-hidden border ${accentClasses.borderSoft} bg-black/95 backdrop-blur-md shadow-2xl scp-window scp-ui`}>
+                        <div className="py-0.5">
+                            {availableLanguages.map((pack) => {
+                                const code = pack.code;
+                                const active = language === code;
+                                return (
+                                    <div
+                                        key={code}
+                                        className={`group relative border border-transparent ${accentClasses.hoverBorderSoft} transition-all duration-200 ${active ? 'bg-scp-gray/20' : ''}`}
+                                    >
+                                        <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${accentClasses.bg} ${active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}></div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setLanguage(code);
+                                                setIsOpen(false);
+                                            }}
+                                            className="relative z-10 w-full px-2.5 py-1.5 text-left font-mono text-xs text-gray-300 group-hover:text-white transition-colors"
+                                        >
+                                            <span className="flex items-center gap-1.5">
+                                                <span className={`inline-block w-3 ${accentClasses.activeText} ${active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>›</span>
+                                                <span>{t(`i18n.languages.${code}`)}</span>
+                                            </span>
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </>
     );
 };
 

@@ -1,6 +1,19 @@
 export const zh = {
+  i18n: {
+    language_label: "中文",
+    languages: {
+      zh: "中文",
+      en: "英文",
+      ja: "日语",
+    },
+    prompt_language_labels: {
+      zh: "中文",
+      en: "Chinese",
+    },
+    locale: "zh-CN",
+    boot_keywords: ['Keter', '模因', '世界回响', '记忆锚定', '现实崩溃', 'RAISA', 'MTF', '命运织机'],
+  },
   app: {
-    switch_lang: "EN",
     appendix: "附录 A",
     footer: "控制. 收容. 保护. // 终端_ID: 8829-AZ",
     license: "许可协议：CC BY-SA 3.0",
@@ -22,7 +35,7 @@ export const zh = {
     placeholder_url: "例如: SCP-173, SCP-682, 或Wiki链接...",
     label_role: "分配人员角色",
     placeholder_custom: "定义你的实体/角色...",
-    btn_start: "纺织命运 (INITIATE WEAVE)",
+    btn_start: "纺  织  命  运",
     btn_retry: "重试初始化",
     loading_checking_ai: "正在检查 AI 配置...",
     loading_access: "正在访问SCP数据库...",
@@ -73,7 +86,6 @@ export const zh = {
     map_review_objective: "检查任务",
     map_go: "前往",
     map_talk: "交谈",
-    map_reset: "重置",
     map_start: "起点",
     map_main_hint: "主线任务",
     map_side_hint: "支线任务",
@@ -133,7 +145,7 @@ export const zh = {
     message: "检测到强制脱出请求。该操作将导致当前编织的“世界线图谱”完全崩解，所有未观测的因果数据将永久丢失。确认终止连接并执行记忆消除？",
     cancel: "取消 (CANCEL)",
     confirm: "确认执行 (EXECUTE)",
-    warning: "WARNING: MEMETIC HAZARD",
+    warning: "警告：模因危害",
   },
   report: {
     title: "世界线因果图谱",
@@ -217,6 +229,10 @@ export const zh = {
     qa_remaining: "剩余质询次数",
     qa_finished: "质询环节已关闭",
     generate_video_script: "生成广播剧本",
+  },
+  ai: {
+    session_lost: "会话连接已丢失。",
+    causal_sync_timeout: "因果同步超时。",
   },
   save_load: {
     save: "保存游戏",

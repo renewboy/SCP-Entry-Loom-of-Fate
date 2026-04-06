@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
-import { GameState, GameStatus } from '../../types';
+import { GameState, GameStatus, Language } from '../../types';
 import SettingsMenu from './SettingsMenu';
-import { ROLE_TRANSLATIONS } from '../../utils/i18n';
+import { getRoleTranslation } from '../../utils/i18n';
 import StabilityMonitor from './StabilityMonitor';
 import { useWaveformRenderer } from '../../hooks/useWaveformRenderer';
 import { useViewport } from '../../hooks/useViewport';
@@ -9,7 +9,7 @@ import { useViewport } from '../../hooks/useViewport';
 interface GameHeaderProps {
   gameState: GameState;
   t: (key: string) => string;
-  language: string;
+  language: Language;
   isReportOpen: boolean;
   setIsReportOpen: (isOpen: boolean) => void;
   onSave: () => void;
@@ -31,8 +31,7 @@ const GameHeader: React.FC<GameHeaderProps> = ({
   });
 
   const getDisplayRole = (role: string) => {
-      if (language === 'zh') return role;
-      return ROLE_TRANSLATIONS[role] || role;
+      return getRoleTranslation(role, language);
   };
 
   const maxHume = 1.5;

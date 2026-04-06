@@ -1,4 +1,4 @@
-
+import type { Language as SupportedLanguage } from './utils/i18n/languages';
 export enum GameStatus {
   IDLE = 'IDLE',
   ENTITY_PROFILE = 'ENTITY_PROFILE', // Entity Profile Augmentation
@@ -25,7 +25,7 @@ export enum EndingType {
   UNKNOWN = 'UNKNOWN'      // Fallback
 }
 
-export type Language = 'zh' | 'en';
+export type Language = SupportedLanguage;
 
 export enum Role {
   RESEARCHER = '研究员',

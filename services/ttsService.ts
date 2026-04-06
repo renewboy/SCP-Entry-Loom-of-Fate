@@ -1,5 +1,5 @@
 
-import { AudioDramaCast } from "../types";
+import { AudioDramaCast, Language } from "../types";
 
 export interface VoiceParams {
   rate?: number;
@@ -31,12 +31,11 @@ export class TTSService {
   /**
    * Simple heuristic to pick a voice based on gender/description.
    */
-  public getVoiceForCharacter(character: AudioDramaCast, language: 'zh' | 'en'): SpeechSynthesisVoice | null {
+  public getVoiceForCharacter(character: AudioDramaCast, language: Language): SpeechSynthesisVoice | null {
     if (!this.voices.length) return null;
 
     // Filter by language first
-    const langPrefix = language === 'zh' ? 'zh' : 'en';
-    const langVoices = this.voices.filter(v => v.lang.startsWith(langPrefix));
+    const langVoices = this.voices.filter(v => v.lang.toLowerCase().startsWith(language.toLowerCase()));
     
     // If no voices for this language, fallback to any
     const pool = langVoices.length > 0 ? langVoices : this.voices;

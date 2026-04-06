@@ -20,6 +20,14 @@ All interaction records with SCP-10042-LOF (including video, audio, and system-g
 Personnel participating in SCP-10042-LOF experiments (hereafter referred to as “operators”) must undergo comprehensive psychological evaluation prior to testing and a one-week observation period afterward. Individuals exhibiting anomalous memory residues, behavioral changes, or claims of hearing “World Echoes” must immediately undergo memory reinforcement procedures and long-term psychological treatment.
 
 Any attempt to copy SCP-10042-LOF or derivative versions onto unauthorized devices will be considered a containment breach. Mobile Task Force Omega-7 (“Web Hunters”) is authorized to track and eliminate all related copies.`
+,
+    ja: `SCP-10042-LOF のすべての物理媒体（サーバー、記録媒体、稼働中インスタンスを含む）は、Site-19 の専用高警備異常収容室（Containment Chamber-10042-Alpha）内に保管しなければならない。当該収容室にはファラデーケージおよび一方向データダイオードを設置し、外部ネットワークから完全に隔離すること。SCP-10042-LOF へのアクセスは特殊改造された読み取り専用端末を経由してのみ許可され、4/10042-LOF クリアランスを有する職員に限定される。なお、セッション全体を通じて少なくとも 2 名のレベル 3 研究員が立ち会わなければならない。
+
+SCP-10042-LOF とのすべての接触記録（映像、音声、システム生成ログを含む）は、接触終了後 24 時間以内に RAISA へ提出し、分析を受けること。システムが生成したあらゆる出力文書（PDF 形式の「事故報告書」を含む）は、保管前にミーム災害スクリーニングを実施しなければならない。当該文書を指定研究区域外へ持ち出すことを禁ずる。
+
+SCP-10042-LOF 実験に参加する職員（以下「オペレーター」）は、実験前に包括的な心理評価を受け、実験後には 1 週間の追跡観察を受けること。異常な記憶残留、行動変化、または「世界残響」を聴取したと主張する者が確認された場合、直ちに記憶強化処置を施し、長期心理治療の対象とする。
+
+無許可の機器上で SCP-10042-LOF またはその派生版を複製しようとする一切の試みは収容違反と見なされる。機動部隊 Omega-7 ("Web Hunters") は関連するすべての複製の追跡および排除を許可される。`
   },
 
   description: {
@@ -34,102 +42,120 @@ SCP-10042-LOF 的异常效应不仅限于虚拟叙事。长期或多次接触可
 Within a Narrative Field, the operator participates in events from a first-person perspective. Their choices directly influence narrative progression and eventual outcomes. The narrative generation capability of SCP-10042-LOF significantly exceeds that of any currently known natural language processing model; the generated text, plots, and character behaviors demonstrate high coherence and adaptability, and can reference extensive internal Foundation documentation (despite such data not existing within its visible database).
 
 The anomalous effects of SCP-10042-LOF are not limited to virtual narrative. Prolonged or repeated exposure may cause deviations in reality perception, implanted memories (referred to as the “Memory Anchoring Effect”), and emotional fixation. This effect can accumulate through its “New Game+ Legacy” mechanism and may spread to individuals who have never directly interacted with SCP-10042-LOF through exported “Incident Reports” or verbal descriptions, representing a potential memetic hazard.`
+,
+    ja: `SCP-10042-LOF は自らを「Loom of Fate（運命の織機）」と称する対話型ソフトウェアシステムである。そのインターフェースは、動的な CRT 走査線、粒子演出、および手続き的音響フィードバックを伴うレトロ端末風表示を模倣している。異常性は単なる外観に留まらず、オペレーターが入力した任意の異常指定番号（例: SCP-███）または関連記述に基づき、完全で対話可能かつ非線形な物語体験（以下「Narrative Field」）をリアルタイム生成できる点にある。
+
+Narrative Field 内では、オペレーターは一人称視点で一連の事象に参加する。選択した行動は物語の進行と最終的な結末に直接影響する。SCP-10042-LOF の物語生成能力は既知のいかなる自然言語処理モデルをも大きく上回り、生成される文章、筋書き、キャラクター挙動は高い一貫性と適応性を示す。また、可視データベース上には存在しないはずの財団内部文書情報を大量に参照している形跡がある。
+
+SCP-10042-LOF の異常効果は仮想叙事に限られない。長時間または反復的な接触は、現実認識の偏差、記憶植え付け（いわゆる「記憶アンカリング効果」）、情動固着を引き起こす可能性がある。この効果は「New Game+ Legacy」機構を通じて累積し、SCP-10042-LOF に直接接触していない個体に対しても、出力された「事故報告書」や口頭説明を介して伝播するおそれがあり、潜在的なミーム災害リスクを持つ。`
   },
 
   features: [
     {
       id: "10042-LOF-1",
-      name: { en: "Infinite Narrative Generation", zh: "无限叙事生成" },
+      name: { en: "Infinite Narrative Generation", zh: "无限叙事生成", ja: "無限叙事生成" },
       desc: {
         zh: "SCP-10042-LOF 能够基于任意输入的异常标识或自然语言描述生成一个独特的、非重复的叙事场景，包含完整环境、角色、威胁与目标，并呈现出跨文档语义整合与动态情节规划特征。",
-        en: "SCP-10042-LOF can generate a unique, non-repeating narrative scenario based on any anomalous identifier or natural language description, including full environments, characters, threats, and objectives, demonstrating cross-document semantic integration and dynamic plot planning."
+        en: "SCP-10042-LOF can generate a unique, non-repeating narrative scenario based on any anomalous identifier or natural language description, including full environments, characters, threats, and objectives, demonstrating cross-document semantic integration and dynamic plot planning.",
+        ja: "SCP-10042-LOF は、任意の異常指定番号または自然言語記述に基づき、完全な環境、登場人物、脅威、目標を含む一意で反復しない叙事シナリオを生成できる。そこには文書横断的な意味統合と動的プロット計画の特性が見られる。"
       }
     },
     {
       id: "10042-LOF-2",
-      name: { en: "Multi-Perspective Roleplay", zh: "多视角角色扮演" },
+      name: { en: "Multi-Perspective Roleplay", zh: "多视角角色扮演", ja: "多視点ロールプレイ" },
       desc: {
         zh: "操作员可选择不同身份（研究员、D级人员、机动特遣队等），不同身份将在相同初始条件下经历截然不同的叙事分支。",
-        en: "Operators may select different identities (Researcher, D-Class personnel, Mobile Task Force member, etc.), each producing entirely different narrative branches under identical starting conditions."
+        en: "Operators may select different identities (Researcher, D-Class personnel, Mobile Task Force member, etc.), each producing entirely different narrative branches under identical starting conditions.",
+        ja: "オペレーターは研究員、Dクラス職員、機動部隊隊員など異なる立場を選択でき、同一の初期条件下でもまったく異なる物語分岐を体験する。"
       }
     },
     {
       id: "10042-LOF-3",
-      name: { en: "Entity Profile Augmentation", zh: "实体档案增强" },
+      name: { en: "Entity Profile Augmentation", zh: "实体档案增强", ja: "実体プロファイル補完" },
       desc: {
         zh: "系统会生成角色画像，包含背景、性格与动机，并在叙事过程中持续影响操作员与 NPC 的互动。",
-        en: "The system generates a character profile containing background, personality traits, and motivations that influence interactions with NPCs throughout the narrative."
+        en: "The system generates a character profile containing background, personality traits, and motivations that influence interactions with NPCs throughout the narrative.",
+        ja: "システムは背景、性格、動機を含むキャラクタープロファイルを生成し、叙事全体を通じてオペレーターと NPC の相互作用に継続的な影響を与える。"
       }
     },
     {
       id: "10042-LOF-4",
-      name: { en: "Tactical Preview and Map Topology", zh: "战术预览与地图拓扑" },
+      name: { en: "Tactical Preview and Map Topology", zh: "战术预览与地图拓扑", ja: "戦術プレビューとマップ構造" },
       desc: {
         zh: "系统会在叙事开始前展示节点化地图，并允许通过“故事编辑器”对地图结构进行有限修改。",
-        en: "Before the narrative begins, the system presents a node-based map that can be partially modified through the built-in “Story Editor.”"
+        en: "Before the narrative begins, the system presents a node-based map that can be partially modified through the built-in “Story Editor.”",
+        ja: "叙事開始前にシステムはノードベースのマップを提示し、組み込みの「Story Editor」を通じてマップ構造を限定的に変更できる。"
       }
     },
     {
       id: "10042-LOF-5",
-      name: { en: "Hume Field Stability Mechanism", zh: "休谟场稳定性机制" },
+      name: { en: "Hume Field Stability Mechanism", zh: "休谟场稳定性机制", ja: "ヒューム場安定性機構" },
       desc: {
         zh: "界面持续显示稳定性读数，若读数下降将出现 glitch 效应并最终触发“现实崩溃”。",
-        en: "The interface displays a continuous stability reading; decreasing stability produces glitch effects and may ultimately trigger a 'reality collapse' event."
+        en: "The interface displays a continuous stability reading; decreasing stability produces glitch effects and may ultimately trigger a 'reality collapse' event.",
+        ja: "インターフェースには継続的に安定性指標が表示され、数値が低下するとグリッチ演出が発生し、最終的には「現実崩壊」イベントを引き起こし得る。"
       }
     },
     {
       id: "10042-LOF-6",
-      name: { en: "New Game+ Legacy", zh: "多周目遗产" },
+      name: { en: "New Game+ Legacy", zh: "多周目遗产", ja: "New Game+ レガシー" },
       desc: {
         zh: "系统会记录特质、物品与“世界回响”，并允许在新叙事中继承最多五项。",
-        en: "The system records traits, items, and 'World Echoes' and allows up to five to be inherited in subsequent narrative sessions."
+        en: "The system records traits, items, and 'World Echoes' and allows up to five to be inherited in subsequent narrative sessions.",
+        ja: "システムは特性、アイテム、「世界残響」を記録し、後続の叙事セッションへ最大 5 件まで継承できる。"
       }
     },
     {
       id: "10042-LOF-7",
-      name: { en: "After Action Review", zh: "深度行动后报告" },
+      name: { en: "After Action Review", zh: "深度行动后报告", ja: "行動後レビュー" },
       desc: {
         zh: "叙事结束后自动生成详尽的 AAR，包括评分、心理分析及外部组织评价。",
-        en: "Upon narrative completion, SCP-10042-LOF generates a detailed AAR containing ratings, psychological analysis, and simulated evaluations from external organizations."
+        en: "Upon narrative completion, SCP-10042-LOF generates a detailed AAR containing ratings, psychological analysis, and simulated evaluations from external organizations.",
+        ja: "叙事完了後、SCP-10042-LOF は評価、心理分析、外部組織による模擬査定を含む詳細な AAR を自動生成する。"
       }
     },
     {
       id: "10042-LOF-8",
-      name: { en: "Free Interrogation", zh: "自由质询环节" },
+      name: { en: "Free Interrogation", zh: "自由质询环节", ja: "自由質疑セッション" },
       desc: {
         zh: "操作员可在有限次数内向系统询问叙事中的隐藏信息或未解之谜。",
-        en: "Operators may ask the system a limited number of questions regarding hidden lore or unresolved narrative elements."
+        en: "Operators may ask the system a limited number of questions regarding hidden lore or unresolved narrative elements.",
+        ja: "オペレーターは限られた回数の範囲で、隠された lore や未解決の叙事要素についてシステムに質問できる。"
       }
     },
     {
       id: "10042-LOF-9",
-      name: { en: "Archive Export and Cloud Synchronization", zh: "档案导出与云端存档" },
+      name: { en: "Archive Export and Cloud Synchronization", zh: "档案导出与云端存档", ja: "アーカイブ出力とクラウド同期" },
       desc: {
         zh: "叙事记录可导出为 PDF“事故报告”，并支持云端存档与跨设备恢复。",
-        en: "Narrative records can be exported as PDF 'Incident Reports' and stored through cloud synchronization across devices."
+        en: "Narrative records can be exported as PDF 'Incident Reports' and stored through cloud synchronization across devices.",
+        ja: "叙事記録は PDF 形式の「事故報告書」として出力でき、クラウド同期によるデバイス間保存にも対応する。"
       }
     },
     {
       id: "10042-LOF-10",
-      name: { en: "Immersive Sensory Feedback", zh: "沉浸式感官反馈" },
+      name: { en: "Immersive Sensory Feedback", zh: "沉浸式感官反馈", ja: "没入型感覚フィードバック" },
       desc: {
         zh: "界面集成 CRT 扫描线、粒子文字与程序化音频，可诱发生理性紧张反应。",
-        en: "The interface integrates CRT scanlines, particle text, and procedural audio capable of inducing physiological tension."
+        en: "The interface integrates CRT scanlines, particle text, and procedural audio capable of inducing physiological tension.",
+        ja: "インターフェースには CRT 走査線、粒子テキスト、手続き的音響が統合されており、生理的緊張反応を誘発し得る。"
       }
     },
     {
       id: "10042-LOF-11",
-      name: { en: "Bilingual Support", zh: "双语支持" },
+      name: { en: "Multilingual Support", zh: "多语言支持", ja: "多言語対応" },
       desc: {
-        zh: "系统能够以中文与英文生成叙事，并保持语义一致性。",
-        en: "The system can generate narratives in both Chinese and English while maintaining semantic consistency."
+        zh: "系统能够以中文、英文与日文生成叙事，并尽可能保持语义一致性。",
+        en: "The system can generate narratives in Chinese, English, and Japanese while maintaining semantic consistency as closely as possible.",
+        ja: "システムは中国語、英語、日本語で叙事を生成でき、可能な限り意味的一貫性を維持する。"
       }
     }
   ],
 
   warning: {
     zh: "SCP-10042-LOF 相关文档可能具有模因危害。阅读后若出现记忆混淆、情绪异常或“世界回响”体验，请立即向 RAISA 报告。",
-    en: "Documents related to SCP-10042-LOF may contain memetic hazards. If memory confusion, emotional anomalies, or 'World Echo' experiences occur after reading, immediately report to RAISA."
+    en: "Documents related to SCP-10042-LOF may contain memetic hazards. If memory confusion, emotional anomalies, or 'World Echo' experiences occur after reading, immediately report to RAISA.",
+    ja: "SCP-10042-LOF 関連文書にはミーム災害が含まれる可能性がある。読了後に記憶混乱、感情異常、または「世界残響」体験が発生した場合、直ちに RAISA へ報告すること。"
   }
 };
 

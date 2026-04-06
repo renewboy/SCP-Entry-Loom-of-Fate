@@ -1,4 +1,4 @@
-import { GameState, GameStatus } from '../types';
+import { GameState, GameStatus, Language } from '../types';
 import { initializeGameChatStream, extractStability, extractVisualPrompt, generateImage, extractLoc, extractMapUpdate, setProviderCallbacks } from '../services/aiService';
 import { loadGlobalSettings } from '../services/indexedDBService';
 import { enhanceBackgroundPrompt, enhanceEntityPrompt, enhanceNpcPrompt } from '../services/ai/promptUtils';
@@ -7,7 +7,7 @@ import { getBackgroundAspectRatio, getSceneAspectRatio } from '../services/ai/ut
 interface StartGameParams {
     gameState: GameState;
     setGameState: React.Dispatch<React.SetStateAction<GameState>>;
-    language: 'zh' | 'en'; // Assuming Language type from types.ts matches this or similar
+    language: Language;
     t: (key: string) => string;
 }
 

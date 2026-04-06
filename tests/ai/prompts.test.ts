@@ -8,6 +8,14 @@ describe('ai prompts', () => {
     expect(prompt).toContain('[休谟场稳定性]');
   });
 
+  it('日语模式下 prompt 会注入正确的目标语言标签', () => {
+    const systemPrompt = getSystemInstruction('研究员', 'ja');
+    const analyzePrompt = getAnalyzeSCPPrompt('SCP-173', 'ja', '研究员', 'normal');
+
+    expect(systemPrompt).toContain('语言：日语');
+    expect(analyzePrompt).toContain('Preferred Human Language for text: Japanese');
+  });
+
   it('上下文提示支持前后锚点注入', () => {
     const prompt = getContextPrompt(
       '检查主控室',
@@ -79,7 +87,7 @@ describe('ai prompts', () => {
     expect(prompt).toContain('玩家角色：机动特遣队');
     expect(prompt).toContain('[补充设定]');
     expect(prompt).toContain('[地图蓝图]');
-    expect(prompt).toContain('[NPC视觉参考]');
+    expect(prompt).toContain('[NPC外观]');
     expect(prompt).toContain('npc_researcher_01');
     expect(prompt).toContain('silver-rimmed glasses');
     expect(prompt).toContain('SCP-173');
