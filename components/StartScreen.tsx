@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { analyzeSCPUrl, restoreChatSession } from '../services/aiService';
 import { loadGlobalSettings } from '../services/indexedDBService';
 import { GameState, GameStatus, Role, LegacyData, EntityProfile } from '../types';
+import { repairAnalyzeScpData } from '../services/ai/schemas';
 import ParticleText from './ParticleText';
 import BootSequenceOverlay from './BootSequenceOverlay';
 import SaveLoadModal from './SaveLoadModal';
@@ -151,7 +152,23 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
       const settings = await loadGlobalSettings();
       const difficulty = settings.difficulty || 'normal';
 
-      const scpData = await analyzeSCPUrl(urlInput, language, finalRole, difficulty, legacyData, profile);
+      const rawScpData = await analyzeSCPUrl(urlInput, language, finalRole, difficulty, legacyData, profile);
+      const repairedResult = repairAnalyzeScpData(rawScpData);
+
+      if (!repairedResult.valid) {
+        console.error('[StartScreen] analyzeSCPUrl returned invalid SCPData', {
+          initialErrors: repairedResult.initialErrors,
+          finalErrors: repairedResult.finalErrors,
+          rawScpData,
+          repairedScpData: repairedResult.data,
+        });
+        setError(t('start.error_invalid_analysis'));
+        setLoadingStep(null);
+        return;
+      }
+
+      const scpData = repairedResult.data;
+
       setLoadingStep(t('start.loading_retrieved', { designation: scpData.designation }));
 
       setLoadingStep(null);

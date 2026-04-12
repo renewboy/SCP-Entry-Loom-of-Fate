@@ -1,4 +1,8 @@
+import Ajv from "ajv";
 import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import { SCPData } from "../../types";
+import { normalizeAnalyzeScpData } from "./utils";
 
 // --- Audio Drama Schemas ---
 
@@ -104,3 +108,132 @@ export const OperationEvaluationSchema = z.object({
     perspectiveEvaluations: z.array(PerspectiveEvaluationSchema),
     achievements: z.array(AchievementSchema)
 });
+
+// --- Analyze SCP Schemas ---
+
+const StringArraySchema = z.array(z.string());
+
+const MapBlueprintNodeSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    danger: z.number().optional(),
+    tags: StringArraySchema.optional(),
+    discoverables: StringArraySchema.optional(),
+    interactables: StringArraySchema.optional(),
+    visualHint: z.string().optional(),
+    requires: StringArraySchema.optional(),
+    blockedText: z.string().optional(),
+    layout: z.object({x: z.number(), y: z.number()}).optional(),
+});
+
+const MapBlueprintEdgeSchema = z.object({
+    from: z.string(),
+    to: z.string(),
+    bidirectional: z.boolean(),
+});
+
+const MapBlueprintNPCSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    archetype: z.string().optional(),
+    initialNodeId: z.string(),
+    secretTags: StringArraySchema.optional(),
+    dialogueGoals: StringArraySchema.optional(),
+});
+
+const ObjectiveRewardSchema = z.object({
+    accessTokens: StringArraySchema.optional(),
+    stabilityDelta: z.number().optional(),
+});
+
+const MapBlueprintObjectiveSchema = z.object({
+    id: z.string(),
+    title: z.string(),
+    type: z.enum(["MAIN", "SIDE"]),
+    nodeId: z.string(),
+    progress: z.number().optional(),
+    detail: z.string().optional(),
+    reward: ObjectiveRewardSchema.optional(),
+});
+
+const MapBlueprintSchema = z.object({
+    id: z.string(),
+    title: z.string(),
+    startNodeId: z.string(),
+    nodes: z.array(MapBlueprintNodeSchema),
+    edges: z.array(MapBlueprintEdgeSchema),
+    npcs: z.array(MapBlueprintNPCSchema),
+    objectives: z.array(MapBlueprintObjectiveSchema),
+});
+
+const StoryDraftSchema = z.object({
+    roleDetails: z.string().optional(),
+    storyBackground: z.string().optional(),
+    narrativeConstraints: z.string().optional(),
+    openingPrompt: z.string().optional(),
+    backgroundImage: z.string().optional(),
+    entityImage: z.string().optional(),
+});
+
+export const AnalyzeScpDataSchema = z.object({
+    designation: z.string(),
+    name: z.string(),
+    containmentClass: z.string(),
+    role: z.string(),
+    visualDescription: z.string().optional(),
+    entityDescription: z.string().optional(),
+    npcVisuals: z.record(z.string()).optional(),
+    npcImages: z.record(z.string()).optional(),
+    mapBlueprint: MapBlueprintSchema.optional(),
+    storyDraft: StoryDraftSchema.optional(),
+});
+
+export const AnalyzeScpDataJsonSchema = zodToJsonSchema(AnalyzeScpDataSchema, "AnalyzeScpData");
+
+const analyzeScpDataValidator = new Ajv({ allErrors: true }).compile(AnalyzeScpDataJsonSchema);
+
+export const validateAnalyzeScpData = (value: unknown): { valid: boolean; errors: string[] } => {
+    const valid = analyzeScpDataValidator(value);
+
+    if (valid) {
+        return { valid: true, errors: [] };
+    }
+
+    const errors = (analyzeScpDataValidator.errors || []).map(error => {
+        const path = error.dataPath || "(root)";
+        return `${path} ${error.message || "is invalid"}`;
+    });
+
+    return { valid: false, errors };
+};
+
+export const repairAnalyzeScpData = (value: unknown): {
+    data: SCPData;
+    valid: boolean;
+    repaired: boolean;
+    initialErrors: string[];
+    finalErrors: string[];
+} => {
+    const initialValidation = validateAnalyzeScpData(value);
+
+    if (initialValidation.valid) {
+        return {
+            data: value as SCPData,
+            valid: true,
+            repaired: false,
+            initialErrors: [],
+            finalErrors: []
+        };
+    }
+
+    const repairedData = normalizeAnalyzeScpData(value);
+    const finalValidation = validateAnalyzeScpData(repairedData);
+
+    return {
+        data: repairedData,
+        valid: finalValidation.valid,
+        repaired: true,
+        initialErrors: initialValidation.errors,
+        finalErrors: finalValidation.errors
+    };
+};

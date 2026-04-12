@@ -31,6 +31,7 @@ export const ja = {
     error_prefix: "[ERROR]: ",
     error_conn: "財団データベースへの接続に失敗しました。API Key の権限または SCP 指定番号を確認してください。",
     error_api: "API Key の検証に失敗しました。再試行してください。",
+    error_invalid_analysis: "解析結果は取得できましたが、返却データの構造が不正なためこのシナリオを開始できません。",
     label_url: "SCP データベースのリンクまたは指定番号",
     placeholder_url: "例: SCP-173, SCP-682, または Wiki リンク...",
     label_role: "担当ロールを割り当てる",
@@ -103,6 +104,9 @@ export const ja = {
     access_granted: "アクセス許可",
     entering_zone: "ゾーン侵入",
     system_msg: "SYSTEM_MSG",
+    message_content: {
+      click_to_fill: "クリックで入力",
+    },
     narrative_media: {
       doc_header_classified: "機密",
       doc_header_level: "レベル",
@@ -316,6 +320,7 @@ export const ja = {
     add_objective: "目標追加",
     validation_error: "検証エラー",
     json_error: "無効な JSON 形式です",
+    import_data_error: "読み込んだ JSON データの構造が不正です",
     node_name: "ノード名",
     node_id: "ノード ID",
     requires: "アクセス要件 (カンマ区切り)",

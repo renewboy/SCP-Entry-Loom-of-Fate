@@ -31,6 +31,7 @@ export const en = {
     error_prefix: "[ERROR]: ",
     error_conn: "Failed to connect to Foundation Database. Verify API Key permissions or SCP designation.",
     error_api: "API Key verification failed. Please try again.",
+    error_invalid_analysis: "Analysis completed, but the returned data structure is invalid and cannot be used to start this scenario.",
     label_url: "SCP Database Link or Designation",
     placeholder_url: "e.g., SCP-173, SCP-682, or Wiki Link...",
     label_role: "Assign Personnel Role",
@@ -103,6 +104,9 @@ export const en = {
     access_granted: "ACCESS GRANTED",
     entering_zone: "ENTERING ZONE",
     system_msg: "SYSTEM_MSG",
+    message_content: {
+      click_to_fill: "Click to fill",
+    },
     narrative_media: {
       doc_header_classified: "CLASSIFIED",
       doc_header_level: "LEVEL",
@@ -316,6 +320,7 @@ export const en = {
     add_objective: "Add Objective",
     validation_error: "Validation Error",
     json_error: "Invalid JSON format",
+    import_data_error: "Imported JSON data structure is invalid",
     node_name: "Node Name",
     node_id: "Node ID",
     requires: "Access Requirements (comma separated)",

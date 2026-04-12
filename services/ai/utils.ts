@@ -1,4 +1,4 @@
-import { EndingType, GameReviewData, NarrativeMedium, NarrativeMediumType } from '../../types';
+import { EndingType, GameReviewData, NarrativeMedium, NarrativeMediumType, SCPData } from '../../types';
 import { ImageAspectRatio } from './types';
 
 export const extractVisualPrompt = (text: string): { cleanText: string, visualPrompt: string | null } => {
@@ -97,37 +97,95 @@ export const safeParseJson = (text: string): any | null => {
   const jsonBlockMatch = text.match(/```json\s*([\s\S]*?)\s*```/i);
   if (jsonBlockMatch && jsonBlockMatch[1]) {
     candidates.push(jsonBlockMatch[1].trim());
-    console.log(`[safeParseJson] Found JSON block: ${jsonBlockMatch[1].trim()}`);
   }
   // 2. Fallback: Raw text stripped of markdown
   const raw = text.replace(/```json/g, '').replace(/```/g, '').trim();
   candidates.push(raw);
-  console.log(`[safeParseJson] Found raw text: ${raw}`);
   // 3. Fallback: Heuristic extraction
   const extracted = extractJsonObject(raw);
   if (extracted) {
     candidates.push(extracted);
-    console.log(`[safeParseJson] Heuristic extraction: ${extracted}`);
   }
 
   const uniqueCandidates = Array.from(new Set(candidates)).filter(Boolean);
 
   for (const candidate of uniqueCandidates) {
     try {
-      console.log(`[safeParseJson] Successfully parsed JSON: ${candidate}`);
-      return JSON.parse(candidate);
+      let json = JSON.parse(candidate);
+      return json;
     } catch {
       try {
         // Try to fix trailing commas
         const cleaned = candidate.replace(/,\s*([}\]])/g, '$1');
         return JSON.parse(cleaned);
       } catch {
-        console.log(`[safeParseJson] Failed to parse JSON: ${candidate}`);
         continue;
       }
     }
   }
   return null;
+};
+
+const normalizeGeneratedStringArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === 'string')
+      .map(item => item.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split(/[,\n，、]+/)
+      .map(item => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+export const normalizeAnalyzeScpData = (value: any): SCPData => {
+  if (!value || typeof value !== 'object') {
+    return value as SCPData;
+  }
+
+  const mapBlueprint = value.mapBlueprint && typeof value.mapBlueprint === 'object'
+    ? value.mapBlueprint
+    : undefined;
+
+  return {
+    ...value,
+    mapBlueprint: mapBlueprint ? {
+      ...mapBlueprint,
+      nodes: Array.isArray(mapBlueprint.nodes)
+        ? mapBlueprint.nodes.map((node: any) => ({
+            ...node,
+            discoverables: normalizeGeneratedStringArray(node?.discoverables),
+            interactables: normalizeGeneratedStringArray(node?.interactables),
+            requires: normalizeGeneratedStringArray(node?.requires),
+          }))
+        : [],
+      edges: Array.isArray(mapBlueprint.edges) ? mapBlueprint.edges : [],
+      npcs: Array.isArray(mapBlueprint.npcs)
+        ? mapBlueprint.npcs.map((npc: any) => ({
+            ...npc,
+            secretTags: normalizeGeneratedStringArray(npc?.secretTags),
+            dialogueGoals: normalizeGeneratedStringArray(npc?.dialogueGoals),
+          }))
+        : [],
+      objectives: Array.isArray(mapBlueprint.objectives)
+        ? mapBlueprint.objectives.map((objective: any) => ({
+            ...objective,
+            reward: objective?.reward && typeof objective.reward === 'object'
+              ? {
+                  ...objective.reward,
+                  accessTokens: normalizeGeneratedStringArray(objective.reward.accessTokens),
+                }
+              : objective?.reward,
+          }))
+        : [],
+    } : undefined,
+  };
 };
 
 export const extractMapUpdate = (text: string): { cleanText: string, update: any | null } => {
@@ -233,7 +291,8 @@ export const cleanHistoryText = (text: string): string => {
 };
 
 // ---- Narrative Medium Extraction ----
-const MEDIUM_BLOCK_REGEX = /\[#(DOC|COMM|ENV|PSI)(?::([^\]]*))?\]\n?([\s\S]*?)\[\/#\1\]/g;
+// Be tolerant of partially malformed media tags such as `[/＃COMM]`.
+const MEDIUM_BLOCK_REGEX = /\[(?:#|＃)(DOC|COMM|ENV|PSI)(?::([^\]]*))?\]\n?([\s\S]*?)\[(?:\/|／)\s*(?:#|＃)\s*\1\s*\]/g;
 
 const parseAttrs = (attrStr: string | undefined): Record<string, string> => {
     const attrs: Record<string, string> = {};

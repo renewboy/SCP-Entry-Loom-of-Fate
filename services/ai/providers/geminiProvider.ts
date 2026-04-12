@@ -63,6 +63,7 @@ export class GeminiProvider implements AIService {
                 model: config.imageModel,
                 prompt,
                 aspectRatio,
+                imageSize: '2K'
             });
             
             const parts = response.candidates?.[0]?.content?.parts || [];
@@ -91,9 +92,9 @@ export class GeminiProvider implements AIService {
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 config: {
                     tools: [{ googleSearch: {} }],
-                    thinkingConfig: {
-                        includeThoughts: true,
-                    }
+                    // thinkingConfig: {
+                    //     includeThoughts: true,
+                    // }
                 },
             });
             const text = getGeminiText(response);
@@ -358,7 +359,6 @@ export class GeminiProvider implements AIService {
         try {
             const cachedContent = await this.ensureCachedContentName();
             console.log(`[GeminiProvider] Cached content name: ${cachedContent}`);
-            console.log(`[GeminiProvider] System instruction: ${this.systemInstruction}`);
             let fullResponse = "";
             for await (const chunk of streamSse<any>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
