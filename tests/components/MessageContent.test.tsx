@@ -93,4 +93,23 @@ describe('MessageContent', () => {
     expect(midPressure).toBeGreaterThan(highPressure);
     expect(criticalPressure).toBeGreaterThan(midPressure);
   });
+
+  it('有序列表会保留数字列表样式类', () => {
+    const html = renderToStaticMarkup(
+      <MessageContent
+        content={[
+          '请从以下方案中选择：',
+          '1. 第一项',
+          '2. 第二项',
+          '3. 第三项'
+        ].join('\n')}
+        t={translate}
+        npcs={npcs}
+      />
+    );
+
+    expect(html).toContain('list-decimal');
+    expect(html).toContain('<ol');
+    expect(html).toContain('第一项');
+  });
 });
