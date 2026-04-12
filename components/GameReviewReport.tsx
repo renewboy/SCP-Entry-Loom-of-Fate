@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { GameReviewData, Message, SCPData } from '../types';
+import { GameReviewData, NarrativeQuality, Message, SCPData } from '../types';
 import { useTranslation } from '../utils/i18n';
 import GameLogo from './GameLogo';
 
@@ -26,6 +26,30 @@ const getRankColorClass = (rank: string) => {
     case 'D': return 'text-orange-500';
     case 'F': return 'text-red-600';
     default: return 'text-gray-200';
+  }
+};
+
+// Score → Rank mapping for numeric scores (0-100)
+const scoreToRank = (score: number): string => {
+  if (score >= 90) return 'S';
+  if (score >= 80) return 'A';
+  if (score >= 70) return 'B';
+  if (score >= 60) return 'C';
+  if (score >= 40) return 'D';
+  return 'F';
+};
+
+// Score → Hex color (mirrors getRankColorClass palette for SVG use)
+const scoreToHexColor = (score: number): string => {
+  const rank = scoreToRank(score);
+  switch (rank) {
+    case 'S': return '#facc15';
+    case 'A': return '#33ff00';
+    case 'B': return '#60a5fa';
+    case 'C': return '#9ca3af';
+    case 'D': return '#f97316';
+    case 'F': return '#dc2626';
+    default: return '#e5e7eb';
   }
 };
 
@@ -580,6 +604,121 @@ const GameReviewReport: React.FC<GameReviewReportProps> = ({ data, scpData, stab
         </div>
       )}
 
+
+
+      {/* Narrative Craft Assessment */}
+      {data.narrativeQuality && (() => {
+        const nq = data.narrativeQuality;
+        const dimensions: { key: keyof Omit<NarrativeQuality, 'comment'>; label: string }[] = [
+          { key: 'worldConsistency', label: t('report.nq_world_consistency') },
+          { key: 'imagery', label: t('report.nq_imagery') },
+          { key: 'npcDepth', label: t('report.nq_npc_depth') },
+          { key: 'pacing', label: t('report.nq_pacing') },
+          { key: 'interactivity', label: t('report.nq_interactivity') },
+          { key: 'equivalentExchange', label: t('report.nq_equivalent_exchange') },
+        ];
+        const scores = dimensions.map(d => nq[d.key] as number);
+        const overall = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+
+        // Radar chart geometry
+        const size = 200;
+        const cx = size / 2;
+        const cy = size / 2;
+        const radius = 75;
+        const angleStep = (2 * Math.PI) / dimensions.length;
+        const startAngle = -Math.PI / 2; // top
+
+        const getPoint = (index: number, value: number) => {
+          const angle = startAngle + index * angleStep;
+          const r = (value / 100) * radius;
+          return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+        };
+
+        const radarPoints = dimensions.map((d, i) => getPoint(i, nq[d.key] as number));
+        const radarPath = radarPoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ') + ' Z';
+
+        // Grid levels
+        const gridLevels = [25, 50, 75, 100];
+
+        return (
+          <div className="relative z-10 mb-8 border border-scp-gray/30 bg-black/40 p-4 scp-archive">
+            <h3 className="text-sm text-scp-text font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
+              <span className="w-1 h-4 bg-scp-term_fix block"></span>
+              {t('report.narrative_quality')}
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Radar Chart */}
+              <div className="flex flex-col items-center justify-center">
+                <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[220px] h-auto">
+                  {/* Grid rings */}
+                  {gridLevels.map(level => {
+                    const pts = dimensions.map((_, i) => getPoint(i, level));
+                    const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ') + ' Z';
+                    return <path key={`grid-${level}`} d={d} fill="none" stroke="#333" strokeWidth="0.5" strokeDasharray={level < 100 ? "2" : "0"} />;
+                  })}
+                  {/* Axis lines */}
+                  {dimensions.map((_, i) => {
+                    const p = getPoint(i, 100);
+                    return <line key={`axis-${i}`} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#444" strokeWidth="0.5" />;
+                  })}
+                  {/* Data polygon */}
+                  <path d={radarPath} fill="rgba(51, 255, 0, 0.12)" stroke="#33ff00" strokeWidth="1.5" strokeLinejoin="round" />
+                  {/* Data points */}
+                  {radarPoints.map((p, i) => (
+                    <circle key={`pt-${i}`} cx={p.x} cy={p.y} r="3" fill={scoreToHexColor(nq[dimensions[i].key] as number)} stroke="#000" strokeWidth="0.5" />
+                  ))}
+                  {/* Labels */}
+                  {dimensions.map((d, i) => {
+                    const labelPoint = getPoint(i, 125);
+                    const anchor = labelPoint.x < cx - 5 ? 'end' : labelPoint.x > cx + 5 ? 'start' : 'middle';
+                    return (
+                      <text key={`label-${i}`} x={labelPoint.x} y={labelPoint.y} textAnchor={anchor} dominantBaseline="middle" fill="#888" fontSize="7" fontFamily="monospace">
+                        {d.label}
+                      </text>
+                    );
+                  })}
+                </svg>
+                <div className="mt-2 text-center">
+                  <span className="text-[10px] text-gray-500 uppercase tracking-widest">{t('report.nq_overall')}</span>
+                  <div className={`text-4xl font-report font-bold ${getRankColorClass(scoreToRank(overall))} text-shadow-sm`}>{overall}</div>
+                </div>
+              </div>
+
+              {/* Score Bars */}
+              <div className="md:col-span-2 space-y-3">
+                {dimensions.map((d, idx) => {
+                  const val = clamp(nq[d.key] as number, 0, 100);
+                  return (
+                    <div key={idx} className="border border-scp-gray/20 bg-black/30 p-2 scp-archive">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-[10px] text-gray-300 font-mono uppercase">{d.label}</span>
+                        <span className={`text-[10px] font-bold font-mono ${getRankColorClass(scoreToRank(val))}`}>{val}</span>
+                      </div>
+                      <div className="w-full h-2 border border-scp-gray/30 bg-black overflow-hidden">
+                        <div
+                          style={{ width: `${val}%`, backgroundColor: scoreToHexColor(val) }}
+                          className="h-full transition-all duration-500"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Narrative Comment */}
+            {nq.comment && (
+              <div className="mt-4 border-t border-scp-gray/20 pt-3">
+                <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">{t('report.nq_comment')}</div>
+                <p className="text-xs text-gray-300 italic leading-relaxed p-3 bg-black/20 border-l-2 border-scp-term_fix">
+                  "{nq.comment}"
+                </p>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Achievements/Titles */}
       {data.achievements && data.achievements.length > 0 && (

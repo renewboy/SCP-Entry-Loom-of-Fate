@@ -236,6 +236,16 @@ export interface GameReviewCounterfactual {
   tradeoff: string;
 }
 
+export interface NarrativeQuality {
+  worldConsistency: number;  // 0-100: Internal logic, SCP lore accuracy, world-building coherence
+  imagery: number;           // 0-100: Sensory descriptions, metaphors, visual language richness
+  npcDepth: number;          // 0-100: NPC distinct voices, emotional arcs, believable motivations
+  pacing: number;            // 0-100: Narrative rhythm matching stability phases, tension escalation
+  interactivity: number;     // 0-100: Responsiveness to player's creative inputs and strategies
+  equivalentExchange: number; // 0-100: Consistency of proportional cost for every major success
+  comment: string;           // Brief overall narrative assessment
+}
+
 export interface GameReviewData {
   operationName: string;
   clearanceLevel: string;
@@ -255,6 +265,7 @@ export interface GameReviewData {
   riskAssessment?: GameReviewRiskAssessment;
   tacticsMatrix?: GameReviewTacticStat[];
   counterfactuals?: GameReviewCounterfactual[];
+  narrativeQuality?: NarrativeQuality;
   psychProfile: string;
   strategicAdvice: string;
   perspectiveEvaluations: PerspectiveEvaluation[];
