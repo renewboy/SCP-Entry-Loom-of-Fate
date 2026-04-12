@@ -18,7 +18,8 @@ Requirements:
 8. **Achievements/Titles**: Generate 1-3 unique and creative titles/achievements earned by the player based on their performance and narrative impact (e.g., "The Butcher of Site-19", "Ethics Committee Favorite"). Provide a brief description for each.
 9. Provide a professional, analyst-style breakdown with explicit evidence referencing turns.
 10. Provide quantified assessments wherever possible (0-100 or 0-5 scales).
-11. Language for all text must be {{ outputLanguage }}.
+11. **Narrative Craft Assessment**: Self-evaluate the AI Narrator's narrative quality. Score each dimension 0-100 and provide a brief overall comment.
+12. Language for all text must be {{ outputLanguage }}.
 
 Format: RETURN ONLY RAW JSON. No markdown blocks.
 JSON Structure matches the interface:
@@ -44,6 +45,15 @@ JSON Structure matches the interface:
   "counterfactuals": [
     { "title": "string", "change": "string", "expectedOutcome": "string", "tradeoff": "string" }
   ],
+  "narrativeQuality": {
+    "worldConsistency": number,
+    "imagery": number,
+    "npcDepth": number,
+    "pacing": number,
+    "interactivity": number,
+    "equivalentExchange": number,
+    "comment": "string"
+  },
   "psychProfile": "string",
   "strategicAdvice": "string",
   "perspectiveEvaluations": [
