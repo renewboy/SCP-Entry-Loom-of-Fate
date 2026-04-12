@@ -31,6 +31,7 @@ export const zh = {
     error_prefix: "[错误]: ",
     error_conn: "连接基金会数据库失败。请验证您的API密钥权限或SCP编号是否正确。",
     error_api: "API密钥验证失败。请重试。",
+    error_invalid_analysis: "已收到分析结果，但返回的数据结构无效，无法开始当前剧本。",
     label_url: "SCP数据库链接或编号",
     placeholder_url: "例如: SCP-173, SCP-682, 或Wiki链接...",
     label_role: "分配人员角色",
@@ -103,6 +104,9 @@ export const zh = {
     access_granted: "访问权限已获批",
     entering_zone: "进入区域",
     system_msg: "系统消息",
+    message_content: {
+      click_to_fill: "点击填入",
+    },
     narrative_media: {
       doc_header_classified: "机密档案",
       doc_header_level: "等级",
@@ -316,6 +320,7 @@ export const zh = {
     add_objective: "添加任务",
     validation_error: "验证错误",
     json_error: "无效的 JSON 格式",
+    import_data_error: "导入的 JSON 数据结构无效",
     node_name: "节点名称",
     node_id: "节点 ID",
     requires: "访问需求 (逗号分隔)",

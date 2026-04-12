@@ -7,7 +7,9 @@ export interface NarrativeMediaSegment {
   attrs?: Record<string, string>;
 }
 
-const MEDIUM_BLOCK_REGEX = /\[#(DOC|COMM|ENV|PSI)(?::([^\]]*))?\]\n?([\s\S]*?)\[\/\s*#\1\s*\]/g;
+// Be tolerant of partially malformed tags such as `[/＃COMM]` while keeping
+// the accepted media types limited to the known set.
+const MEDIUM_BLOCK_REGEX = /\[(?:#|＃)(DOC|COMM|ENV|PSI)(?::([^\]]*))?\]\n?([\s\S]*?)\[(?:\/|／)\s*(?:#|＃)\s*\1\s*\]/g;
 
 const parseAttrs = (attrStr: string | undefined): Record<string, string> => {
   const attrs: Record<string, string> = {};
@@ -63,4 +65,5 @@ export const splitByNarrativeMedia = (text: string): NarrativeMediaSegment[] => 
 };
 
 /** Quick check to avoid unnecessary splitting */
-export const hasNarrativeMedia = (text: string): boolean => text.includes('[#');
+export const hasNarrativeMedia = (text: string): boolean =>
+  /\[(?:#|＃)(DOC|COMM|ENV|PSI)/.test(text);

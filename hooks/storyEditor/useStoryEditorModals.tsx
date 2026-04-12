@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { MapBlueprint, SCPData } from '../../types';
+import { repairAnalyzeScpData } from '../../services/ai/schemas';
 import { applyLayoutToBlueprint } from '../../utils/mapLayout';
 
 export const useStoryEditorModals = ({
@@ -30,25 +31,45 @@ export const useStoryEditorModals = ({
 
     const closeModal = () => setModalType(null);
 
+    const formatImportError = (errors: string[]) => {
+        if (!errors.length) return t('map_editor.import_data_error');
+        const detail = errors.slice(0, 3).join('\n');
+        return `${t('map_editor.import_data_error')}\n${detail}`;
+    };
+
     const applyImportText = (text: string) => {
         try {
             const json = JSON.parse(text);
+            const repairedResult = repairAnalyzeScpData(json);
+
+            if (!repairedResult.valid) {
+                console.error('[StoryEditor] Imported JSON failed SCPData schema validation', {
+                    initialErrors: repairedResult.initialErrors,
+                    finalErrors: repairedResult.finalErrors,
+                    rawJson: json,
+                    repairedData: repairedResult.data,
+                });
+                setImportError(formatImportError(repairedResult.finalErrors.length ? repairedResult.finalErrors : repairedResult.initialErrors));
+                return;
+            }
+
+            const sourceData = repairedResult.data;
             const importedData: SCPData = {
-                designation: json.designation,
-                name: json.name,
-                containmentClass: json.containmentClass,
-                role: json.role,
+                designation: sourceData.designation,
+                name: sourceData.name,
+                containmentClass: sourceData.containmentClass,
+                role: sourceData.role,
                 storyDraft: {
-                    roleDetails: json.storyDraft.roleDetails,
-                    storyBackground: json.storyDraft.storyBackground,
-                    narrativeConstraints: json.storyDraft.narrativeConstraints,
-                    openingPrompt: json.storyDraft.openingPrompt
+                    roleDetails: sourceData.storyDraft?.roleDetails,
+                    storyBackground: sourceData.storyDraft?.storyBackground,
+                    narrativeConstraints: sourceData.storyDraft?.narrativeConstraints,
+                    openingPrompt: sourceData.storyDraft?.openingPrompt
                 },
-                visualDescription: json.visualDescription,
-                entityDescription: json.entityDescription,
-                npcVisuals: json.npcVisuals,
+                visualDescription: sourceData.visualDescription,
+                entityDescription: sourceData.entityDescription,
+                npcVisuals: sourceData.npcVisuals,
                 npcImages: scpData.npcImages,
-                mapBlueprint: applyLayoutToBlueprint(json.mapBlueprint, { width: 720, height: 420, paddingX: 60, paddingY: 50 })
+                mapBlueprint: applyLayoutToBlueprint(sourceData.mapBlueprint, { width: 720, height: 420, paddingX: 60, paddingY: 50 })
             };
 
             setBlueprint(importedData.mapBlueprint, 'immediate');
@@ -169,7 +190,7 @@ export const useStoryEditorModals = ({
                             placeholder="{ ... }"
                         />
                     {importError && (
-                        <div className="text-[12px] text-scp-alert/90 border border-scp-alert/40 bg-black/40 px-2 py-1">
+                        <div className="text-[12px] text-scp-alert/90 border border-scp-alert/40 bg-black/40 px-2 py-1 whitespace-pre-wrap">
                             {importError}
                         </div>
                     )}

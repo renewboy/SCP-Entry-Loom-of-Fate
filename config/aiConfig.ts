@@ -6,7 +6,7 @@ export const aiConfig = {
       chatModel: 'gemini-3-flash-preview',
       imageModel: 'gemini-2.5-flash-image',
       embeddingModel: 'gemini-embedding-001',
-      cacheTtl: '864000s',
+      cacheTtl: '86400s',
     },
     openai: {
       baseUrl: '',

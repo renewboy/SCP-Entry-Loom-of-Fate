@@ -4,8 +4,18 @@ import { getAnalyzeSCPPrompt, getContextPrompt, getStartGamePrompt, getSystemIns
 describe('ai prompts', () => {
   it('系统指令通过模板输出目标语言', () => {
     const prompt = getSystemInstruction('研究员', 'zh');
+
     expect(prompt).toContain('语言：中文');
     expect(prompt).toContain('[休谟场稳定性]');
+    expect(prompt).toContain('[事实来源与规则优先级]');
+    expect(prompt).toContain('[地图与移动协议]');
+    expect(prompt).toContain('[NPC协议]');
+    expect(prompt).toContain('[任务与玩法协议]');
+    expect(prompt).toContain('[机器标签协议]');
+    expect(prompt).toContain('必须使用 [@npc_id: 对话内容] 格式');
+    expect(prompt).toContain('只有当位置真实发生变化时，才输出 [LOC: <node_id>]');
+    expect(prompt).toContain('不得凭空创造不存在的节点、NPC、objective、token');
+    expect(prompt).toContain('不要泄露 node_id、npc_id、obj_id、token_id 等内部标识');
   });
 
   it('日语模式下 prompt 会注入正确的目标语言标签', () => {
@@ -36,6 +46,8 @@ describe('ai prompts', () => {
     expect(prompt).toContain('[输出约束] 不要泄露内部ID。');
     expect(prompt).toContain('[记忆回响]');
     expect(prompt).toContain('[地图状态]');
+    expect(prompt).toContain('以下为本回合唯一有效的地图/NPC/任务运行时状态');
+    expect(prompt).toContain('严格遵循system prompt中的全局规则');
   });
 
   it('分析提示通过模板保留遗产与档案信息', () => {
@@ -91,5 +103,8 @@ describe('ai prompts', () => {
     expect(prompt).toContain('npc_researcher_01');
     expect(prompt).toContain('silver-rimmed glasses');
     expect(prompt).toContain('SCP-173');
+    expect(prompt).toContain('起始遭遇必须发生在startNodeId对应地点');
+    expect(prompt).toContain('请依据system prompt中的全局地图协议');
+    expect(prompt).toContain('并将主线任务锚定到地图蓝图中的实际地点、NPC、objective资源上');
   });
 });

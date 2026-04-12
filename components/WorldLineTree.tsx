@@ -2,7 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Message, SCPData, EndingType, GameReviewData, QAPair, LegacyData, Trait, LegacyItem } from '../types';
+import { Message, SCPData, EndingType, GameReviewData, QAPair, LegacyData, Trait, LegacyItem, RuntimeNPCState } from '../types';
 import { Dna, Mic, Package, Radio, RotateCcw, Sparkles } from 'lucide-react';
 import { useTranslation } from '../utils/i18n';
 import { generateGameReview, askNarratorQuestion, generateAudioDramaScript, generateLegacyData } from '../services/aiService';
@@ -11,6 +11,8 @@ import GameReviewReport from './GameReviewReport';
 import QAHistory from './QAHistory';
 import DebugAudioPlayer from './game/DebugAudioPlayer';
 import { AudioDramaScript } from '../types';
+import MessageContent from './shared/MessageContent';
+import { toReadableMessageText } from '../utils/messageContent';
 
 interface WorldLineTreeProps {
   messages: Message[];
@@ -59,6 +61,15 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
   const [isQaLoading, setIsQaLoading] = useState(false);
   const [streamingAnswer, setStreamingAnswer] = useState('');
   const qaCount = qaHistory.length;
+  const printableNpcs: RuntimeNPCState[] | undefined = scpData?.mapBlueprint?.npcs.map((npc) => ({
+    id: npc.id,
+    name: npc.name,
+    archetype: npc.archetype,
+    nodeId: npc.initialNodeId,
+    alive: true,
+    secretTags: npc.secretTags,
+    dialogueGoals: npc.dialogueGoals
+  }));
 
   // New Game+ States
   const [isGeneratingLegacy, setIsGeneratingLegacy] = useState(false);
@@ -262,7 +273,7 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
   };
 
   // Filter messages to create nodes. 
-  const timelineEvents: {trigger: string, response: string, image?: string, id: string}[] = [];
+  const timelineEvents: {trigger: string, response: string, image?: string, id: string, stability?: number}[] = [];
   
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
@@ -274,7 +285,8 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
          trigger,
          response: msg.content,
          image: msg.imageUrl,
-         id: msg.id
+         id: msg.id,
+         stability: msg.stabilitySnapshot
        });
     }
   }
@@ -326,6 +338,110 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
              margin-left: 0 !important;
              margin-right: 0 !important;
              box-shadow: none !important;
+           }
+           .message-content-print p {
+             margin: 0.85rem 0;
+           }
+           .message-content-print ol {
+             list-style: decimal;
+             padding-left: 2rem;
+             margin: 1rem 0;
+           }
+           .message-content-print ul {
+             list-style: disc;
+             padding-left: 1.75rem;
+             margin: 1rem 0;
+           }
+           .message-content-print li {
+             margin: 0.5rem 0;
+           }
+           .message-content-print .scp-archive {
+             break-inside: avoid;
+           }
+           .message-content-print .narrative-doc,
+           .message-content-print .narrative-doc * {
+             -webkit-print-color-adjust: exact !important;
+             print-color-adjust: exact !important;
+           }
+           .message-content-print .narrative-doc {
+             background: rgba(8, 8, 10, 0.92) !important;
+             border: 1px solid rgba(255, 255, 255, 0.08) !important;
+             box-shadow:
+               inset 0 1px 0 rgba(255, 255, 255, 0.04),
+               inset 0 -1px 0 rgba(255, 255, 255, 0.03),
+               0 0 0 1px rgba(0, 0, 0, 0.28) !important;
+             overflow: hidden !important;
+           }
+           .message-content-print .narrative-doc > .flex:first-child {
+             background: rgba(255, 255, 255, 0.04) !important;
+             border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+           }
+           .message-content-print .narrative-doc > .flex:last-child {
+             background: rgba(255, 255, 255, 0.02) !important;
+             border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+           }
+           .message-content-print .narrative-doc .font-report {
+             font-family: "Special Elite", cursive !important;
+           }
+           .message-content-print .narrative-doc .text-stone-200\\/95,
+           .message-content-print .narrative-doc .text-stone-300\\/85,
+           .message-content-print .narrative-doc p,
+           .message-content-print .narrative-doc p * {
+             color: rgba(231, 229, 228, 0.95) !important;
+           }
+           .message-content-print .narrative-doc .text-scp-text-dim\\/50,
+           .message-content-print .narrative-doc .text-scp-text-dim\\/40 {
+             color: rgba(148, 163, 184, 0.65) !important;
+           }
+           .message-content-print .narrative-doc .text-scp-amber\\/70 {
+             color: rgba(245, 158, 11, 0.78) !important;
+           }
+           .message-content-print .narrative-doc .text-red-500\\/60,
+           .message-content-print .narrative-doc .text-red-500\\/70 {
+             color: rgba(239, 68, 68, 0.72) !important;
+           }
+           .message-content-print .psi-container,
+           .message-content-print .scp-archive,
+           .message-content-print .rounded-sm {
+             break-inside: avoid;
+           }
+           .message-content-print .psi-container,
+           .message-content-print .psi-container * {
+             -webkit-print-color-adjust: exact !important;
+             print-color-adjust: exact !important;
+           }
+           .message-content-print .psi-container {
+             background: #111018 !important;
+             border-top: 1px solid rgba(168, 85, 247, 0.35) !important;
+             border-bottom: 1px solid rgba(168, 85, 247, 0.35) !important;
+             box-shadow: none !important;
+             animation: none !important;
+             transform: none !important;
+             backdrop-filter: none !important;
+             -webkit-backdrop-filter: none !important;
+           }
+           .message-content-print .psi-container > .absolute {
+             display: none !important;
+           }
+           .message-content-print .psi-container [style*="animation"],
+           .message-content-print .psi-container [style*="filter"],
+           .message-content-print .psi-container [style*="text-shadow"] {
+             animation: none !important;
+             filter: none !important;
+             text-shadow: none !important;
+           }
+           .message-content-print .psi-container .relative.z-10 {
+             position: relative !important;
+             z-index: 1 !important;
+           }
+           .message-content-print .psi-container .italic,
+           .message-content-print .psi-container .italic *,
+           .message-content-print .psi-container p,
+           .message-content-print .psi-container p * {
+             color: #efe7ff !important;
+             opacity: 1 !important;
+             filter: none !important;
+             text-shadow: none !important;
            }
         </style>
         <script>
@@ -400,7 +516,16 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                             </div>
                         ` : ''}
                         
-                        <div class="whitespace-pre-wrap">${event.response.replace(/\[.*?\]/g, '')}</div>
+                        ${renderToStaticMarkup(
+                          <MessageContent
+                            content={event.response}
+                            t={t}
+                            className="message-content-print"
+                            npcs={printableNpcs}
+                            npcImages={scpData?.npcImages}
+                            stability={event.stability}
+                          />
+                        )}
                         
                         <div class="mt-2 text-[9px] text-scp-gray/50 text-right">${lbl.node_id}: ${event.id}</div>
                     </div>
@@ -535,8 +660,8 @@ const WorldLineTree: React.FC<WorldLineTreeProps> = ({
                                     <img src={event.image} alt="Evidence" className="w-full h-32 object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
                                 </div>
                             )}
-                            <p className="font-mono text-xs text-gray-400 line-clamp-4 group-hover:line-clamp-none transition-all">
-                                {event.response.replace(/\[.*?\]/g, '')}
+                            <p className="font-mono text-xs text-gray-400 line-clamp-4 group-hover:line-clamp-none transition-all whitespace-pre-line">
+                                {toReadableMessageText(event.response, printableNpcs)}
                             </p>
                             <span className="text-[9px] text-scp-gray mt-2 block font-mono">{t('report.node_id')}: {event.id.slice(-6)}</span>
                         </div>

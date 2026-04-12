@@ -99,6 +99,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({
 
         <Typewriter
           content={msg.content}
+          t={t}
           isStreaming={!!msg.isTyping}
           shouldAutoScroll={shouldAutoScroll}
           scrollContainerRef={scrollRef}

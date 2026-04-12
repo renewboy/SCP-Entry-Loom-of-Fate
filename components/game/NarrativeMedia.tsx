@@ -1,7 +1,6 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { NarrativeMediumType } from '../../types';
-import { useTranslation } from '../../utils/i18n';
 import CrtSurface from '../common/CrtSurface';
 import StaticNoise from './StaticNoise';
 
@@ -9,6 +8,7 @@ interface NarrativeMediaProps {
   mediaType: NarrativeMediumType;
   content: string;
   attrs: Record<string, string>;
+  t: (key: string) => string;
   stability?: number;
 }
 
@@ -28,18 +28,31 @@ const MediaMarkdown: React.FC<{ children: string; className?: string; style?: Re
   </div>
 );
 
-function getGlitchIntensity(stability?: number): number {
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getInstabilityRatio(stability?: number): number {
   if (stability === undefined) return 0;
-  if (stability >= 70) return 0;
-  if (stability >= 30) return 0.3;
-  return Math.min(1, (30 - stability) / 30);
+  return (100 - clamp(stability, 0, 100)) / 100;
+}
+
+function getGlitchIntensity(stability?: number): number {
+  const instability = getInstabilityRatio(stability);
+  if (instability <= 0) return 0;
+  return Math.min(1, Math.pow(instability, 1.25));
+}
+
+function getPsiPressure(stability?: number): number {
+  const instability = getInstabilityRatio(stability);
+  const pressure = 35 + 60 * Math.pow(instability, 0.85);
+  return Math.round(clamp(pressure, 35, 95));
 }
 
 /* ═══════════════════════════════════════════════════
    DOC — Classified Foundation Document
    ═══════════════════════════════════════════════════ */
-const DocMedia: React.FC<{ content: string; attrs: Record<string, string>; stability?: number }> = ({ content, attrs, stability }) => {
-  const { t } = useTranslation();
+const DocMedia: React.FC<{ content: string; attrs: Record<string, string>; stability?: number; t: (key: string) => string }> = ({ content, attrs, stability, t }) => {
   const title = attrs.title || 'DOCUMENT';
   const style = attrs.style || 'typed';
   const glitchIntensity = getGlitchIntensity(stability);
@@ -58,7 +71,7 @@ const DocMedia: React.FC<{ content: string; attrs: Record<string, string>; stabi
 
   return (
     <div className="my-4 animate-in fade-in duration-700">
-      <div className="scp-archive rounded-sm overflow-hidden relative" style={containerStyle}>
+      <div className="narrative-doc scp-archive rounded-sm overflow-hidden relative" style={containerStyle}>
         <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.04] border-b border-white/10">
           <div className="flex items-center gap-2">
             <span className="text-xs select-none text-red-500/70 font-black tracking-widest">⚠</span>
@@ -107,8 +120,7 @@ const DocMedia: React.FC<{ content: string; attrs: Record<string, string>; stabi
 /* ═══════════════════════════════════════════════════
    COMM — Intercepted Communication Signal
    ═══════════════════════════════════════════════════ */
-const CommMedia: React.FC<{ content: string; attrs: Record<string, string>; stability?: number }> = ({ content, attrs, stability }) => {
-  const { t } = useTranslation();
+const CommMedia: React.FC<{ content: string; attrs: Record<string, string>; stability?: number; t: (key: string) => string }> = ({ content, attrs, stability, t }) => {
   const source = attrs.source || 'UNKNOWN';
   const time = attrs.time;
   const glitchIntensity = getGlitchIntensity(stability);
@@ -183,8 +195,7 @@ const CommMedia: React.FC<{ content: string; attrs: Record<string, string>; stab
 /* ═══════════════════════════════════════════════════
    ENV — Environmental Inscription
    ═══════════════════════════════════════════════════ */
-const EnvMedia: React.FC<{ content: string; attrs: Record<string, string> }> = ({ content, attrs }) => {
-  const { t } = useTranslation();
+const EnvMedia: React.FC<{ content: string; attrs: Record<string, string>; t: (key: string) => string }> = ({ content, attrs, t }) => {
   const envType = attrs.type || 'sign';
 
   const typeConfig: Record<string, {
@@ -264,9 +275,9 @@ const EnvMedia: React.FC<{ content: string; attrs: Record<string, string> }> = (
 /* ═══════════════════════════════════════════════════
    PSI — Sensory Intrusion / Psychic Effect
    ═══════════════════════════════════════════════════ */
-const PsiMedia: React.FC<{ content: string; stability?: number }> = ({ content, stability }) => {
-  const { t } = useTranslation();
+const PsiMedia: React.FC<{ content: string; stability?: number; t: (key: string) => string }> = ({ content, stability, t }) => {
   const glitchIntensity = getGlitchIntensity(stability);
+  const psiPressure = getPsiPressure(stability);
 
   return (
     <div className="my-4 animate-in fade-in duration-1000 group">
@@ -346,7 +357,7 @@ const PsiMedia: React.FC<{ content: string; stability?: number }> = ({ content, 
             <div
               className="h-full rounded-full transition-all duration-1000"
               style={{
-                width: `${Math.min(100, 45 + glitchIntensity * 55)}%`,
+                width: `${psiPressure}%`,
                 background: 'linear-gradient(90deg, rgba(168, 85, 247, 0.2), rgba(192, 132, 252, 0.62), rgba(168, 85, 247, 0.22))',
                 boxShadow: `0 0 ${10 + glitchIntensity * 12}px rgba(168, 85, 247, ${0.18 + glitchIntensity * 0.22})`,
               }}
@@ -357,7 +368,7 @@ const PsiMedia: React.FC<{ content: string; stability?: number }> = ({ content, 
               {t('game.narrative_media.psi_pressure_label')}
             </span>
             <span className="text-[9px] font-mono text-scp-text/40 tabular-nums tracking-wider">
-              {Math.round(45 + glitchIntensity * 55)}%
+              {psiPressure}%
             </span>
           </div>
         </div>
@@ -369,16 +380,16 @@ const PsiMedia: React.FC<{ content: string; stability?: number }> = ({ content, 
 /* ═══════════════════════════════════════════════════
    Main Dispatcher
    ═══════════════════════════════════════════════════ */
-const NarrativeMedia: React.FC<NarrativeMediaProps> = ({ mediaType, content, attrs, stability }) => {
+const NarrativeMedia: React.FC<NarrativeMediaProps> = ({ mediaType, content, attrs, stability, t }) => {
   switch (mediaType) {
     case 'DOC':
-      return <DocMedia content={content} attrs={attrs} stability={stability} />;
+      return <DocMedia content={content} attrs={attrs} stability={stability} t={t} />;
     case 'COMM':
-      return <CommMedia content={content} attrs={attrs} stability={stability} />;
+      return <CommMedia content={content} attrs={attrs} stability={stability} t={t} />;
     case 'ENV':
-      return <EnvMedia content={content} attrs={attrs} />;
+      return <EnvMedia content={content} attrs={attrs} t={t} />;
     case 'PSI':
-      return <PsiMedia content={content} stability={stability} />;
+      return <PsiMedia content={content} stability={stability} t={t} />;
     default:
       return null;
   }
