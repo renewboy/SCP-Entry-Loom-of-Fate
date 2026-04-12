@@ -30,15 +30,27 @@ const MessageContent: React.FC<MessageContentProps> = ({
   onNpcImageClick,
   stability
 }) => {
+  const joinClassName = (...values: Array<string | undefined>) => values.filter(Boolean).join(' ');
+
   const markdownComponents = useMemo(() => ({
-    ol: ({ children, ...props }: any) => (
+    ol: ({ children, className: listClassName, ...props }: any) => (
       <ListTypeContext.Provider value={{ ordered: true }}>
-        <ol {...props}>{children}</ol>
+        <ol
+          {...props}
+          className={joinClassName('list-decimal pl-8 my-4', listClassName)}
+        >
+          {children}
+        </ol>
       </ListTypeContext.Provider>
     ),
-    ul: ({ children, ...props }: any) => (
+    ul: ({ children, className: listClassName, ...props }: any) => (
       <ListTypeContext.Provider value={{ ordered: false }}>
-        <ul {...props}>{children}</ul>
+        <ul
+          {...props}
+          className={joinClassName('list-disc pl-7 my-4', listClassName)}
+        >
+          {children}
+        </ul>
       </ListTypeContext.Provider>
     ),
     li: ({ children, ...props }: any) => {

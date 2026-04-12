@@ -24,7 +24,7 @@
    - `[MAP_UPDATE: {...}]` → update NPC/objective/inventory state
    - `[VISUAL: "...prompt..."]` → trigger image generation
 5. Typewriter effect renders cleaned text in real-time
-6. `WorldLineTree` + `GameReviewReport` post-game analysis
+6. `WorldLineTree` renders the post-game report domain for timeline review, after-action analysis, Q&A, export, and New Game+
 
 ## Critical Patterns & Conventions
 
@@ -77,6 +77,12 @@
 - **No pluralization/gender rules** — all manual key paths
 - **Character name injection**: Handled separately at role-selection time via `roleTranslations.ts`
 
+### 7. Post-Game Report Domain
+- **Entry point**: `GameScreen` opens `WorldLineTree` on `GAME_OVER`
+- **Feature boundary**: Post-game behavior lives under `components/postGameReport/`
+- **Domain composition**: The report domain is split conceptually into derived data, feature state/effects, export, and presentation layers
+- **Scope**: Timeline review, report generation, post-game Q&A, print/PDF export, and New Game+ legacy carry-over are treated as one bounded feature instead of separate ad-hoc components
+
 ## Development Workflows
 
 ### Running Locally
@@ -111,7 +117,7 @@ npm run pack:dir         # Electron builder (unsigned macOS)
 | **Game Loop & Rendering** | `hooks/useGameLoop.ts`, `components/GameScreen.tsx`, `components/Typewriter.tsx` |
 | **Map & Context** | `hooks/useMapContext.ts`, `hooks/useMapUpdate.ts`, `components/game/MapPanel.tsx` |
 | **Stability UI** | `components/game/StabilityMonitor.tsx`, `components/game/VisualEffects.tsx` |
-| **Post-Game Analysis** | `components/GameReviewReport.tsx`, `components/WorldLineTree.tsx` |
+| **Post-Game Analysis** | `components/WorldLineTree.tsx`, `components/postGameReport/` |
 | **Storage & Sync** | `services/indexedDBService.ts`, `services/supabaseService.ts`, `components/SaveLoadModal.tsx` |
 
 ## Common Tasks & Patterns
@@ -131,7 +137,7 @@ npm run pack:dir         # Electron builder (unsigned macOS)
 ### Adjusting Stability Thresholds
 - Phase definitions: `prompts.ts` (narrative rules)
 - UI thresholds: `GameScreen.tsx` + `VisualEffects.tsx` (CSS & glitch intensity)
-- Stability history tracking: `WorldLineTree.tsx` (chart rendering)
+- Post-game stability history/report rendering: `components/postGameReport/`
 
 ### Adding a Game Feature (e.g., new message type)
 1. Extend `Message` type in `types.ts` if needed
@@ -163,6 +169,7 @@ npm run pack:dir         # Electron builder (unsigned macOS)
 - **Async generators**: Streaming uses `for await...of` pattern; always wrap in try-catch for backend errors
 - **IndexedDB promises**: Always await; no callback chains in critical paths
 - **Markdown rendering**: Uses `react-markdown` + `rehype-sanitize`; SCP refs auto-linked via regex in `Typewriter.tsx`
+- **Post-game report architecture**: Treat `components/postGameReport/` as the feature root for timeline review, report rendering, Q&A, export, and New Game+
 - **CSS variables**: Global theme in `index.html`; stability-driven accent updated via `setStyleProperty()` in `GameScreen`
 - **Tailwind**: Extends via `tailwind.config.js`; SCP palette uses `scp-*` class names
 

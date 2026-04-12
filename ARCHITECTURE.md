@@ -94,9 +94,10 @@ flowchart TB
 - 稳定性驱动视觉与音频异常见 [StabilityMonitor.tsx](components/game/StabilityMonitor.tsx) 与 [VisualEffects.tsx](components/game/VisualEffects.tsx)。
 
 ### 4.3 结局流与回顾
-- 结局判定后进入 GAME_OVER，GameScreen 展示总结与后续入口。  
-- [WorldLineTree.tsx](components/WorldLineTree.tsx) 负责生成事后报告、问答回响、PDF 导出、New Game+ 遗产选择。  
-- 评估报告与统计视图在 [GameReviewReport.tsx](components/GameReviewReport.tsx)。
+- `GAME_OVER` 是结算报告域的激活条件；运行时从主游戏回合循环切换到只读分析/追问/导出语义。  
+- 结算报告域以 `WorldLineTree` 为挂载点，以 `postGameReport` 为实现边界，对同一局游戏的消息流、稳定度轨迹、结局类型与遗产数据做二次编排。  
+- 该阶段的核心任务不是继续推进叙事，而是把运行态数据重组为三类输出：时间线回放、结构化复盘、事后交互能力（Q&A / 导出 / New Game+）。  
+- 域内实现采用“派生计算 + 效应编排 + 视图组合”的分层方式，避免把统计、打印、流式问答和弹层状态混杂在单个页面组件中。
 
 ---
 
@@ -108,7 +109,8 @@ flowchart TB
 - **战术预览**：开局前预览/编辑参数。[TacticalPreview.tsx](components/TacticalPreview.tsx)  
 - **故事编辑器**：编辑 SCPData 与地图蓝图。[StoryEditor.tsx](components/editor/StoryEditor.tsx)  
 - **游戏主屏**：回合循环、消息流、稳定性、图像生成控制、存档入口。[GameScreen.tsx](components/GameScreen.tsx)  
-- **世界线树**：回合回放、AAR、Q&A、导出与 New Game+。[WorldLineTree.tsx](components/WorldLineTree.tsx)  
+- **结算入口**：GAME_OVER 后将运行态切换到结算报告域。[WorldLineTree.tsx](components/WorldLineTree.tsx)  
+- **结算视图系统**：承载时间线、复盘报告、问答、导出、遗产选择与 Portal 交互。[postGameReport](components/postGameReport)  
 - **地图面板**：图结构布局与邻接判断、门禁与目标状态提示。[MapPanel.tsx](components/game/MapPanel.tsx)  
 - **侧栏容器**：左右滑出式固定面板布局。[SidePanel.tsx](components/common/SidePanel.tsx)
 
@@ -126,7 +128,16 @@ flowchart TB
 ### 5.5 编辑器与草稿层
 - **编辑器持久化**：草稿与编辑缓存落地 IndexedDB。[indexedDBService.ts](services/indexedDBService.ts) [storyEditorCache.ts](services/storyEditorCache.ts)
 
-### 5.6 i18n 层
+### 5.6 结算报告域（Post-Game Report Domain）
+- **域入口**：`WorldLineTree` 是结算报告域的挂载边界，负责把 `GameState` 中与结算相关的输入暴露给后续编排层。  
+- **编排层**：`PostGameReportShell` 充当 orchestration root，负责统一调度纯函数派生、feature hook、打印导出、Portal 与子视图树。  
+- **派生层**：`selectors/` 持有无副作用领域计算，包括时间线投影、稳定度历史重建、结局展示映射、Legacy 合并策略、会话统计聚合。  
+- **效应层**：`hooks/` 持有会触发 IO 或状态迁移的流程，包括 review 生成、事后问答、Legacy 生成/确认、Audio Drama 状态机。  
+- **导出层**：`export/` 形成独立导出管线，将静态文档构建与浏览器侧打印动作解耦，避免把模板拼装与窗口副作用耦合到视图层。  
+- **表示层**：`worldLine/`、`review/`、`qa/`、`shared/` 只负责结构表达与交互投影，不承担核心派生规则与跨能力副作用。  
+- **架构目标**：把结算能力收敛为单一 bounded context，使时间线回放、结构化复盘、追问和遗产继承共享同一套领域规则与数据投影。
+
+### 5.7 i18n 层
 - 轻量语言 Provider + translation 字典树 + 持久化 + 角色名翻译入口。[provider.tsx](utils/i18n/provider.tsx) [translations/index.ts](utils/i18n/translations/index.ts) [persistence.ts](utils/i18n/persistence.ts) [roleTranslations.ts](utils/i18n/roleTranslations.ts)
 - React 组件内统一通过 `useTranslation()` 获取 `t()`、`language`、`setLanguage`；非 React 文件统一通过 `translate(language, key)` 读取文案。
 - `translations.i18n.*` 承载跨层复用的语言元数据，包括：
@@ -136,7 +147,7 @@ flowchart TB
   - `i18n.boot_keywords`：BootSequence 关键词
 - `utils/i18n/languages/index.ts` 当前仅负责支持语言注册表、默认语言与合法性校验。
 
-### 5.7 主题与样式层
+### 5.8 主题与样式层
 - Tailwind 扩展、色板与 CSS 变量：统一为 SCP 视觉风格提供基色与特效。  
   入口：[index.html](index.html)
 
@@ -166,8 +177,12 @@ flowchart TB
 - 记忆命中时触发 `[MEMORY_ACTIVE]` 前端效果。[useGameLoop.ts](hooks/useGameLoop.ts)
 
 ### 7.4 事后报告与导出
-- 回合统计、稳定性曲线、AAR 结构渲染见 [GameReviewReport.tsx](components/GameReviewReport.tsx)。  
-- PDF 导出与世界线回溯编排见 [WorldLineTree.tsx](components/WorldLineTree.tsx)。
+- 事后报告本质上是对同一局运行态数据的二次投影：输入为 `messages / endingType / gameReview / qaHistory / legacy`，输出为时间线、分析报告、交互追问和导出文档。  
+- `review/` 提供结构化分析视图，包括会话统计可视化、Narrative Quality、多视角评价、关键转折点分析等章节组合。  
+- `selectors/` 负责把原始消息流转换为适合复盘的领域表示，例如稳定度轨迹、timeline event、结局展示配置和 Legacy 选择集。  
+- `hooks/` 负责处理结算期的异步交互，包括二次 AI 调用、流式问答、Legacy 生成与确认、附属媒体能力状态。  
+- `export/` 把导出过程建模为两阶段管线：先生成可打印静态文档，再执行浏览器打印/导出动作。  
+- `qa/`、`worldLine/` 与 `shared/` 共同承担最终表示层，使同一份领域数据可以被投影为主界面、打印版和 Portal 场景。
 
 ---
 
