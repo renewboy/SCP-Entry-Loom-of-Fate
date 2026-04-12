@@ -6,13 +6,13 @@ SCP Entry: Loom of Fate 是以 React 19 + Vite 6 + TypeScript 构建的单页应
 ---
 
 ## 2. 系统上下文（System Context）
-- 玩家（浏览器端）与 UI：React SPA。入口链路为 [index.html](index.html) → [index.tsx](index.tsx) → [App.tsx](App.tsx)，由 `GameStatus` 状态机切换 Start / Tactical Preview / Story Editor / Game / Game Over。  
-- AI 叙事引擎：Prompt 规则与标签协议集中在 [prompts.ts](services/ai/prompts.ts)，服务门面为 [aiService.ts](services/aiService.ts)，Provider 实现为 Gemini/OpenAI。  
+- 玩家（浏览器端）与 UI：React SPA。入口链路为 [index.html](index.html) → [index.tsx](index.tsx) → [App.tsx](App.tsx)，由 `GameStatus` 状态机切换 `IDLE / ENTITY_PROFILE / ANALYZING / TACTICAL_PREVIEW / STORY_EDITOR / PLAYING / GAME_OVER`。  
+- AI 叙事引擎：主游戏 Prompt 模版位于 [templates](services/ai/templates)，由 [promptTemplateEngine.ts](services/ai/promptTemplateEngine.ts) 渲染，并由 [prompts.ts](services/ai/prompts.ts) 组装为运行时 Prompt；Story Editor Agent 使用独立的 [editorPrompts.ts](services/ai/editorPrompts.ts)。服务门面为 [aiService.ts](services/aiService.ts)，Provider 实现为 Gemini/OpenAI。  
 - AI 接入拓扑：前端通过 [backendClient.ts](services/ai/providers/backendClient.ts) 调用本地 Node 代理 [server/index.js](server/index.js) 或 Supabase Edge Function [supabase/functions/api/index.ts](supabase/functions/api/index.ts)。  
 - 存储层：本地 IndexedDB + 云端 Supabase 存档协作由 [SaveLoadModal.tsx](components/SaveLoadModal.tsx) 触发，并包含云列表缓存与记忆数据镜像。  
 - 记忆检索（RAG）：按 `timelineId(saveId)` 检索本地记忆并注入模型上下文，由 [aiService.ts](services/aiService.ts) 管理。  
 - 音视频系统：稳定性触发的视效由 [StabilityMonitor.tsx](components/game/StabilityMonitor.tsx) 与 [VisualEffects.tsx](components/game/VisualEffects.tsx) 协作驱动；BGM/SFX 静态资源位于 [public/bgm](public/bgm) 与 [public/sfx](public/sfx)。  
-- 主题系统：全局主题色、字体与 CSS 变量由 [index.html](index.html) 定义，运行时动态改写。
+- 主题系统：全局主题样式基于 [index.html](index.html) 与 [themeCss.ts](styles/themeCss.ts)，稳定性驱动的主题变量由 [useThemeColors.ts](hooks/useThemeColors.ts) 在运行时写入。
 
 ---
 
@@ -54,7 +54,7 @@ sequenceDiagram
   Provider-->>AI: tokens stream
   AI-->>GameLoop: tokens stream
   GameLoop-->>UI: 实时拼接渲染
-  GameLoop->>GameLoop: 解析 ENDING/STABILITY/LOC/MAP_UPDATE/VISUAL
+  GameLoop->>GameLoop: 流结束后解析 ENDING/STABILITY/LOC/MAP_UPDATE/VISUAL
   GameLoop-->>UI: 更新 GameState
 ```
 
@@ -79,7 +79,7 @@ flowchart TB
 - 玩家在 [StartScreen.tsx](components/StartScreen.tsx) 输入 SCP 与角色，进入 Entity Profile → Tactical Preview。  
 - 通过 `analyzeSCPUrl` 生成 SCPData（含 mapBlueprint 与视觉描述），随后可能进入 Story Editor 做蓝图编辑。  
 - `startGameProcess` 在 [gameStart.ts](utils/gameStart.ts) 触发 `initializeGameChatStream`，首包到达即切换到 PLAYING，并初始化 runtime map/NPC/任务/库存与首条叙事消息。  
-- 根据设置并行生成背景图、实体图与 NPC 图；如首段包含 VISUAL 标签则生成场景图。
+- 首段叙事在 `gameStart.ts` 中完成标签清洗与初始状态落地；根据设置并行生成背景图、实体图与 NPC 图；如首段包含 VISUAL 标签则生成场景图。
 
 ### 4.2 回合流
 - 玩家输入由 [useGameLoop.ts](hooks/useGameLoop.ts) 触发 `sendAction` 流式请求。  
@@ -91,11 +91,11 @@ flowchart TB
   - [MAP_UPDATE]：NPC/任务/门禁与库存更新（[useMapUpdate.ts](hooks/useMapUpdate.ts)）  
   - [VISUAL]：触发场景插图生成  
 - 地图强约束上下文由 [useMapContext.ts](hooks/useMapContext.ts) 构建，要求移动成功时输出 `[LOC: node_id]`。  
-- 稳定性驱动视觉与音频异常见 [StabilityMonitor.tsx](components/game/StabilityMonitor.tsx) 与 [VisualEffects.tsx](components/game/VisualEffects.tsx)。
+- 稳定性驱动的主题变量与视觉/音频异常见 [useThemeColors.ts](hooks/useThemeColors.ts) [StabilityMonitor.tsx](components/game/StabilityMonitor.tsx) 与 [VisualEffects.tsx](components/game/VisualEffects.tsx)。
 
 ### 4.3 结局流与回顾
 - `GAME_OVER` 是结算报告域的激活条件；运行时从主游戏回合循环切换到只读分析/追问/导出语义。  
-- 结算报告域以 `WorldLineTree` 为挂载点，以 `postGameReport` 为实现边界，对同一局游戏的消息流、稳定度轨迹、结局类型与遗产数据做二次编排。  
+- 结算报告域以 `WorldLineTree` 为挂载点，由 `PostGameReportShell` 统一调度 review、Q&A、导出、Audio Drama 与 Legacy 流程，并以 `postGameReport` 为实现边界，对同一局游戏的消息流、稳定度轨迹、结局类型与遗产数据做二次编排。  
 - 该阶段的核心任务不是继续推进叙事，而是把运行态数据重组为三类输出：时间线回放、结构化复盘、事后交互能力（Q&A / 导出 / New Game+）。  
 - 域内实现采用“派生计算 + 效应编排 + 视图组合”的分层方式，避免把统计、打印、流式问答和弹层状态混杂在单个页面组件中。
 
@@ -106,6 +106,7 @@ flowchart TB
 ### 5.1 UI/交互层
 - **应用壳与状态机**：GameStatus 驱动页面切换。[App.tsx](App.tsx)  
 - **开局界面**：角色选择、输入、随机 SCP、设置与读档入口。[StartScreen.tsx](components/StartScreen.tsx)  
+- **档案增强阶段**：角色画像候选与补全流程。[EntityProfileAugmentation.tsx](components/EntityProfileAugmentation.tsx)  
 - **战术预览**：开局前预览/编辑参数。[TacticalPreview.tsx](components/TacticalPreview.tsx)  
 - **故事编辑器**：编辑 SCPData 与地图蓝图。[StoryEditor.tsx](components/editor/StoryEditor.tsx)  
 - **游戏主屏**：回合循环、消息流、稳定性、图像生成控制、存档入口。[GameScreen.tsx](components/GameScreen.tsx)  
@@ -115,8 +116,17 @@ flowchart TB
 - **侧栏容器**：左右滑出式固定面板布局。[SidePanel.tsx](components/common/SidePanel.tsx)
 
 ### 5.2 AI/规则层
-- **Prompt 与协议**：输出格式、稳定性规则、结局判定、地图机制统一定义。[prompts.ts](services/ai/prompts.ts)  
+- **Prompt 模版与装配**：主游戏 Prompt 模版位于 [templates](services/ai/templates)，模板渲染与段落拼接在 [promptTemplateEngine.ts](services/ai/promptTemplateEngine.ts)，运行时装配入口在 [prompts.ts](services/ai/prompts.ts)。  
+- **Editor Agent Prompt**：Story Editor 的 system prompt、上下文与工具 schema 在 [editorPrompts.ts](services/ai/editorPrompts.ts)。  
+- **标签协议与清洗**：标签提取器定义在 [utils.ts](services/ai/utils.ts)，主回合状态更新由 [useGameLoop.ts](hooks/useGameLoop.ts) 驱动。  
 - **服务门面与 Provider**：统一入口与实现切换。[aiService.ts](services/aiService.ts) [types.ts](services/ai/types.ts)
+
+#### 5.2.1 `njk` 模版层
+- `services/ai/templates/` 是主游戏 Prompt 的静态模版目录，按能力拆分为 `systemInstruction.njk`、`startGamePrompt.njk`、`contextPrompt.njk`、`gameReviewPrompt.njk`、`qaPrompt.njk` 等文件。  
+- 模版语法使用 Nunjucks，支持变量插值与轻量控制流，用于在保持文本可读性的同时表达条件段落。  
+- 渲染入口统一是 [promptTemplateEngine.ts](services/ai/promptTemplateEngine.ts)：`renderPromptTemplate()` 负责把运行时参数注入模版，`joinPromptSections()` 负责多段 Prompt 的拼接与空行规整。  
+- [prompts.ts](services/ai/prompts.ts) 不直接维护大段 Prompt 原文，而是负责准备结构化参数，例如语言标签、RAG 文本、地图上下文、锚点数组、补充设定和序章蓝图 JSON，再交给对应 `njk` 模版渲染。  
+- 这一层的核心价值是把“Prompt 文本结构”与“运行时数据装配”解耦：模版文件负责表达叙事协议与输出格式，TypeScript 负责提供上下文数据与调用顺序。
 
 ### 5.3 视觉与音效层
 - **稳定性驱动的视觉干扰**：闪烁、干扰、记忆回响、色彩错位。[VisualEffects.tsx](components/game/VisualEffects.tsx)  
@@ -129,7 +139,7 @@ flowchart TB
 - **编辑器持久化**：草稿与编辑缓存落地 IndexedDB。[indexedDBService.ts](services/indexedDBService.ts) [storyEditorCache.ts](services/storyEditorCache.ts)
 
 ### 5.6 结算报告域（Post-Game Report Domain）
-- **域入口**：`WorldLineTree` 是结算报告域的挂载边界，负责把 `GameState` 中与结算相关的输入暴露给后续编排层。  
+- **域入口**：`WorldLineTree` 是结算报告域的挂载边界，负责接收 `GameState` 中与结算相关的输入并挂载 `PostGameReportShell`。  
 - **编排层**：`PostGameReportShell` 充当 orchestration root，负责统一调度纯函数派生、feature hook、打印导出、Portal 与子视图树。  
 - **派生层**：`selectors/` 持有无副作用领域计算，包括时间线投影、稳定度历史重建、结局展示映射、Legacy 合并策略、会话统计聚合。  
 - **效应层**：`hooks/` 持有会触发 IO 或状态迁移的流程，包括 review 生成、事后问答、Legacy 生成/确认、Audio Drama 状态机。  
@@ -149,7 +159,8 @@ flowchart TB
 
 ### 5.8 主题与样式层
 - Tailwind 扩展、色板与 CSS 变量：统一为 SCP 视觉风格提供基色与特效。  
-  入口：[index.html](index.html)
+- 运行时主题变量由 [useThemeColors.ts](hooks/useThemeColors.ts) 根据稳定性写入根节点，SCP 主题类映射定义在 [themeCss.ts](styles/themeCss.ts)。  
+- 基础入口：[index.html](index.html)
 
 ---
 
@@ -164,11 +175,11 @@ flowchart TB
 ## 7. 核心业务机制
 
 ### 7.1 休谟场稳定性（Hume Stability）
-- 定义、阶段与系统标签规则由 [prompts.ts](services/ai/prompts.ts) 约束。  
-- UI 侧将稳定性映射为主题色与视觉干扰强度：[GameScreen.tsx](components/GameScreen.tsx) [StabilityMonitor.tsx](components/game/StabilityMonitor.tsx) [VisualEffects.tsx](components/game/VisualEffects.tsx)
+- 定义、阶段与系统标签规则由 [prompts.ts](services/ai/prompts.ts) 及其模板文件 [templates](services/ai/templates) 约束。  
+- UI 侧通过 [useThemeColors.ts](hooks/useThemeColors.ts) 将稳定性映射为主题变量，并由 [StabilityMonitor.tsx](components/game/StabilityMonitor.tsx) 与 [VisualEffects.tsx](components/game/VisualEffects.tsx) 投影为视觉与音频异常。
 
 ### 7.2 地图与任务系统
-- AI 生成地图蓝图（nodes/edges/npcs/objectives）由 Prompt 规则约束。[prompts.ts](services/ai/prompts.ts)  
+- AI 生成地图蓝图（nodes/edges/npcs/objectives）由主游戏 Prompt 模版与 Editor Agent Prompt 共同约束。[prompts.ts](services/ai/prompts.ts) [editorPrompts.ts](services/ai/editorPrompts.ts)  
 - 运行态的门禁、邻接、NPC 分布与任务进度渲染在 [MapPanel.tsx](components/game/MapPanel.tsx)  
 - 地图上下文与门禁约束由 [useMapContext.ts](hooks/useMapContext.ts) 注入
 
@@ -201,7 +212,7 @@ flowchart TB
 ---
 
 ## 9. 主题系统与音频资产
-- **主题**：全局色板、字体与动画由 [index.html](index.html) 定义，运行时根据稳定性动态更新 accent 变量（由 GameScreen 注入到 CSS 变量）。  
+- **主题**：全局色板、字体与动画由 [index.html](index.html) 提供基础定义，运行时由 [useThemeColors.ts](hooks/useThemeColors.ts) 根据稳定性写入主题变量，并由 [themeCss.ts](styles/themeCss.ts) 提供 SCP 样式类映射。  
 - **音频**：BGM 与 SFX 资源位于 [public/bgm](public/bgm) 与 [public/sfx](public/sfx)，并由稳定性监控与反馈系统触发播放节奏（UI 侧见 [StabilityMonitor.tsx](components/game/StabilityMonitor.tsx))。
 
 ---
