@@ -18,6 +18,7 @@ import { useMapContext } from '../hooks/useMapContext';
 import { useMapUpdate } from '../hooks/useMapUpdate';
 import { useGameLoop } from '../hooks/useGameLoop';
 import { useGameOverCountdown } from '../hooks/useGameOverCountdown';
+import { useGlitchEffect } from '../hooks/useGlitchEffect';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { useViewport } from '../hooks/useViewport';
 import MobileDrawer from './common/MobileDrawer';
@@ -67,6 +68,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   });
 
   const { countdown, isActive: isCountdownActive, cancel: handleCancelCountdown, isCollapsed: isEndingOverlayCollapsed, setIsCollapsed: setIsEndingOverlayCollapsed } = useGameOverCountdown(gameState, setGameState);
+  const isGlitching = useGlitchEffect(gameState.stability, gameState.status === GameStatus.PLAYING);
 
   const isNearBottom = (container: HTMLDivElement) => (
     container.scrollHeight - container.scrollTop - container.clientHeight <= AUTO_SCROLL_THRESHOLD_PX
@@ -268,7 +270,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
     <>
     <style>{THEME_CSS}</style>
     <div 
-        className={`relative z-10 w-full max-w-4xl ${isMobile ? 'h-[100dvh]' : 'h-[85vh] md:h-[90vh]'} flex flex-col bg-black/15 scp-ui shadow-2xl overflow-hidden crt transition-all duration-1000`}
+        className={`relative z-10 w-full max-w-4xl ${isMobile ? 'h-[100dvh]' : 'h-[85vh] md:h-[90vh]'} flex flex-col bg-black/15 scp-ui shadow-2xl overflow-hidden crt transition-all duration-1000 ${isGlitching && !isViewingReport ? 'animate-shake' : ''}`}
         style={isUnstable && !isViewingReport ? { filter: 'url(#signal-interference)' } : {}}
     >
       {gameState.legacy && <LegacySidebar legacyData={gameState.legacy} isDrawerOpen={mobileDrawer === 'legacy'} onDrawerClose={() => setMobileDrawer('none')} />}
@@ -291,6 +293,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
             }
         }}
         isCritical={false}
+        isGlitching={isGlitching}
         isMemoryEchoActive={isMemoryEchoActive}
       />
 

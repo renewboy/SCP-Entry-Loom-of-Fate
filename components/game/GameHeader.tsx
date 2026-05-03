@@ -16,11 +16,12 @@ interface GameHeaderProps {
   onLoad: () => void;
   onTerminate: () => void;
   isCritical: boolean;
+  isGlitching: boolean;
   isMemoryEchoActive: boolean;
 }
 
 const GameHeader: React.FC<GameHeaderProps> = ({ 
-    gameState, t, language, isReportOpen, setIsReportOpen, onSave, onLoad, onTerminate, isCritical, isMemoryEchoActive
+    gameState, t, language, isReportOpen, setIsReportOpen, onSave, onLoad, onTerminate, isCritical, isGlitching, isMemoryEchoActive
 }) => {
   const { isMobile } = useViewport();
   const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -131,6 +132,7 @@ const GameHeader: React.FC<GameHeaderProps> = ({
         <StabilityMonitor 
           stability={gameState.stability}
           isPlaying={gameState.status === GameStatus.PLAYING}
+          isGlitching={isGlitching}
           isMemoryEchoActive={isMemoryEchoActive}
         />
       </header>

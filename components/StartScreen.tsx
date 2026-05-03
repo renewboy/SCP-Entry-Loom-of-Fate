@@ -439,7 +439,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
                 <button 
                     onClick={handleStart}
                     disabled={!urlInput}
-                    className="w-full mt-auto py-4 bg-scp-accent/90 hover:bg-scp-accent text-white font-report text-xl tracking-widest border border-red-500 transition-all shadow-[0_0_15px_rgba(195,46,46,0.3)] hover:shadow-[0_0_25px_rgba(195,46,46,0.6)] disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99] shrink-0"
+                    className="w-full mt-auto py-4 bg-scp-accent/90 hover:bg-scp-accent text-white font-report text-2xl tracking-widest border border-red-500 transition-all shadow-[0_0_15px_rgba(195,46,46,0.3)] hover:shadow-[0_0_25px_rgba(195,46,46,0.6)] disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99] shrink-0"
                 >
                     {t('start.btn_start')}
                 </button>

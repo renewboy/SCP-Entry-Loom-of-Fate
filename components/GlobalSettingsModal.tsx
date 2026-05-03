@@ -2,13 +2,15 @@ import React, { useEffect, useState, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from '../utils/i18n';
 import { loadGlobalSettings, saveGlobalSettings } from '../services/indexedDBService';
-import { GlobalSettings, AISettings, AIProvider } from '../types';
+import { AIModelRouteName, AIProvider, GlobalSettings, AISettings } from '../types';
 import { getDefaultAISettings, validateAISettings, clearAISettingsCache } from '../services/aiConfigService';
 import { testAIConnectivity } from '../services/aiConnectivityService';
+import { resetProvider } from '../services/aiService';
 import CrtSurface from './common/CrtSurface';
 import { setBgmVolume } from '../services/bgmService';
 import { setSfxVolume } from '../services/sfxService';
 import SettingsRange from './common/SettingsRange';
+import CustomSelect from './editor/CustomSelect';
 
 interface GlobalSettingsModalProps {
     isOpen: boolean;
@@ -19,6 +21,145 @@ interface GlobalSettingsModalProps {
 
 type SettingsTab = 'game' | 'ai';
 
+const AI_ROUTE_ORDER: AIModelRouteName[] = ['analysis', 'narration', 'image', 'assistant', 'embedding'];
+const AI_ROUTE_COPY_KEYS: Record<AIModelRouteName, { label: string; help: string }> = {
+    analysis: {
+        label: 'settings.ai_route_analysis_label',
+        help: 'settings.ai_route_analysis_help'
+    },
+    assistant: {
+        label: 'settings.ai_route_assistant_label',
+        help: 'settings.ai_route_assistant_help'
+    },
+    narration: {
+        label: 'settings.ai_route_narration_label',
+        help: 'settings.ai_route_narration_help'
+    },
+    image: {
+        label: 'settings.ai_route_image_label',
+        help: 'settings.ai_route_image_help'
+    },
+    embedding: {
+        label: 'settings.ai_route_embedding_label',
+        help: 'settings.ai_route_embedding_help'
+    }
+};
+
+interface AIRouteFieldProps {
+    route: AIModelRouteName;
+    settings: AISettings;
+    t: (key: string) => string;
+    onChange: (route: AIModelRouteName, field: 'provider' | 'model', value: string) => void;
+}
+
+const AIRouteField: React.FC<AIRouteFieldProps> = ({ route, settings, t, onChange }) => {
+    const routeSettings = settings.routes[route];
+    const embeddingLocked = route === 'embedding';
+    const providerOptions = [
+        { value: 'gemini', label: t('settings.ai_provider_gemini') },
+        ...(!embeddingLocked ? [{ value: 'openai', label: t('settings.ai_provider_custom') }] : []),
+    ];
+
+    return (
+        <div className="p-4 border border-scp-gray/30 bg-scp-gray/10 space-y-3">
+            <div>
+                <div className="text-sm text-scp-text font-mono tracking-wider">
+                    {t(AI_ROUTE_COPY_KEYS[route].label)}
+                </div>
+                <div className="text-xs text-gray-500 mt-1 leading-relaxed">
+                    {t(AI_ROUTE_COPY_KEYS[route].help)}
+                </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-[150px_1fr] gap-3">
+                <CustomSelect
+                    label={`${t('settings.ai_route_provider')} *`}
+                    value={routeSettings.provider}
+                    options={providerOptions}
+                    disabled={embeddingLocked}
+                    variant="settings"
+                    onChange={(value) => onChange(route, 'provider', value)}
+                />
+                <label className="block">
+                    <span className="block text-[10px] text-gray-500 font-mono uppercase tracking-wider mb-1">
+                        {t('settings.ai_route_model')} *
+                    </span>
+                    <input
+                        type="text"
+                        value={routeSettings.model || ''}
+                        onChange={(e) => onChange(route, 'model', e.target.value)}
+                        placeholder={t('settings.ai_model_placeholder')}
+                        className="w-full bg-black/50 border border-scp-gray/30 text-scp-text px-3 py-2 text-sm font-mono focus:border-scp-accent focus:outline-none"
+                    />
+                </label>
+            </div>
+            {embeddingLocked && (
+                <div className="text-xs text-gray-500">
+                    {t('settings.ai_embedding_unavailable')}
+                </div>
+            )}
+        </div>
+    );
+};
+
+interface ProviderConnectionCardProps {
+    provider: AIProvider;
+    settings: AISettings;
+    t: (key: string) => string;
+    required: boolean;
+    onProviderChange: (provider: AIProvider) => void;
+    onChange: (provider: AIProvider, field: 'apiKey' | 'baseUrl', value: string) => void;
+}
+
+const ProviderConnectionCard: React.FC<ProviderConnectionCardProps> = ({ provider, settings, t, required, onProviderChange, onChange }) => {
+    const providerSettings = settings.providers[provider];
+    const isOpenAICompatible = provider === 'openai';
+    const providerOptions = [
+        { value: 'gemini', label: t('settings.ai_provider_gemini') },
+        { value: 'openai', label: t('settings.ai_provider_custom') },
+    ];
+
+    return (
+        <div className="p-4 border border-scp-gray/30 bg-scp-gray/10 space-y-3">
+            <CustomSelect
+                label={t('settings.ai_provider')}
+                value={provider}
+                options={providerOptions}
+                variant="settings"
+                onChange={(value) => onProviderChange(value as AIProvider)}
+            />
+            <label className="block">
+                <span className="block text-[10px] text-gray-500 font-mono uppercase tracking-wider mb-1">
+                    {t('settings.ai_api_key')}{required ? ' *' : ''}
+                </span>
+                <input
+                    type="password"
+                    value={providerSettings.apiKey || ''}
+                    onChange={(e) => onChange(provider, 'apiKey', e.target.value)}
+                    placeholder={t('settings.ai_api_key_placeholder')}
+                    className="w-full bg-black/50 border border-scp-gray/30 text-scp-text px-3 py-2 text-sm font-mono focus:border-scp-accent focus:outline-none"
+                />
+            </label>
+            {isOpenAICompatible && (
+                <label className="block">
+                    <span className="block text-[10px] text-gray-500 font-mono uppercase tracking-wider mb-1">
+                        {t('settings.ai_base_url')}{required ? ' *' : ''}
+                    </span>
+                    <input
+                        type="text"
+                        value={settings.providers.openai.baseUrl || ''}
+                        onChange={(e) => onChange('openai', 'baseUrl', e.target.value)}
+                        placeholder={t('settings.ai_base_url_placeholder')}
+                        className="w-full bg-black/50 border border-scp-gray/30 text-scp-text px-3 py-2 text-sm font-mono focus:border-scp-accent focus:outline-none"
+                    />
+                </label>
+            )}
+            <div className="text-xs text-gray-500">
+                {t('settings.ai_api_key_note')}
+            </div>
+        </div>
+    );
+};
+
 const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClose, initialTab = 'game', attention = false }) => {
     const { t } = useTranslation();
     const [settings, setSettings] = useState<GlobalSettings | null>(null);
@@ -26,11 +167,11 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
     const [aiSettings, setAiSettings] = useState<AISettings | null>(null);
     const [validationError, setValidationError] = useState<string | null>(null);
     const [saveSuccess, setSaveSuccess] = useState(false);
-    const [providerOpen, setProviderOpen] = useState(false);
     const [attentionActive, setAttentionActive] = useState(false);
     const [highlightActive, setHighlightActive] = useState(false);
     const [connectivityError, setConnectivityError] = useState<string | null>(null);
     const [isTestingConnectivity, setIsTestingConnectivity] = useState(false);
+    const [selectedConnectionProvider, setSelectedConnectionProvider] = useState<AIProvider>('gemini');
 
     useEffect(() => {
         if (isOpen) {
@@ -40,18 +181,26 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
                 setSfxVolume(loaded.sfxVolume);
                 const defaults = getDefaultAISettings();
                 const merged = {
-                    ...defaults,
-                    ...(loaded?.aiSettings || {}),
-                    gemini: { ...defaults.gemini, ...(loaded?.aiSettings?.gemini || {}) },
-                    openai: { ...defaults.openai, ...(loaded?.aiSettings?.openai || {}) },
+                    providers: {
+                        gemini: { ...defaults.providers.gemini, ...(loaded?.aiSettings?.providers?.gemini || {}) },
+                        openai: { ...defaults.providers.openai, ...(loaded?.aiSettings?.providers?.openai || {}) },
+                    },
+                    routes: {
+                        ...defaults.routes,
+                        ...(loaded?.aiSettings?.routes || {}),
+                        embedding: {
+                            provider: 'gemini' as const,
+                            model: loaded?.aiSettings?.routes?.embedding?.model || defaults.routes.embedding.model,
+                        },
+                    },
                 };
                 setAiSettings(merged);
+                setSelectedConnectionProvider(merged.routes.analysis.provider);
             });
             setActiveTab(initialTab);
             setValidationError(null);
             setConnectivityError(null);
             setSaveSuccess(false);
-            setProviderOpen(false);
             setAttentionActive(attention);
             if (attention) {
                 setHighlightActive(true);
@@ -90,31 +239,39 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
         setSfxVolume(newSettings.sfxVolume);
     };
 
-    const handleProviderChange = (provider: AIProvider) => {
-        if (!aiSettings) return;
-        setAiSettings({ ...aiSettings, provider });
-        setValidationError(null);
-        setConnectivityError(null);
-        setSaveSuccess(false);
-        setProviderOpen(false);
-    };
-
-    const handleGeminiFieldChange = (field: 'apiKey' | 'chatModel' | 'imageModel', value: string) => {
+    const handleProviderCredentialChange = (provider: AIProvider, field: 'apiKey' | 'baseUrl', value: string) => {
         if (!aiSettings) return;
         setAiSettings({
             ...aiSettings,
-            gemini: { ...aiSettings.gemini, [field]: value }
+            providers: {
+                ...aiSettings.providers,
+                [provider]: {
+                    ...aiSettings.providers[provider],
+                    [field]: value
+                }
+            }
         });
         setValidationError(null);
         setConnectivityError(null);
         setSaveSuccess(false);
     };
 
-    const handleOpenAIFieldChange = (field: 'apiKey' | 'baseUrl' | 'chatModel' | 'imageModel', value: string) => {
+    const handleRouteChange = (route: AIModelRouteName, field: 'provider' | 'model', value: string) => {
         if (!aiSettings) return;
+        const provider = field === 'provider' ? value as AIProvider : aiSettings.routes[route].provider;
+        if (field === 'provider') {
+            setSelectedConnectionProvider(route === 'embedding' ? 'gemini' : provider);
+        }
         setAiSettings({
             ...aiSettings,
-            openai: { ...aiSettings.openai, [field]: value }
+            routes: {
+                ...aiSettings.routes,
+                [route]: {
+                    ...aiSettings.routes[route],
+                    provider: route === 'embedding' ? 'gemini' : provider,
+                    model: field === 'model' ? value : aiSettings.routes[route].model
+                }
+            }
         });
         setValidationError(null);
         setConnectivityError(null);
@@ -126,6 +283,11 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
         
         const validation = validateAISettings(aiSettings);
         if (!validation.valid) {
+            if (validation.missingFields.some((field) => field.startsWith('providers.openai'))) {
+                setSelectedConnectionProvider('openai');
+            } else if (validation.missingFields.some((field) => field.startsWith('providers.gemini'))) {
+                setSelectedConnectionProvider('gemini');
+            }
             setValidationError(t('settings.ai_validation_required'));
             return;
         }
@@ -146,6 +308,7 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
         setSettings(newSettings);
         await saveGlobalSettings(newSettings);
         clearAISettingsCache();
+        resetProvider();
         setSaveSuccess(true);
         setValidationError(null);
         setAttentionActive(false);
@@ -159,11 +322,11 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
         setSettings(newSettings);
         await saveGlobalSettings(newSettings);
         clearAISettingsCache();
+        resetProvider();
         setSaveSuccess(false);
         setValidationError(null);
         setConnectivityError(null);
         setAttentionActive(false);
-        setProviderOpen(false);
     };
 
     if (!isOpen || !settings || !aiSettings) return null;
@@ -178,6 +341,8 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
         };
         return t(keyMap[key]);
     };
+
+    const selectedProviderRequired = Object.values(aiSettings.routes).some((route) => route.provider === selectedConnectionProvider);
 
     const content = (
         <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-mono scp-ui">
@@ -316,146 +481,44 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
                             <div className="p-3 border border-scp-gray/30 bg-black/20 text-gray-500 text-sm font-mono">
                                 {t('settings.ai_recommendation')}
                             </div>
-                            <div className="p-4 border border-scp-gray/30 bg-scp-gray/10">
-                                <label className="block text-xs text-gray-400 font-mono uppercase tracking-wider mb-2">
-                                    {t('settings.ai_provider')}
-                                </label>
-                                <div className="relative">
-                                    <button
-                                        onClick={() => setProviderOpen((prev) => !prev)}
-                                        className="w-full bg-black/20 border border-scp-gray/30 text-scp-text px-3 py-2 text-sm font-mono text-left hover:border-scp-gray transition-colors"
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <span>{aiSettings.provider === 'gemini' ? t('settings.ai_provider_gemini') : t('settings.ai_provider_custom')}</span>
-                                            <span className="text-xs text-gray-400">{providerOpen ? '▲' : '▼'}</span>
-                                        </div>
-                                    </button>
-                                    {providerOpen && (
-                                        <div className="absolute mt-2 w-full border border-scp-gray/30 bg-black/90 z-10">
-                                            <button
-                                                onClick={() => handleProviderChange('gemini')}
-                                                className={`w-full text-left px-3 py-2 text-sm font-mono border-b border-scp-gray/30 transition-all ${
-                                                    aiSettings.provider === 'gemini'
-                                                        ? 'bg-scp-text text-black border-scp-text'
-                                                        : 'bg-transparent text-gray-400 hover:text-gray-200'
-                                                }`}
-                                            >
-                                                {t('settings.ai_provider_gemini')}
-                                            </button>
-                                            <button
-                                                onClick={() => handleProviderChange('openai')}
-                                                className={`w-full text-left px-3 py-2 text-sm font-mono transition-all ${
-                                                    aiSettings.provider === 'openai'
-                                                        ? 'bg-scp-text text-black border-scp-text'
-                                                        : 'bg-transparent text-gray-400 hover:text-gray-200'
-                                                }`}
-                                            >
-                                                {t('settings.ai_provider_custom')}
-                                            </button>
-                                        </div>
-                                    )}
+                            <div className="space-y-3">
+                                <div>
+                                    <div className="text-xs text-gray-400 font-mono uppercase tracking-wider">
+                                        {t('settings.ai_section_connections')}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                        {t('settings.ai_provider_connection_help')}
+                                    </div>
                                 </div>
+                                <ProviderConnectionCard
+                                    provider={selectedConnectionProvider}
+                                    settings={aiSettings}
+                                    t={t}
+                                    required={selectedProviderRequired}
+                                    onProviderChange={setSelectedConnectionProvider}
+                                    onChange={handleProviderCredentialChange}
+                                />
                             </div>
 
-                            {aiSettings.provider === 'gemini' && (
-                                <div className="space-y-3">
-                                    <div className="p-4 border border-scp-gray/30 bg-scp-gray/10">
-                                        <label className="block text-xs text-gray-400 font-mono uppercase tracking-wider mb-2">
-                                            {t('settings.ai_api_key')} *
-                                        </label>
-                                        <input
-                                            type="password"
-                                            value={aiSettings.gemini.apiKey || ''}
-                                            onChange={(e) => handleGeminiFieldChange('apiKey', e.target.value)}
-                                            placeholder={t('settings.ai_api_key_placeholder')}
-                                            className="w-full bg-black/50 border border-scp-gray/30 text-scp-text px-3 py-2 text-sm font-mono focus:border-scp-accent focus:outline-none"
-                                        />
-                                        <div className="text-xs text-gray-500 mt-2">
-                                            {t('settings.ai_api_key_note')}
-                                        </div>
+                            <div className="space-y-3">
+                                <div>
+                                    <div className="text-xs text-gray-400 font-mono uppercase tracking-wider">
+                                        {t('settings.ai_section_usage_models')}
                                     </div>
-                                    <div className="p-4 border border-scp-gray/30 bg-scp-gray/10">
-                                        <label className="block text-xs text-gray-400 font-mono uppercase tracking-wider mb-2">
-                                            {t('settings.ai_chat_model')} *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={aiSettings.gemini.chatModel || ''}
-                                            onChange={(e) => handleGeminiFieldChange('chatModel', e.target.value)}
-                                            placeholder={t('settings.ai_model_placeholder')}
-                                            className="w-full bg-black/50 border border-scp-gray/30 text-scp-text px-3 py-2 text-sm font-mono focus:border-scp-accent focus:outline-none"
-                                        />
-                                    </div>
-                                    <div className="p-4 border border-scp-gray/30 bg-scp-gray/10">
-                                        <label className="block text-xs text-gray-400 font-mono uppercase tracking-wider mb-2">
-                                            {t('settings.ai_image_model')}
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={aiSettings.gemini.imageModel || ''}
-                                            onChange={(e) => handleGeminiFieldChange('imageModel', e.target.value)}
-                                            placeholder={t('settings.ai_model_placeholder')}
-                                            className="w-full bg-black/50 border border-scp-gray/30 text-scp-text px-3 py-2 text-sm font-mono focus:border-scp-accent focus:outline-none"
-                                        />
+                                    <div className="text-xs text-gray-500 mt-1">
+                                        {t('settings.ai_model_usage_help')}
                                     </div>
                                 </div>
-                            )}
-
-                            {aiSettings.provider === 'openai' && (
-                                <div className="space-y-3">
-                                    <div className="p-4 border border-scp-gray/30 bg-scp-gray/10">
-                                        <label className="block text-xs text-gray-400 font-mono uppercase tracking-wider mb-2">
-                                            {t('settings.ai_api_key')} *
-                                        </label>
-                                        <input
-                                            type="password"
-                                            value={aiSettings.openai.apiKey || ''}
-                                            onChange={(e) => handleOpenAIFieldChange('apiKey', e.target.value)}
-                                            placeholder={t('settings.ai_api_key_placeholder')}
-                                            className="w-full bg-black/50 border border-scp-gray/30 text-scp-text px-3 py-2 text-sm font-mono focus:border-scp-accent focus:outline-none"
-                                        />
-                                        <div className="text-xs text-gray-500 mt-2">
-                                            {t('settings.ai_api_key_note')}
-                                        </div>
-                                    </div>
-                                    <div className="p-4 border border-scp-gray/30 bg-scp-gray/10">
-                                        <label className="block text-xs text-gray-400 font-mono uppercase tracking-wider mb-2">
-                                            {t('settings.ai_base_url')} *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={aiSettings.openai.baseUrl || ''}
-                                            onChange={(e) => handleOpenAIFieldChange('baseUrl', e.target.value)}
-                                            placeholder={t('settings.ai_base_url_placeholder')}
-                                            className="w-full bg-black/50 border border-scp-gray/30 text-scp-text px-3 py-2 text-sm font-mono focus:border-scp-accent focus:outline-none"
-                                        />
-                                    </div>
-                                    <div className="p-4 border border-scp-gray/30 bg-scp-gray/10">
-                                        <label className="block text-xs text-gray-400 font-mono uppercase tracking-wider mb-2">
-                                            {t('settings.ai_chat_model')} *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={aiSettings.openai.chatModel || ''}
-                                            onChange={(e) => handleOpenAIFieldChange('chatModel', e.target.value)}
-                                            placeholder={t('settings.ai_model_placeholder')}
-                                            className="w-full bg-black/50 border border-scp-gray/30 text-scp-text px-3 py-2 text-sm font-mono focus:border-scp-accent focus:outline-none"
-                                        />
-                                    </div>
-                                    <div className="p-4 border border-scp-gray/30 bg-scp-gray/10">
-                                        <label className="block text-xs text-gray-400 font-mono uppercase tracking-wider mb-2">
-                                            {t('settings.ai_image_model')}
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={aiSettings.openai.imageModel || ''}
-                                            onChange={(e) => handleOpenAIFieldChange('imageModel', e.target.value)}
-                                            placeholder={t('settings.ai_model_placeholder')}
-                                            className="w-full bg-black/50 border border-scp-gray/30 text-scp-text px-3 py-2 text-sm font-mono focus:border-scp-accent focus:outline-none"
-                                        />
-                                    </div>
-                                </div>
-                            )}
+                                {AI_ROUTE_ORDER.map((route) => (
+                                    <AIRouteField
+                                        key={route}
+                                        route={route}
+                                        settings={aiSettings}
+                                        t={t}
+                                        onChange={handleRouteChange}
+                                    />
+                                ))}
+                            </div>
 
                             {validationError && (
                                 <div className="p-3 border border-red-500/50 bg-red-500/10 text-red-400 text-sm font-mono">

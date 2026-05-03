@@ -1,5 +1,5 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { AIService, ContextPromptAnchors, ImageAspectRatio } from "../types";
+import { AIProviderConfig, AIService, ContextPromptAnchors, ImageAspectRatio } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt, getCompressionPrompt } from "../prompts";
 import { getEditorAssistantPrompt, getEditorAssistantContext, editorTools } from "../editorPrompts";
@@ -8,7 +8,6 @@ import { AudioDramaSchema } from "../schemas";
 import { postJson, streamSse } from "./backendClient";
 import { aiConfig } from "../../../config/aiConfig";
 import { imageSizeFromAspectRatio } from "../utils";
-import { getEffectiveAIConfig } from "../../aiConfigService";
 import { translate } from "../../../utils/i18n";
 import { AgentStreamEvent } from "../streamProtocol";
 import { EditorChatMessage, toOpenAIMessages } from "../editorAssistantTypes";
@@ -34,15 +33,19 @@ export class OpenAIProvider implements AIService {
     private qaHistory: ChatMessage[] = [];
     private cachedConfig: { apiKey: string; baseUrl: string; chatModel: string; imageModel: string; contextConfig: { tokenLimit: number; compressionCount: number } } | null = null;
     private callbacks: { onTokenUpdate?: (count: number) => void; onStatusUpdate?: (status: 'idle' | 'generating' | 'summarizing') => void } = {};
+    private readonly providerConfig: AIProviderConfig;
+
+    constructor(providerConfig: AIProviderConfig) {
+        this.providerConfig = providerConfig;
+    }
 
     private async getConfig() {
         if (this.cachedConfig) return this.cachedConfig;
-        const effective = await getEffectiveAIConfig();
         this.cachedConfig = {
-            apiKey: effective.openai.apiKey,
-            baseUrl: effective.openai.baseUrl,
-            chatModel: effective.openai.chatModel,
-            imageModel: effective.openai.imageModel,
+            apiKey: this.providerConfig.apiKey,
+            baseUrl: this.providerConfig.baseUrl || "",
+            chatModel: this.providerConfig.chatModel,
+            imageModel: this.providerConfig.imageModel,
             contextConfig: aiConfig.context,
         };
         return this.cachedConfig;
@@ -71,9 +74,6 @@ export class OpenAIProvider implements AIService {
             ...baseMessages,
             { role: "user", content: prompt }
         ];
-    }
-
-    constructor() {
     }
 
     public async generateImage(prompt: string, aspectRatio: ImageAspectRatio = "1:1", responseFormat: "url" | "b64_json" = "url"): Promise<string | null> {

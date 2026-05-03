@@ -1,13 +1,13 @@
 import { Content } from "@google/genai";
-import { AIService, ContextPromptAnchors, ImageAspectRatio } from "./ai/types";
-import { GeminiProvider } from "./ai/providers/geminiProvider";
-import { OpenAIProvider } from "./ai/providers/openaiProvider";
+import { ContextPromptAnchors, ImageAspectRatio } from "./ai/types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../types";
 import { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate, extractNarrativeMedia } from "./ai/utils";
 import { getEmbeddings } from "./ai/providers/embeddingProvider";
 import { hasLocalMemories, searchLocalMemories } from "./indexedDBService";
 import { hasStagedRagMemories, searchStagedRagMemories } from "./ragStaging";
-import { getEffectiveAIConfig } from "./aiConfigService";
+import { getAnalysisProvider, getAssistantProvider, getImageProvider, getNarrationProvider, resetProviderRouter } from "./ai/providerRouter";
+import { AgentStreamEvent } from "./ai/streamProtocol";
+import { EditorChatMessage } from "./ai/editorAssistantTypes";
 
 export { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate, extractNarrativeMedia };
 
@@ -27,53 +27,31 @@ export const clearMemoryCache = (timelineId?: string) => {
     }
 };
 
-let aiProvider: AIService | null = null;
-let cachedProviderType: string | null = null;
 let mapContextProvider: ((enhanced?: boolean) => string) | null = null;
 let contextPromptAnchorProvider: (() => ContextPromptAnchors | undefined) | null = null;
 
-const getProvider = async (): Promise<AIService> => {
-    const effectiveConfig = await getEffectiveAIConfig();
-    const providerType = effectiveConfig.provider;
-    
-    if (aiProvider && cachedProviderType === providerType) {
-        return aiProvider;
-    }
-
-    console.log(`[AIService] Initializing provider: ${providerType}`);
-    cachedProviderType = providerType;
-    
-    if (providerType === 'openai') {
-        aiProvider = new OpenAIProvider();
-    } else {
-        aiProvider = new GeminiProvider();
-    }
-    return aiProvider;
-};
-
 export const resetProvider = () => {
-    aiProvider = null;
-    cachedProviderType = null;
+    resetProviderRouter();
 };
 
 export const setProviderCallbacks = async (callbacks: { onTokenUpdate?: (count: number) => void; onStatusUpdate?: (status: 'idle' | 'generating' | 'summarizing') => void }) => {
-    (await getProvider()).setCallbacks(callbacks);
+    (await getNarrationProvider()).setCallbacks(callbacks);
 };
 
 export const analyzeSCPUrl = async (input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData> => {
-    return (await getProvider()).analyzeSCPUrl(input, language, role, difficulty, legacyData, profile);
+    return (await getAnalysisProvider()).analyzeSCPUrl(input, language, role, difficulty, legacyData, profile);
 };
 
 export const generateProfileCandidates = async (role: string, scpDesignation: string, language: Language = 'zh', legacyData?: LegacyData): Promise<EntityProfile[]> => {
-    return (await getProvider()).generateProfileCandidates(role, scpDesignation, language, legacyData);
+    return (await getAnalysisProvider()).generateProfileCandidates(role, scpDesignation, language, legacyData);
 };
 
 export const initializeGameChatStream = async (scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData, difficulty: GameDifficulty = 'normal'): Promise<AsyncGenerator<string>> => {
-    return (await getProvider()).initializeGameChatStream(scp, role, language, legacyData, difficulty);
+    return (await getNarrationProvider()).initializeGameChatStream(scp, role, language, legacyData, difficulty);
 };
 
 export const getSummaryContext = async (): Promise<string> => {
-    return (await getProvider()).getSummaryContext();
+    return (await getNarrationProvider()).getSummaryContext();
 };
 
 export const retrieveRelevantMemories = async (
@@ -162,7 +140,7 @@ export const sendAction = async function* (
         yield "[MEMORY_ACTIVE]"; 
     }
 
-    const provider = await getProvider();
+    const provider = await getNarrationProvider();
     const generator = provider.sendAction(
         action, 
         currentStability, 
@@ -180,23 +158,23 @@ export const sendAction = async function* (
 
 
 export const getChatHistory = async (): Promise<Content[]> => {
-    return (await getProvider()).getChatHistory();
+    return (await getNarrationProvider()).getChatHistory();
 };
 
 export const restoreChatSession = async (options: { history: Content[]; role: string; language?: Language; tokenCount?: number; summaryContext?: string }): Promise<void> => {
-    return (await getProvider()).restoreChatSession(options);
+    return (await getNarrationProvider()).restoreChatSession(options);
 };
 
 export const generateAudioDramaScript = async (messages: Message[], role: string, scpDesignation: string, language: Language = 'zh'): Promise<AudioDramaScript | null> => {
-    return (await getProvider()).generateAudioDramaScript(messages, role, scpDesignation, language);
+    return (await getNarrationProvider()).generateAudioDramaScript(messages, role, scpDesignation, language);
 };
 
 export const generateGameReview = async (role: string, ending: EndingType, language: Language): Promise<GameReviewData> => {
-    return (await getProvider()).generateGameReview(role, ending, language);
+    return (await getNarrationProvider()).generateGameReview(role, ending, language);
 };
 
 export async function* askNarratorQuestion(question: string, language: Language): AsyncGenerator<string> {
-    const provider = await getProvider();
+    const provider = await getNarrationProvider();
     yield* provider.askNarratorQuestion(question, language);
 }
 
@@ -207,11 +185,23 @@ export const generateLegacyData = async (
     timelineId?: string,
     scpDesignation?: string
 ): Promise<LegacyGenerationResult> => {
-    return (await getProvider()).generateLegacyData(ending, role, language);
+    return (await getNarrationProvider()).generateLegacyData(ending, role, language);
 };
 
 export const generateImage = async (prompt: string, aspectRatio: ImageAspectRatio = "1:1", responseFormat: "url" | "b64_json" = "url"): Promise<string | null> => {
-    return (await getProvider()).generateImage(prompt, aspectRatio, responseFormat);
+    return (await getImageProvider()).generateImage(prompt, aspectRatio, responseFormat);
+};
+
+export async function* streamEditorAssistant(
+    messages: EditorChatMessage[],
+    scpData: SCPData,
+    language: Language,
+    onToolCall: (toolName: string, args: any) => Promise<any>,
+    difficulty?: GameDifficulty,
+    legacyData?: LegacyData
+): AsyncGenerator<AgentStreamEvent> {
+    const provider = await getAssistantProvider();
+    yield* provider.streamEditorAssistant(messages, scpData, language, onToolCall, difficulty, legacyData);
 };
 
 export { getEmbeddings };

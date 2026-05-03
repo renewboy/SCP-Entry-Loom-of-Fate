@@ -1,5 +1,5 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { AIService, ContextPromptAnchors, ImageAspectRatio } from "../types";
+import { AIProviderConfig, AIService, ContextPromptAnchors, ImageAspectRatio } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
 import { aiConfig } from "../../../config/aiConfig";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt, getCompressionPrompt } from "../prompts";
@@ -7,7 +7,6 @@ import { getEditorAssistantPrompt, getEditorAssistantContext, editorTools } from
 import { normalizeGameReviewData, safeParseJson, cleanHistoryText } from "../utils";
 import { AudioDramaSchema } from "../schemas";
 import { postJson, streamSse } from "./backendClient";
-import { getEffectiveAIConfig } from "../../aiConfigService";
 import { translate } from "../../../utils/i18n";
 import { AgentStreamEvent } from "../streamProtocol";
 import { EditorChatMessage, toGeminiContents } from "../editorAssistantTypes";
@@ -27,17 +26,21 @@ export class GeminiProvider implements AIService {
     private cachedContentName: string | null = null;
     private gameReviewHistory: any[] = [];
     private qaHistory: any[] = [];
-    private cachedConfig: { apiKey: string; chatModel: string; imageModel: string; embeddingModel: string; contextConfig: { tokenLimit: number; compressionCount: number } } | null = null;
+    private cachedConfig: { apiKey: string; chatModel: string; imageModel: string; embeddingModel?: string; contextConfig: { tokenLimit: number; compressionCount: number } } | null = null;
     private callbacks: { onTokenUpdate?: (count: number) => void; onStatusUpdate?: (status: 'idle' | 'generating' | 'summarizing') => void } = {};
+    private readonly providerConfig: AIProviderConfig;
+
+    constructor(providerConfig: AIProviderConfig) {
+        this.providerConfig = providerConfig;
+    }
 
     private async getConfig() {
         if (this.cachedConfig) return this.cachedConfig;
-        const effective = await getEffectiveAIConfig();
         this.cachedConfig = {
-            apiKey: effective.gemini.apiKey,
-            chatModel: effective.gemini.chatModel,
-            imageModel: effective.gemini.imageModel,
-            embeddingModel: effective.gemini.embeddingModel,
+            apiKey: this.providerConfig.apiKey,
+            chatModel: this.providerConfig.chatModel,
+            imageModel: this.providerConfig.imageModel,
+            embeddingModel: this.providerConfig.embeddingModel,
             contextConfig: aiConfig.context,
         };
         return this.cachedConfig;
@@ -49,9 +52,6 @@ export class GeminiProvider implements AIService {
 
     getSummaryContext(): string {
         return this.summaryContext;
-    }
-
-    constructor() {
     }
 
     public async generateImage(prompt: string, aspectRatio: ImageAspectRatio = "1:1", responseFormat: "url" | "b64_json" = "url"): Promise<string | null> {
@@ -92,9 +92,9 @@ export class GeminiProvider implements AIService {
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 config: {
                     tools: [{ googleSearch: {} }],
-                    // thinkingConfig: {
-                    //     includeThoughts: true,
-                    // }
+                    thinkingConfig: {
+                        includeThoughts: true,
+                    }
                 },
             });
             const text = getGeminiText(response);
@@ -128,6 +128,9 @@ export class GeminiProvider implements AIService {
                 config: {
                     temperature: 0.9,
                     tools: [{ googleSearch: {} }],
+                    thinkingConfig: {
+                        includeThoughts: true,
+                    }
                 },
             });
 

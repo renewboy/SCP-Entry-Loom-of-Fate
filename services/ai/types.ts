@@ -7,6 +7,14 @@ export interface ContextPromptAnchors {
     anchorAfter?: string[];
 }
 
+export interface AIProviderConfig {
+    apiKey: string;
+    baseUrl?: string;
+    chatModel: string;
+    imageModel: string;
+    embeddingModel?: string;
+}
+
 export interface AIService {
     analyzeSCPUrl(input: string, language: Language, role: string, difficulty: GameDifficulty, legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData>;
     generateProfileCandidates(role: string, scpDesignation: string, language: Language, legacyData?: LegacyData): Promise<EntityProfile[]>;

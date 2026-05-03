@@ -393,24 +393,28 @@ export interface AudioDramaScript {
 export type GameDifficulty = 'easy' | 'normal' | 'hard' | 'insane';
 
 export type AIProvider = 'gemini' | 'openai';
+export type AIModelRouteName = 'analysis' | 'assistant' | 'narration' | 'image' | 'embedding';
+
+export interface AIModelRoute {
+  provider: AIProvider;
+  model: string;
+}
 
 export interface GeminiSettings {
   apiKey?: string;
-  chatModel?: string;
-  imageModel?: string;
 }
 
 export interface OpenAISettings {
   apiKey?: string;
   baseUrl?: string;
-  chatModel?: string;
-  imageModel?: string;
 }
 
 export interface AISettings {
-  provider: AIProvider;
-  gemini: GeminiSettings;
-  openai: OpenAISettings;
+  providers: {
+    gemini: GeminiSettings;
+    openai: OpenAISettings;
+  };
+  routes: Record<AIModelRouteName, AIModelRoute>;
 }
 
 export interface GlobalSettings {

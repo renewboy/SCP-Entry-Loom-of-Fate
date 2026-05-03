@@ -6,11 +6,9 @@ import remarkBreaks from 'remark-breaks';
 import { useTranslation } from '../../utils/i18n';
 import { SCPData, Language, LegacyData } from '../../types';
 import { EditorChatMessage, EditorAssistantMessage, EditorToolRecord } from '../../services/ai/editorAssistantTypes';
-import { OpenAIProvider } from '../../services/ai/providers/openaiProvider';
-import { GeminiProvider } from '../../services/ai/providers/geminiProvider';
-import { postJson } from '../../services/ai/providers/backendClient';
 import { loadSetting, saveSetting, loadGlobalSettings } from '../../services/indexedDBService';
-import { getEffectiveAIConfig } from '../../services/aiConfigService';
+import { streamEditorAssistant } from '../../services/aiService';
+import { runAssistantWebSearch } from '../../services/ai/searchService';
 import { applyLayoutToBlueprint } from '../../utils/mapLayout';
 import { editorPanelHeader, editorPanelTitle, panelContainerBase } from './editorStyles';
 
@@ -188,8 +186,6 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
     const [currentBlocks, setCurrentBlocks] = useState<AssistantBlock[]>([]);
     const [welcomeStreamingContent, setWelcomeStreamingContent] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const openaiProvider = useRef(new OpenAIProvider());
-    const geminiProvider = useRef(new GeminiProvider());
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -501,37 +497,7 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
                     if (!query) {
                         return { success: false, message: "Missing query." };
                     }
-                    const config = await getEffectiveAIConfig();
-                    const systemPrompt = 'You are an SCP Foundation editor assistant. Search the given query, prioritize authoritative sources, and return concise key points and conclusions.';
-
-                    if (config.provider === 'gemini') {
-                        const response = await postJson<any>("/api/ai/gemini/generate-content", {
-                            apiKey: config.gemini.apiKey,
-                            model: config.gemini.chatModel,
-                            contents: [{ role: "user", parts: [{ text: query }] }],
-                            config: {
-                                systemInstruction: systemPrompt,
-                                tools: [{ googleSearch: {} }],
-                            },
-                        });
-                        const outputText = response?.candidates?.[0]?.content?.parts?.[0]?.text
-                            || JSON.stringify(response);
-                        return { success: true, results: outputText };
-                    }
-
-                    const response = await postJson<any>("/api/ai/openai/response", {
-                        apiKey: config.openai.apiKey,
-                        baseUrl: config.openai.baseUrl,
-                        chatModel: config.openai.chatModel,
-                        input: [
-                            { role: "system", content: systemPrompt },
-                            { role: "user", content: query }
-                        ],
-                        tools: [{ type: "web_search" }]
-                    });
-                    const outputText = response?.output_text
-                        || response?.choices?.[0]?.message?.content
-                        || JSON.stringify(response);
+                    const outputText = await runAssistantWebSearch(query);
                     return { success: true, results: outputText };
                 }
                 
@@ -556,9 +522,7 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
         setCurrentBlocks([]);
 
         try {
-            const config = await getEffectiveAIConfig();
             const globalSettings = await loadGlobalSettings();
-            const provider = config.provider === 'gemini' ? geminiProvider.current : openaiProvider.current;
             
             // Convert UI ChatMessage[] to EditorChatMessage[] for provider
             // This preserves full tool-call history via editorMsg.nativeHistory
@@ -567,7 +531,7 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
                 return m.editorMsg;
             });
             
-            const stream = provider.streamEditorAssistant(
+            const stream = streamEditorAssistant(
                 editorMessages,
                 { ...scpData, mapBlueprint: blueprint },
                 language as Language,
