@@ -37,6 +37,8 @@ describe('ai prompts', () => {
     expect(prompt).toContain('[输出约束] 不要泄露内部ID。');
     expect(prompt).toContain('[记忆回响]');
     expect(prompt).toContain('[地图状态]');
+    expect(prompt).toContain('正文必须为 200-350 个字');
+    expect(prompt).toContain('互动选项和 System Tags 不计入正文长度');
   });
 
   it('分析提示通过模板保留遗产与档案信息', () => {

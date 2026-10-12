@@ -39,7 +39,7 @@ describe('OpenAIProvider', () => {
 
     await expect(provider.generateProfileCandidates('Researcher', 'SCP-173', 'en')).resolves.toEqual(candidates);
     const request = postJsonMock.mock.calls[0][1];
-    expect(request).not.toHaveProperty('text');
+    expect(request.text).toEqual({ verbosity: 'high' });
     expect(request.reasoning).toEqual({ effort: 'medium' });
     expect(request.tools).toEqual(expect.arrayContaining([
       { type: 'web_search' },
@@ -75,6 +75,7 @@ describe('OpenAIProvider', () => {
     await expect(provider.analyzeSCPUrl('SCP-5035', 'en', 'Researcher')).resolves.toMatchObject(analysis);
     const request = postJsonMock.mock.calls[0][1];
     expect(request).not.toHaveProperty('thinking');
+    expect(request.text).toEqual({ verbosity: 'high' });
     expect(request.reasoning).toEqual({ effort: 'medium' });
     expect(request.tools).toEqual(expect.arrayContaining([
       { type: 'web_search' },

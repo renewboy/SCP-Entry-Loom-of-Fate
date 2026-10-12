@@ -58,11 +58,18 @@ export class OpenAIProvider implements AIService {
     }
 
     private buildResponseRequest(config: NonNullable<typeof this.cachedConfig>, request: Record<string, unknown>) {
+        const text = request.text && typeof request.text === 'object'
+            ? request.text as Record<string, unknown>
+            : {};
         return {
             apiKey: config.apiKey,
             baseUrl: config.baseUrl,
             chatModel: config.chatModel,
             ...request,
+            text: {
+                ...text,
+                verbosity: aiConfig.providers.openai.textVerbosity,
+            },
             reasoning: {
                 effort: aiConfig.providers.openai.reasoningEffort,
             },
