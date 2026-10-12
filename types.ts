@@ -402,6 +402,7 @@ export interface AIModelRoute {
 
 export interface GeminiSettings {
   apiKey?: string;
+  baseUrl?: string;
 }
 
 export interface OpenAISettings {

@@ -25,6 +25,7 @@ describe('aiConfigService', () => {
     expect(settings.routes.assistant.model).toBeTruthy();
     expect(settings.routes.narration.model).toBeTruthy();
     expect(settings.routes.image.model).toBeTruthy();
+    expect(settings.providers.gemini.baseUrl).toBe('');
     expect(settings.routes.embedding).toEqual({
       provider: 'gemini',
       model: 'gemini-embedding-001',
@@ -35,7 +36,7 @@ describe('aiConfigService', () => {
     loadGlobalSettingsMock.mockResolvedValue({
       aiSettings: {
         providers: {
-          gemini: { apiKey: 'gemini-key' },
+          gemini: { apiKey: 'gemini-key', baseUrl: 'https://gemini.example.test' },
           openai: { apiKey: 'openai-key', baseUrl: 'https://api.example.test/v1' },
         },
         routes: {
@@ -58,6 +59,7 @@ describe('aiConfigService', () => {
     await expect(resolveAIModelConfig('narration')).resolves.toMatchObject({
       provider: 'gemini',
       apiKey: 'gemini-key',
+      baseUrl: 'https://gemini.example.test',
       model: 'narration-model',
     });
     await expect(resolveAIModelConfig('assistant')).resolves.toMatchObject({

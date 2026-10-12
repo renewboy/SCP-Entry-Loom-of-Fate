@@ -12,6 +12,8 @@
     "skipLibCheck": true,
     "types": [
       "node",
+      "react",
+      "react-dom",
       "vite/client"
     ],
     "moduleResolution": "bundler",

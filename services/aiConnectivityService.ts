@@ -12,6 +12,15 @@ const findFirstTextRouteModel = (settings: AISettings, provider: AIProvider): st
   return textRoute ? settings.routes[textRoute].model : undefined;
 };
 
+const findGeminiConnectivityModel = (settings: AISettings): string => {
+  const textModel = findFirstTextRouteModel(settings, 'gemini');
+  if (textModel) return textModel;
+  if (settings.routes.image?.provider === 'gemini' && settings.routes.image.model) {
+    return settings.routes.image.model;
+  }
+  return aiConfig.providers.gemini.chatModel;
+};
+
 export async function testAIConnectivity(settings: AISettings): Promise<void> {
   const usesGemini = ROUTES.some((route) => settings.routes[route]?.provider === 'gemini');
   const usesOpenAI = ROUTES.some((route) => settings.routes[route]?.provider === 'openai');
@@ -19,7 +28,8 @@ export async function testAIConnectivity(settings: AISettings): Promise<void> {
   if (usesGemini) {
     await postJson('/api/ai/gemini/count-tokens', {
       apiKey: settings.providers.gemini.apiKey,
-      model: findFirstTextRouteModel(settings, 'gemini') || aiConfig.providers.gemini.chatModel,
+      baseUrl: settings.providers.gemini.baseUrl,
+      model: findGeminiConnectivityModel(settings),
       contents: [{ role: 'user', parts: [{ text: connectivityTestingMessage }] }],
     });
   }

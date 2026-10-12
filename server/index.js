@@ -25,6 +25,7 @@ loadEnvFile(path.join(cwd, ".env.local"));
 loadEnvFile(path.join(cwd, ".env"));
 
 const geminiApiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
+const geminiBaseUrl = process.env.GEMINI_BASE_URL || "";
 const openaiApiKey = process.env.OPENAI_API_KEY || "";
 const openaiBaseUrl = process.env.OPENAI_BASE_URL;
 const openaiChatModel = process.env.OPENAI_CHAT_MODEL || "";
@@ -33,15 +34,28 @@ const openaiImageModel = process.env.OPENAI_IMAGE_MODEL || "";
 let geminiClient = null;
 const geminiCacheByKey = new Map();
 
-const getGeminiClient = (apiKey) => {
+const getGeminiClient = (apiKey, baseUrl = "") => {
   if (!apiKey) return null;
-  if (apiKey === geminiApiKey) {
-    if (!geminiClient) {
-      geminiClient = new GoogleGenAI({ apiKey });
-    }
-    return geminiClient;
+  const effectiveBaseUrl = baseUrl.trim();
+  const cacheKey = `${effectiveBaseUrl}\0${apiKey}`;
+  if (geminiClient?.key === cacheKey) {
+    return geminiClient.client;
   }
-  return new GoogleGenAI({ apiKey });
+  const client = new GoogleGenAI({
+    apiKey,
+    ...(effectiveBaseUrl ? { httpOptions: { baseUrl: effectiveBaseUrl } } : {}),
+  });
+  geminiClient = { key: cacheKey, client };
+  return client;
+};
+
+const getGeminiRequestBody = (body) => {
+  const {
+    apiKey: _apiKey,
+    baseUrl: _baseUrl,
+    ...requestBody
+  } = body;
+  return requestBody;
 };
 
 const parseJsonBody = async (req) => {
@@ -117,6 +131,8 @@ const stableStringify = (value) => {
 
 const buildCacheHash = (body) => {
   const input = {
+    apiKey: body.apiKey,
+    baseUrl: body.baseUrl,
     model: body.model,
     ttl: body.ttl,
     systemInstruction: body.systemInstruction,
@@ -161,16 +177,18 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "POST" && pathname === "/api/ai/gemini/generate-content") {
       const effectiveApiKey = body.apiKey || geminiApiKey;
+      const effectiveBaseUrl = body.baseUrl || geminiBaseUrl;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
-      const client = getGeminiClient(effectiveApiKey);
-      const response = await client.models.generateContent(body);
+      const client = getGeminiClient(effectiveApiKey, effectiveBaseUrl);
+      const response = await client.models.generateContent(getGeminiRequestBody(body));
       return sendJson(res, 200, response);
     }
 
     if (req.method === "POST" && pathname === "/api/ai/gemini/cache") {
       const effectiveApiKey = body.apiKey || geminiApiKey;
+      const effectiveBaseUrl = body.baseUrl || geminiBaseUrl;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
-      const client = getGeminiClient(effectiveApiKey);
+      const client = getGeminiClient(effectiveApiKey, effectiveBaseUrl);
       const cacheHash = buildCacheHash(body);
       const displayName = `cache-${cacheHash}`;
       const cachedEntry = geminiCacheByKey.get(cacheHash);
@@ -227,18 +245,20 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "POST" && pathname === "/api/ai/gemini/count-tokens") {
       const effectiveApiKey = body.apiKey || geminiApiKey;
+      const effectiveBaseUrl = body.baseUrl || geminiBaseUrl;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
-      const client = getGeminiClient(effectiveApiKey);
-      const response = await client.models.countTokens(body);
+      const client = getGeminiClient(effectiveApiKey, effectiveBaseUrl);
+      const response = await client.models.countTokens(getGeminiRequestBody(body));
       return sendJson(res, 200, response);
     }
 
     if (req.method === "POST" && pathname === "/api/ai/gemini/chat-stream") {
       const effectiveApiKey = body.apiKey || geminiApiKey;
+      const effectiveBaseUrl = body.baseUrl || geminiBaseUrl;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
-      const client = getGeminiClient(effectiveApiKey);
+      const client = getGeminiClient(effectiveApiKey, effectiveBaseUrl);
       startSse(res);
-      const stream = await client.models.generateContentStream(body);
+      const stream = await client.models.generateContentStream(getGeminiRequestBody(body));
       for await (const chunk of stream) {
         writeSse(res, chunk);
       }
@@ -248,16 +268,18 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "POST" && pathname === "/api/ai/gemini/embeddings") {
       const effectiveApiKey = body.apiKey || geminiApiKey;
+      const effectiveBaseUrl = body.baseUrl || geminiBaseUrl;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
-      const client = getGeminiClient(effectiveApiKey);
-      const response = await client.models.embedContent(body);
+      const client = getGeminiClient(effectiveApiKey, effectiveBaseUrl);
+      const response = await client.models.embedContent(getGeminiRequestBody(body));
       return sendJson(res, 200, response);
     }
 
     if (req.method === "POST" && pathname === "/api/ai/gemini/generate-image") {
       const effectiveApiKey = body.apiKey || geminiApiKey;
+      const effectiveBaseUrl = body.baseUrl || geminiBaseUrl;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
-      const client = getGeminiClient(effectiveApiKey);
+      const client = getGeminiClient(effectiveApiKey, effectiveBaseUrl);
       const response = await client.models.generateContent({
         model: body.model,
         contents: { parts: [{ text: body.prompt }] },

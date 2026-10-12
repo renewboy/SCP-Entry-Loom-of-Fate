@@ -112,7 +112,7 @@ interface ProviderConnectionCardProps {
 
 const ProviderConnectionCard: React.FC<ProviderConnectionCardProps> = ({ provider, settings, t, required, onProviderChange, onChange }) => {
     const providerSettings = settings.providers[provider];
-    const isOpenAICompatible = provider === 'openai';
+    const baseUrlRequired = provider === 'openai' && required;
     const providerOptions = [
         { value: 'gemini', label: t('settings.ai_provider_gemini') },
         { value: 'openai', label: t('settings.ai_provider_custom') },
@@ -139,20 +139,18 @@ const ProviderConnectionCard: React.FC<ProviderConnectionCardProps> = ({ provide
                     className="w-full bg-black/50 border border-scp-gray/30 text-scp-text px-3 py-2 text-sm font-mono focus:border-scp-accent focus:outline-none"
                 />
             </label>
-            {isOpenAICompatible && (
-                <label className="block">
-                    <span className="block text-[10px] text-gray-500 font-mono uppercase tracking-wider mb-1">
-                        {t('settings.ai_base_url')}{required ? ' *' : ''}
-                    </span>
-                    <input
-                        type="text"
-                        value={settings.providers.openai.baseUrl || ''}
-                        onChange={(e) => onChange('openai', 'baseUrl', e.target.value)}
-                        placeholder={t('settings.ai_base_url_placeholder')}
-                        className="w-full bg-black/50 border border-scp-gray/30 text-scp-text px-3 py-2 text-sm font-mono focus:border-scp-accent focus:outline-none"
-                    />
-                </label>
-            )}
+            <label className="block">
+                <span className="block text-[10px] text-gray-500 font-mono uppercase tracking-wider mb-1">
+                    {t('settings.ai_base_url')}{baseUrlRequired ? ' *' : ''}
+                </span>
+                <input
+                    type="text"
+                    value={providerSettings.baseUrl || ''}
+                    onChange={(e) => onChange(provider, 'baseUrl', e.target.value)}
+                    placeholder={t(provider === 'gemini' ? 'settings.ai_gemini_base_url_placeholder' : 'settings.ai_base_url_placeholder')}
+                    className="w-full bg-black/50 border border-scp-gray/30 text-scp-text px-3 py-2 text-sm font-mono focus:border-scp-accent focus:outline-none"
+                />
+            </label>
             <div className="text-xs text-gray-500">
                 {t('settings.ai_api_key_note')}
             </div>

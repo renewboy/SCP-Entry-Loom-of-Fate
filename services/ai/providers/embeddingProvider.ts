@@ -11,6 +11,7 @@ class EmbeddingProvider {
       const config = await resolveEmbeddingConfig();
       const response = await postJson<any>("/api/ai/gemini/embeddings", {
         apiKey: config.apiKey,
+        baseUrl: config.baseUrl,
         model: config.model,
         contents,
       });

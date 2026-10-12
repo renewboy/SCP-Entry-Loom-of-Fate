@@ -453,6 +453,7 @@ export const ja = {
     ai_connectivity_failed: "接続テストに失敗しました。API Key、Base URL、モデル名を確認してください。",
     ai_validation_required: "必須項目を入力してください",
     ai_api_key_placeholder: "API Key を入力...",
+    ai_gemini_base_url_placeholder: "例: http://127.0.0.1:8317",
     ai_base_url_placeholder: "例: https://api.example.com/v1",
     ai_model_placeholder: "例: gpt-4o",
     ai_config_missing: "先に AI 設定を行ってください",

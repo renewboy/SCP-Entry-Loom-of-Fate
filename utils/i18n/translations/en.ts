@@ -453,6 +453,7 @@ export const en = {
     ai_connectivity_failed: "Connection test failed. Please check your API Key, Base URL, and model name.",
     ai_validation_required: "Please fill in required fields",
     ai_api_key_placeholder: "Enter API Key...",
+    ai_gemini_base_url_placeholder: "e.g. http://127.0.0.1:8317",
     ai_base_url_placeholder: "e.g. https://api.example.com/v1",
     ai_model_placeholder: "e.g. gpt-4o",
     ai_config_missing: "Please configure AI settings first",

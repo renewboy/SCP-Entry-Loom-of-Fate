@@ -26,7 +26,7 @@ export class GeminiProvider implements AIService {
     private cachedContentName: string | null = null;
     private gameReviewHistory: any[] = [];
     private qaHistory: any[] = [];
-    private cachedConfig: { apiKey: string; chatModel: string; imageModel: string; embeddingModel?: string; contextConfig: { tokenLimit: number; compressionCount: number } } | null = null;
+    private cachedConfig: { apiKey: string; baseUrl: string; chatModel: string; imageModel: string; embeddingModel?: string; contextConfig: { tokenLimit: number; compressionCount: number } } | null = null;
     private callbacks: { onTokenUpdate?: (count: number) => void; onStatusUpdate?: (status: 'idle' | 'generating' | 'summarizing') => void } = {};
     private readonly providerConfig: AIProviderConfig;
 
@@ -38,6 +38,7 @@ export class GeminiProvider implements AIService {
         if (this.cachedConfig) return this.cachedConfig;
         this.cachedConfig = {
             apiKey: this.providerConfig.apiKey,
+            baseUrl: this.providerConfig.baseUrl || "",
             chatModel: this.providerConfig.chatModel,
             imageModel: this.providerConfig.imageModel,
             embeddingModel: this.providerConfig.embeddingModel,
@@ -60,6 +61,7 @@ export class GeminiProvider implements AIService {
             console.log(`[GeminiProvider] Generating image for prompt: ${prompt}`);
             const response = await postJson<any>("/api/ai/gemini/generate-image", {
                 apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
                 model: config.imageModel,
                 prompt,
                 aspectRatio,
@@ -88,6 +90,7 @@ export class GeminiProvider implements AIService {
             console.log(`[GeminiProvider] Analyzing SCP: ${input}`);
             const response = await postJson<any>("/api/ai/gemini/generate-content", {
                 apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
                 model: config.chatModel,
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 config: {
@@ -123,6 +126,7 @@ export class GeminiProvider implements AIService {
             console.log(`[GeminiProvider] Generating profile candidates for ${role}, config is ${JSON.stringify(config)}`);
             const response = await postJson<any>("/api/ai/gemini/generate-content", {
                 apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
                 model: config.chatModel,
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 config: {
@@ -182,6 +186,7 @@ export class GeminiProvider implements AIService {
         try {
             const response = await postJson<any>("/api/ai/gemini/generate-content", {
                 apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
                 model: config.chatModel,
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
             });
@@ -208,6 +213,7 @@ export class GeminiProvider implements AIService {
             const config = await this.getConfig();
             const { name } = await postJson<{ name: string }>("/api/ai/gemini/cache", {
                 apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
                 model: config.chatModel,
                 ttl: aiConfig.providers.gemini.cacheTtl,
                 systemInstruction: this.systemInstruction,
@@ -255,6 +261,7 @@ export class GeminiProvider implements AIService {
             const config = await this.getConfig();
             const { totalTokens, cachedContentTokenCount } = await postJson<{ totalTokens: number; cachedContentTokenCount: number }>("/api/ai/gemini/count-tokens", {
                 apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
                 model: config.chatModel,
                 contents,
             });
@@ -304,6 +311,7 @@ export class GeminiProvider implements AIService {
             let fullResponse = "";
             for await (const chunk of streamSse<any>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
                 model: config.chatModel,
                 contents: this.buildContents(startPrompt),
                 config: {
@@ -365,6 +373,7 @@ export class GeminiProvider implements AIService {
             let fullResponse = "";
             for await (const chunk of streamSse<any>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
                 model: config.chatModel,
                 contents: this.buildContents(contextPrompt),
                 config: {
@@ -440,6 +449,7 @@ export class GeminiProvider implements AIService {
         try {
             const response = await postJson<any>("/api/ai/gemini/generate-content", {
                 apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
                 model: config.chatModel,
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 config: {
@@ -472,6 +482,7 @@ export class GeminiProvider implements AIService {
             let text = "";
             for await (const chunk of streamSse<any>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
                 model: config.chatModel,
                 contents: this.buildContents(prompt),
                 config: {
@@ -507,6 +518,7 @@ export class GeminiProvider implements AIService {
             let fullResponse = "";
             for await (const chunk of streamSse<any>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
                 model: config.chatModel,
                 contents: this.buildContents(prompt, [...this.gameReviewHistory, ...this.qaHistory]),
                 config: {
@@ -540,6 +552,7 @@ export class GeminiProvider implements AIService {
             let text = "";
             for await (const chunk of streamSse<any>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
                 model: config.chatModel,
                 contents: this.buildContents(prompt),
                 config: {
@@ -607,6 +620,7 @@ export class GeminiProvider implements AIService {
             // 1. Call Gemini API with streaming
             const stream = streamSse<any>("/api/ai/gemini/chat-stream", {
                 apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
                 model: config.chatModel,
                 contents: currentContents,
                 config: {

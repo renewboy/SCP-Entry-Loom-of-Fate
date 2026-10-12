@@ -7,6 +7,7 @@ export interface EffectiveAIConfig {
   providers: {
     gemini: {
       apiKey: string;
+      baseUrl: string;
     };
     openai: {
       apiKey: string;
@@ -55,6 +56,7 @@ export function getDefaultAISettings(): AISettings {
     providers: {
       gemini: {
         apiKey: '',
+        baseUrl: aiConfig.providers.gemini.baseUrl,
       },
       openai: {
         apiKey: '',
@@ -96,6 +98,7 @@ export async function getEffectiveAIConfig(): Promise<EffectiveAIConfig> {
     providers: {
       gemini: {
         apiKey: userSettings?.providers?.gemini?.apiKey || defaults.providers.gemini.apiKey || '',
+        baseUrl: userSettings?.providers?.gemini?.baseUrl || defaults.providers.gemini.baseUrl || '',
       },
       openai: {
         apiKey: userSettings?.providers?.openai?.apiKey || defaults.providers.openai.apiKey || '',
@@ -136,6 +139,7 @@ export async function resolveAIModelConfig(route: AIModelRouteName): Promise<Res
     route,
     provider: 'gemini',
     apiKey: config.providers.gemini.apiKey,
+    baseUrl: config.providers.gemini.baseUrl,
     model: routeConfig.model,
   };
 }

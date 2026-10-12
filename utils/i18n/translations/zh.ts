@@ -453,6 +453,7 @@ export const zh = {
     ai_connectivity_failed: "连接测试失败，请检查 API Key、Base URL 和模型名称是否正确。",
     ai_validation_required: "请填写必填项",
     ai_api_key_placeholder: "输入 API Key...",
+    ai_gemini_base_url_placeholder: "例如: http://127.0.0.1:8317",
     ai_base_url_placeholder: "例如: https://api.example.com/v1",
     ai_model_placeholder: "例如: gpt-4o",
     ai_config_missing: "请先配置 AI 设置",

@@ -44,35 +44,47 @@ export interface RagMemoryRecord {
 }
 
 const openDB = (): Promise<IDBDatabase> => {
-// ... existing openDB implementation
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const open = (version?: number) => {
+      const request = version === undefined
+        ? indexedDB.open(DB_NAME)
+        : indexedDB.open(DB_NAME, version);
 
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains(CLOUD_STORE_NAME)) {
-        db.createObjectStore(CLOUD_STORE_NAME, { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains(SETTINGS_STORE_NAME)) {
-        db.createObjectStore(SETTINGS_STORE_NAME, { keyPath: 'key' });
-      }
-      if (!db.objectStoreNames.contains(RAG_STORE_NAME)) {
-        const store = db.createObjectStore(RAG_STORE_NAME, { keyPath: 'id' });
-        store.createIndex('by_timeline', 'timeline_id', { unique: false });
-        store.createIndex('by_timeline_scp', ['timeline_id', 'scp_number'], { unique: false });
-      }
+      request.onupgradeneeded = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(CLOUD_STORE_NAME)) {
+          db.createObjectStore(CLOUD_STORE_NAME, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(SETTINGS_STORE_NAME)) {
+          db.createObjectStore(SETTINGS_STORE_NAME, { keyPath: 'key' });
+        }
+        if (!db.objectStoreNames.contains(RAG_STORE_NAME)) {
+          const store = db.createObjectStore(RAG_STORE_NAME, { keyPath: 'id' });
+          store.createIndex('by_timeline', 'timeline_id', { unique: false });
+          store.createIndex('by_timeline_scp', ['timeline_id', 'scp_number'], { unique: false });
+        }
+      };
+
+      request.onsuccess = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        db.onversionchange = () => db.close();
+        resolve(db);
+      };
+
+      request.onerror = (event) => {
+        const error = (event.target as IDBOpenDBRequest).error;
+        if (version !== undefined && error?.name === 'VersionError') {
+          open();
+          return;
+        }
+        reject(error);
+      };
     };
 
-    request.onsuccess = (event) => {
-      resolve((event.target as IDBOpenDBRequest).result);
-    };
-
-    request.onerror = (event) => {
-      reject((event.target as IDBOpenDBRequest).error);
-    };
+    open(DB_VERSION);
   });
 };
 

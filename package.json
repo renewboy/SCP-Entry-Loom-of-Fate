@@ -43,6 +43,7 @@
     "zod-to-json-schema": "^3.23.8"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@types/node": "^22.14.0",
