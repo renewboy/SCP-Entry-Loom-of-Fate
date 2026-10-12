@@ -23,7 +23,7 @@ const findGeminiConnectivityModel = (settings: AISettings): string => {
 
 export async function testAIConnectivity(settings: AISettings): Promise<void> {
   const usesGemini = REQUIRED_CONNECTION_ROUTES.some((route) => settings.routes[route]?.provider === 'gemini');
-  const usesOpenAI = REQUIRED_CONNECTION_ROUTES.some((route) => settings.routes[route]?.provider === 'openai');
+  const openAITextModel = findFirstTextRouteModel(settings, 'openai');
 
   if (usesGemini) {
     await postJson('/api/ai/gemini/count-tokens', {
@@ -34,11 +34,11 @@ export async function testAIConnectivity(settings: AISettings): Promise<void> {
     });
   }
 
-  if (usesOpenAI) {
+  if (openAITextModel) {
     await postJson('/api/ai/openai/response', {
       apiKey: settings.providers.openai.apiKey,
       baseUrl: settings.providers.openai.baseUrl,
-      chatModel: findFirstTextRouteModel(settings, 'openai') || aiConfig.providers.openai.chatModel,
+      chatModel: openAITextModel,
       input: connectivityTestingMessage,
     });
   }

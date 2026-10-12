@@ -75,4 +75,33 @@ describe('testAIConnectivity', () => {
       chatModel: 'gpt-5.5',
     }));
   });
+
+  it('does not fall back to an unrelated OpenAI text model when only image generation uses OpenAI', async () => {
+    const settings: AISettings = {
+      providers: {
+        gemini: {
+          apiKey: 'local',
+          baseUrl: 'http://127.0.0.1:8317',
+        },
+        openai: {
+          apiKey: 'local',
+          baseUrl: 'http://127.0.0.1:8317/v1',
+        },
+      },
+      routes: {
+        analysis: { provider: 'gemini', model: 'gemini-3.8-flash-high' },
+        assistant: { provider: 'gemini', model: 'gemini-3.8-flash-high' },
+        narration: { provider: 'gemini', model: 'gemini-3.8-flash-high' },
+        image: { provider: 'openai', model: 'gpt-image-2.5-flare' },
+        embedding: { provider: 'gemini', model: 'gemini-embedding-001' },
+      },
+    };
+
+    await testAIConnectivity(settings);
+
+    expect(postJsonMock).toHaveBeenCalledTimes(1);
+    expect(postJsonMock).toHaveBeenCalledWith('/api/ai/gemini/count-tokens', expect.objectContaining({
+      model: 'gemini-3.8-flash-high',
+    }));
+  });
 });
