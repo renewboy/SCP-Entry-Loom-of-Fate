@@ -31,6 +31,7 @@ export interface AIConfigValidation {
 }
 
 const AI_ROUTE_NAMES: AIModelRouteName[] = ['analysis', 'assistant', 'narration', 'image', 'embedding'];
+const REQUIRED_PROVIDER_ROUTE_NAMES = AI_ROUTE_NAMES.filter((route) => route !== 'embedding');
 
 let cachedEffectiveConfig: EffectiveAIConfig | null = null;
 let cachedUserSettings: AISettings | null = null;
@@ -162,8 +163,8 @@ export function validateAISettings(settings: AISettings): AIConfigValidation {
     missingFields.push('routes.embedding.provider');
   }
 
-  const usesGemini = AI_ROUTE_NAMES.some((route) => routes[route]?.provider === 'gemini');
-  const usesOpenAI = AI_ROUTE_NAMES.some((route) => routes[route]?.provider === 'openai');
+  const usesGemini = REQUIRED_PROVIDER_ROUTE_NAMES.some((route) => routes[route]?.provider === 'gemini');
+  const usesOpenAI = REQUIRED_PROVIDER_ROUTE_NAMES.some((route) => routes[route]?.provider === 'openai');
 
   if (usesGemini && !settings.providers?.gemini?.apiKey) {
     missingFields.push('providers.gemini.apiKey');

@@ -5,6 +5,12 @@ import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getConte
 import { getEditorAssistantPrompt, getEditorAssistantContext, editorTools } from "../editorPrompts";
 import { normalizeGameReviewData, safeParseJson, cleanHistoryText } from "../utils";
 import { AudioDramaSchema } from "../schemas";
+import {
+    parseStructuredSubmission,
+    profileCandidatesSubmission,
+    scpAnalysisSubmission,
+    toOpenAIResponseTool,
+} from "../structuredOutput";
 import { postJson, streamSse } from "./backendClient";
 import { aiConfig } from "../../../config/aiConfig";
 import { imageSizeFromAspectRatio } from "../utils";
@@ -49,6 +55,18 @@ export class OpenAIProvider implements AIService {
             contextConfig: aiConfig.context,
         };
         return this.cachedConfig;
+    }
+
+    private buildResponseRequest(config: NonNullable<typeof this.cachedConfig>, request: Record<string, unknown>) {
+        return {
+            apiKey: config.apiKey,
+            baseUrl: config.baseUrl,
+            chatModel: config.chatModel,
+            ...request,
+            reasoning: {
+                effort: aiConfig.providers.openai.reasoningEffort,
+            },
+        };
     }
 
     setCallbacks(callbacks: { onTokenUpdate?: (count: number) => void; onStatusUpdate?: (status: 'idle' | 'generating' | 'summarizing') => void }): void {
@@ -102,29 +120,15 @@ export class OpenAIProvider implements AIService {
         try {
             const config = await this.getConfig();
             console.log(`[OpenAIProvider] Generating profile candidates for ${role}...`);
-            const response = await postJson<any>("/api/ai/openai/response", {
-                apiKey: config.apiKey,
-                baseUrl: config.baseUrl,
-                chatModel: config.chatModel,
+            const response = await postJson<any>("/api/ai/openai/response", this.buildResponseRequest(config, {
                 input: prompt,
-                tools: [{ type: "web_search" }],
-                text: { format: { type: "json_object" } },
-            });
-            const output_text = getOpenAIText(response);
-            console.log(`[OpenAIProvider] Raw response for profile candidates: ${output_text}`);
-            const text = output_text || "";
-            if (!text) throw new Error("Empty response for profile candidates");
-            
-            const parsed = safeParseJson(text);
-            if (Array.isArray(parsed)) return parsed;
-            // Fallback for wrapped objects
-            if (parsed && typeof parsed === 'object') {
-                const values = Object.values(parsed);
-                const candidateArray = values.find(v => Array.isArray(v));
-                if (candidateArray) return candidateArray as EntityProfile[];
+                tools: [{ type: "web_search" }, toOpenAIResponseTool(profileCandidatesSubmission)],
+            }));
+            const result = parseStructuredSubmission(response, 'openai', profileCandidatesSubmission);
+            if (!result) {
+                throw new Error("Missing profile candidate submission");
             }
-            
-            return [];
+            return result;
         } catch (error) {
              console.error("Failed to generate profile candidates:", error);
              return [
@@ -143,21 +147,12 @@ export class OpenAIProvider implements AIService {
         try {
             const config = await this.getConfig();
             const prompt = getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData, profile);
-            const response = await postJson<any>("/api/ai/openai/response", {
-                apiKey: config.apiKey,
-                baseUrl: config.baseUrl,
-                chatModel: config.chatModel,
+            const response = await postJson<any>("/api/ai/openai/response", this.buildResponseRequest(config, {
                 input: prompt,
-                tools: [{ type: "web_search" }],
-                text: { format: { type: "json_object" } },
-                ...({"thinking": {"type": "enabled"}}) as any,
-            });
+                tools: [{ type: "web_search" }, toOpenAIResponseTool(scpAnalysisSubmission)],
+            }));
             console.log(`[OpenAIProvider] Raw response for analysis: ${JSON.stringify(response)}`);
-            const text = getOpenAIText(response);
-            console.log(`[OpenAIProvider] Analysis response text: ${text}`);
-            if (!text) throw new Error("No response from analysis");
-
-            const parsed = safeParseJson(text);
+            const parsed = parseStructuredSubmission(response, 'openai', scpAnalysisSubmission);
             if (!parsed) throw new Error("Failed to parse analysis JSON");
             return parsed as SCPData;
 
@@ -189,13 +184,10 @@ export class OpenAIProvider implements AIService {
 
         if (this.callbacks.onStatusUpdate) this.callbacks.onStatusUpdate('generating');
         let fullResponse = "";
-        for await (const chunk of streamSse<any>("/api/ai/openai/response-stream", {
-            apiKey: config.apiKey,
-            baseUrl: config.baseUrl,
-            chatModel: config.chatModel,
+        for await (const chunk of streamSse<any>("/api/ai/openai/response-stream", this.buildResponseRequest(config, {
             input: this.messages,
             tools: [{ type: "web_search" }],
-        })) {
+        }))) {
             const delta = getOpenAIResponseDelta(chunk);
             fullResponse += delta;
             yield delta;
@@ -244,13 +236,10 @@ export class OpenAIProvider implements AIService {
         const messagesToSend = this.buildMessages(contextPrompt);
         try {
             let fullResponse = "";
-            for await (const chunk of streamSse<any>("/api/ai/openai/response-stream", {
-                apiKey: config.apiKey,
-                baseUrl: config.baseUrl,
-                chatModel: config.chatModel,
+            for await (const chunk of streamSse<any>("/api/ai/openai/response-stream", this.buildResponseRequest(config, {
                 input: messagesToSend,
                 tools: [],
-            }, { signal })) {
+            }), { signal })) {
                 const delta = getOpenAIResponseDelta(chunk);
                 fullResponse += delta;
                 yield delta;
@@ -301,12 +290,9 @@ export class OpenAIProvider implements AIService {
         const prompt = getCompressionPrompt(historyText, language, firstMsgContent);
         
         try {
-            const response = await postJson<any>("/api/ai/openai/response", {
-                apiKey: config.apiKey,
-                baseUrl: config.baseUrl,
-                chatModel: config.chatModel,
+            const response = await postJson<any>("/api/ai/openai/response", this.buildResponseRequest(config, {
                 input: prompt,
-            });
+            }));
             const summary = getOpenAIText(response);
             if (summary) {
                 this.summaryContext += `\n[Summary Segment]: ${summary}`;
@@ -373,10 +359,7 @@ export class OpenAIProvider implements AIService {
         const prompt = getAudioDramaPrompt(storyLog, role, scpDesignation, language);
 
         try {
-            const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
-                apiKey: config.apiKey,
-                baseUrl: config.baseUrl,
-                chatModel: config.chatModel,
+            const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", this.buildResponseRequest(config, {
                 input: prompt,
                 text: {
                     format:  {
@@ -385,7 +368,7 @@ export class OpenAIProvider implements AIService {
                         schema: zodToJsonSchema(AudioDramaSchema)
                     }
                 },
-            });
+            }));
             const text = output_text || "";
             if (!text) throw new Error("Empty response for audio script");
 
@@ -410,12 +393,9 @@ export class OpenAIProvider implements AIService {
         const prompt = getGameReviewPrompt(role, ending, language);
 
         try {
-            const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
-                apiKey: config.apiKey,
-                baseUrl: config.baseUrl,
-                chatModel: config.chatModel,
+            const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", this.buildResponseRequest(config, {
                 input: this.buildMessages(prompt),
-            });
+            }));
             const text = output_text || "";
             if (!text) throw new Error("Empty response for review");
             const parsed = safeParseJson(text);
@@ -445,12 +425,9 @@ export class OpenAIProvider implements AIService {
 
         try {
             let fullResponse = "";
-            for await (const chunk of streamSse<any>("/api/ai/openai/response-stream", {
-                apiKey: config.apiKey,
-                baseUrl: config.baseUrl,
-                chatModel: config.chatModel,
+            for await (const chunk of streamSse<any>("/api/ai/openai/response-stream", this.buildResponseRequest(config, {
                 input: qaMessages,
-            })) {
+            }))) {
                 const delta = getOpenAIResponseDelta(chunk);
                 fullResponse += delta;
                 yield delta;
@@ -471,12 +448,9 @@ export class OpenAIProvider implements AIService {
         const prompt = getLegacyGenerationPrompt(ending, role, language);
 
         try {
-            const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", {
-                apiKey: config.apiKey,
-                baseUrl: config.baseUrl,
-                chatModel: config.chatModel,
+            const { output_text } = await postJson<{ output_text: string | null }>("/api/ai/openai/response", this.buildResponseRequest(config, {
                 input: this.buildMessages(prompt),
-            });
+            }));
             const text = output_text || "";
             if (!text) throw new Error("Empty response for legacy data");
 

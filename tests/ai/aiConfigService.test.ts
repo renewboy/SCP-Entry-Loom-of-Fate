@@ -83,4 +83,21 @@ describe('aiConfigService', () => {
     expect(validation.missingFields).toContain('providers.openai.apiKey');
     expect(validation.missingFields).toContain('providers.openai.baseUrl');
   });
+
+  it('does not require Gemini credentials for the optional embedding route', async () => {
+    const { getDefaultAISettings, validateAISettings } = await import('../../services/aiConfigService');
+    const settings = getDefaultAISettings();
+    settings.providers.openai = {
+      apiKey: 'local',
+      baseUrl: 'http://127.0.0.1:8317/v1',
+    };
+    for (const route of ['analysis', 'assistant', 'narration', 'image'] as const) {
+      settings.routes[route] = { provider: 'openai', model: `openai-${route}` };
+    }
+
+    expect(validateAISettings(settings)).toEqual({
+      valid: true,
+      missingFields: [],
+    });
+  });
 });

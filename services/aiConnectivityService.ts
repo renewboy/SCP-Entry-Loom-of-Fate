@@ -3,7 +3,7 @@ import { aiConfig } from '../config/aiConfig';
 import { postJson } from './ai/providers/backendClient';
 
 const connectivityTestingMessage = 'connection test, return {} directly';
-const ROUTES: AIModelRouteName[] = ['analysis', 'assistant', 'narration', 'image', 'embedding'];
+const REQUIRED_CONNECTION_ROUTES: AIModelRouteName[] = ['analysis', 'assistant', 'narration', 'image'];
 
 const findFirstTextRouteModel = (settings: AISettings, provider: AIProvider): string | undefined => {
   const textRoute = (['analysis', 'assistant', 'narration'] as AIModelRouteName[]).find(
@@ -22,8 +22,8 @@ const findGeminiConnectivityModel = (settings: AISettings): string => {
 };
 
 export async function testAIConnectivity(settings: AISettings): Promise<void> {
-  const usesGemini = ROUTES.some((route) => settings.routes[route]?.provider === 'gemini');
-  const usesOpenAI = ROUTES.some((route) => settings.routes[route]?.provider === 'openai');
+  const usesGemini = REQUIRED_CONNECTION_ROUTES.some((route) => settings.routes[route]?.provider === 'gemini');
+  const usesOpenAI = REQUIRED_CONNECTION_ROUTES.some((route) => settings.routes[route]?.provider === 'openai');
 
   if (usesGemini) {
     await postJson('/api/ai/gemini/count-tokens', {

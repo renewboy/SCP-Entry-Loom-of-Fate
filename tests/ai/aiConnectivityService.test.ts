@@ -44,4 +44,35 @@ describe('testAIConnectivity', () => {
       model: 'gemini-image-model',
     }));
   });
+
+  it('does not test Gemini when only the optional embedding route uses it', async () => {
+    const settings: AISettings = {
+      providers: {
+        gemini: {
+          apiKey: '',
+          baseUrl: '',
+        },
+        openai: {
+          apiKey: 'local',
+          baseUrl: 'http://127.0.0.1:8317/v1',
+        },
+      },
+      routes: {
+        analysis: { provider: 'openai', model: 'gpt-5.5' },
+        assistant: { provider: 'openai', model: 'gpt-5.5' },
+        narration: { provider: 'openai', model: 'gpt-5.5' },
+        image: { provider: 'openai', model: 'gpt-image-2.5-flare' },
+        embedding: { provider: 'gemini', model: 'gemini-embedding-001' },
+      },
+    };
+
+    await testAIConnectivity(settings);
+
+    expect(postJsonMock).toHaveBeenCalledTimes(1);
+    expect(postJsonMock).toHaveBeenCalledWith('/api/ai/openai/response', expect.objectContaining({
+      apiKey: 'local',
+      baseUrl: 'http://127.0.0.1:8317/v1',
+      chatModel: 'gpt-5.5',
+    }));
+  });
 });

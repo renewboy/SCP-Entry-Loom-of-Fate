@@ -29,6 +29,22 @@ export const AudioDramaSchema = z.object({
     }))
 });
 
+export const EntityProfileSchema = z.object({
+    name: z.string(),
+    age: z.string(),
+    abilities: z.array(z.string()),
+    background: z.string(),
+    keywords: z.array(z.string()),
+});
+
+export const ProfileCandidatesSubmissionSchema = z.object({
+    candidates: z.array(EntityProfileSchema),
+});
+
+export const ProfileCandidatesSubmissionJsonSchema = zodToJsonSchema(ProfileCandidatesSubmissionSchema, {
+    $refStrategy: "none",
+});
+
 // --- Game Review Schemas ---
 
 const ImpactEnum = z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL"]);
@@ -188,7 +204,41 @@ export const AnalyzeScpDataSchema = z.object({
     storyDraft: StoryDraftSchema.optional(),
 });
 
+const AnalyzeScpDataSubmissionSchema = z.object({
+    designation: z.string(),
+    name: z.string(),
+    containmentClass: z.string(),
+    role: z.string(),
+    visualDescription: z.string(),
+    entityDescription: z.string(),
+    storyDraft: StoryDraftSchema.pick({
+        roleDetails: true,
+        storyBackground: true,
+    }).required(),
+    mapBlueprint: MapBlueprintSchema.extend({
+        nodes: z.array(MapBlueprintNodeSchema.pick({
+            id: true,
+            name: true,
+            danger: true,
+            discoverables: true,
+            requires: true,
+            blockedText: true,
+        }).required()),
+        npcs: z.array(MapBlueprintNPCSchema.required()),
+        objectives: z.array(MapBlueprintObjectiveSchema.omit({
+            progress: true,
+        }).extend({
+            detail: z.string(),
+            reward: ObjectiveRewardSchema.required(),
+        })),
+    }),
+    npcVisuals: z.record(z.string()),
+});
+
 export const AnalyzeScpDataJsonSchema = zodToJsonSchema(AnalyzeScpDataSchema, "AnalyzeScpData");
+export const AnalyzeScpDataSubmissionJsonSchema = zodToJsonSchema(AnalyzeScpDataSubmissionSchema, {
+    $refStrategy: "none",
+});
 
 const analyzeScpDataValidator = new Ajv({ allErrors: true }).compile(AnalyzeScpDataJsonSchema);
 

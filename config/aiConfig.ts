@@ -12,6 +12,7 @@ export const aiConfig = {
       baseUrl: '',
       chatModel: 'glm-4-7-251222',
       imageModel: 'doubao-seedream-4-5-251128',
+      reasoningEffort: 'medium',
     },
   },
   routes: {

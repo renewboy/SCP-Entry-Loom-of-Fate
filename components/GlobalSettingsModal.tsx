@@ -340,7 +340,9 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
         return t(keyMap[key]);
     };
 
-    const selectedProviderRequired = Object.values(aiSettings.routes).some((route) => route.provider === selectedConnectionProvider);
+    const selectedProviderRequired = AI_ROUTE_ORDER.some(
+        (route) => route !== 'embedding' && aiSettings.routes[route].provider === selectedConnectionProvider
+    );
 
     const content = (
         <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-mono scp-ui">

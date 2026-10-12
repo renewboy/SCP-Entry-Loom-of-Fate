@@ -6,6 +6,12 @@ import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getConte
 import { getEditorAssistantPrompt, getEditorAssistantContext, editorTools } from "../editorPrompts";
 import { normalizeGameReviewData, safeParseJson, cleanHistoryText } from "../utils";
 import { AudioDramaSchema } from "../schemas";
+import {
+    getGeminiSubmissionConfig,
+    parseStructuredSubmission,
+    profileCandidatesSubmission,
+    scpAnalysisSubmission,
+} from "../structuredOutput";
 import { postJson, streamSse } from "./backendClient";
 import { translate } from "../../../utils/i18n";
 import { AgentStreamEvent } from "../streamProtocol";
@@ -94,16 +100,13 @@ export class GeminiProvider implements AIService {
                 model: config.chatModel,
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 config: {
-                    tools: [{ googleSearch: {} }],
+                    ...getGeminiSubmissionConfig(scpAnalysisSubmission),
                     thinkingConfig: {
                         includeThoughts: true,
                     }
                 },
             });
-            const text = getGeminiText(response);
-            if (!text) throw new Error("No response from analysis");
-
-            const parsed = safeParseJson(text);
+            const parsed = parseStructuredSubmission(response, 'gemini', scpAnalysisSubmission);
             if (!parsed) throw new Error("Failed to parse analysis JSON");
             return parsed as SCPData;
 
@@ -131,17 +134,16 @@ export class GeminiProvider implements AIService {
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 config: {
                     temperature: 0.9,
-                    tools: [{ googleSearch: {} }],
+                    ...getGeminiSubmissionConfig(profileCandidatesSubmission),
                     thinkingConfig: {
                         includeThoughts: true,
                     }
                 },
             });
 
-            const text = getGeminiText(response);
-            if (!text) throw new Error("Empty response for profile candidates");
-            const parsed = safeParseJson(text);
-            return Array.isArray(parsed) ? parsed : [];
+            const parsed = parseStructuredSubmission(response, 'gemini', profileCandidatesSubmission);
+            if (!parsed) throw new Error("Missing profile candidate submission");
+            return parsed;
         } catch (error) {
             console.error("Failed to generate profile candidates:", error);
             // Return fallback candidates

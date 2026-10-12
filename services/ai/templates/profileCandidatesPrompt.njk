@@ -48,13 +48,11 @@ Output Fields Explanation:
 - **background**: A compelling 2-3 sentence origin story or service history.
 - **keywords**: "Narrative Anchors". These are 2-3 specific themes, world rules, or plot devices that will shape the story around this character (e.g., "Timeline Corruption", "Secret GOI Agenda", "Memetic Susceptibility", "Reality Bending"). The AI Narrator will use these to guide the plot.
 
-Output Format: JSON Array ONLY. NO markdown, NO extra text.
-[
-  {
-    "name": "string",
-    "age": "string",
-    "abilities": ["string", "string"],
-    "background": "string",
-    "keywords": ["string", "string"]
-  }
-]
+Output Submission:
+{{submissionInstruction}}
+The function arguments must contain a "candidates" array with exactly 3 objects. Each object must contain:
+- "name": string
+- "age": string
+- "abilities": string array
+- "background": string
+- "keywords": string array

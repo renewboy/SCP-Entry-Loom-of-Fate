@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { repairAnalyzeScpData, validateAnalyzeScpData } from '../../services/ai/schemas';
+import {
+  AnalyzeScpDataSubmissionJsonSchema,
+  repairAnalyzeScpData,
+  validateAnalyzeScpData,
+} from '../../services/ai/schemas';
 import { normalizeAnalyzeScpData } from '../../services/ai/utils';
 
 describe('analyze SCP schema validation', () => {
@@ -78,5 +82,32 @@ describe('analyze SCP schema validation', () => {
     expect(result.initialErrors.length).toBeGreaterThan(0);
     expect(result.finalErrors).toEqual([]);
     expect(result.data.mapBlueprint?.nodes[0].discoverables).toEqual(['异常样本']);
+  });
+
+  it('工具提交契约包含边且不暴露客户端布局字段', () => {
+    const root = AnalyzeScpDataSubmissionJsonSchema as any;
+    const mapProperties = root.properties.mapBlueprint.properties;
+    const nodeProperties = mapProperties.nodes.items.properties;
+
+    expect(root.required).toEqual(expect.arrayContaining([
+      'designation',
+      'name',
+      'containmentClass',
+      'role',
+      'storyDraft',
+      'mapBlueprint',
+      'npcVisuals',
+    ]));
+    expect(mapProperties.edges).toBeDefined();
+    expect(root.properties.mapBlueprint.required).toContain('edges');
+    expect(nodeProperties.layout).toBeUndefined();
+    expect(nodeProperties).toEqual(expect.objectContaining({
+      id: expect.any(Object),
+      name: expect.any(Object),
+      danger: expect.any(Object),
+      discoverables: expect.any(Object),
+      requires: expect.any(Object),
+      blockedText: expect.any(Object),
+    }));
   });
 });

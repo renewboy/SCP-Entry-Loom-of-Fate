@@ -42,4 +42,56 @@ describe('GeminiProvider', () => {
       model: 'gemini-image',
     }));
   });
+
+  it('submits researched profile candidates through the shared function contract', async () => {
+    const candidates = [{
+      name: 'Agent Test',
+      age: '31',
+      abilities: ['Research'],
+      background: 'Foundation analyst.',
+      keywords: ['Archive'],
+    }];
+    postJsonMock.mockResolvedValue({
+      candidates: [{
+        content: {
+          parts: [{
+            functionCall: {
+              name: 'submit_profile_candidates',
+              args: { candidates },
+            },
+          }],
+        },
+      }],
+    });
+
+    const provider = new GeminiProvider({
+      apiKey: 'gemini-key',
+      baseUrl: 'https://gemini.example.test',
+      chatModel: 'gemini-text',
+      imageModel: 'gemini-image',
+    });
+
+    await expect(provider.generateProfileCandidates('Researcher', 'SCP-173', 'en')).resolves.toEqual(candidates);
+    expect(postJsonMock).toHaveBeenCalledWith('/api/ai/gemini/generate-content', expect.objectContaining({
+      config: expect.objectContaining({
+        toolConfig: {
+          functionCallingConfig: {
+            mode: 'ANY',
+            allowedFunctionNames: ['submit_profile_candidates'],
+          },
+        },
+        tools: [
+          expect.objectContaining({
+            functionDeclarations: [expect.objectContaining({
+              name: 'submit_profile_candidates',
+              parameters: expect.objectContaining({
+                type: 'OBJECT',
+                required: ['candidates'],
+              }),
+            })],
+          }),
+        ],
+      }),
+    }));
+  });
 });

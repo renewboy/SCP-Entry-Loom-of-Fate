@@ -13,6 +13,11 @@ import compressionPromptTemplate from './templates/compressionPrompt.njk?raw';
 import audioDramaPromptTemplate from './templates/audioDramaPrompt.njk?raw';
 import gameReviewPromptTemplate from './templates/gameReviewPrompt.njk?raw';
 import qaPromptTemplate from './templates/qaPrompt.njk?raw';
+import {
+    getSubmissionInstruction,
+    profileCandidatesSubmission,
+    scpAnalysisSubmission,
+} from './structuredOutput';
 
 export const getSystemInstruction = (_role: string, language: Language) =>
     renderPromptTemplate(systemInstructionTemplate, {
@@ -27,7 +32,8 @@ export const getAnalyzeSCPPrompt = (input: string, language: Language, role: str
         difficulty,
         languageInstruction: langInstruction,
         legacy: legacyData || null,
-        profile: profile || null
+        profile: profile || null,
+        submissionInstruction: getSubmissionInstruction(scpAnalysisSubmission),
     });
 };
 
@@ -37,7 +43,8 @@ export const getProfileCandidatesPrompt = (role: string, scpDesignation: string,
         role,
         scpDesignation,
         languageInstruction: langInstruction,
-        legacy: legacyData || null
+        legacy: legacyData || null,
+        submissionInstruction: getSubmissionInstruction(profileCandidatesSubmission),
     });
 };
 
