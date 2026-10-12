@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const postJsonMock = vi.hoisted(() => vi.fn());
+const { postJsonMock, streamSseMock } = vi.hoisted(() => ({
+  postJsonMock: vi.fn(),
+  streamSseMock: vi.fn(),
+}));
 
 vi.mock('../../services/ai/providers/backendClient', () => ({
   postJson: postJsonMock,
-  streamSse: vi.fn(),
+  streamSse: streamSseMock,
 }));
 
 import { GeminiProvider } from '../../services/ai/providers/geminiProvider';
@@ -12,6 +15,7 @@ import { GeminiProvider } from '../../services/ai/providers/geminiProvider';
 describe('GeminiProvider', () => {
   beforeEach(() => {
     postJsonMock.mockReset();
+    streamSseMock.mockReset();
   });
 
   it('passes the provider base URL to image generation requests', async () => {
@@ -93,5 +97,67 @@ describe('GeminiProvider', () => {
         ],
       }),
     }));
+  });
+
+  it('reuses the Gemini function call id when returning tool results', async () => {
+    const streamOf = async function* (chunks: any[]) {
+      for (const chunk of chunks) yield chunk;
+    };
+    streamSseMock
+      .mockImplementationOnce(() => streamOf([{
+        candidates: [{
+          content: {
+            parts: [{
+              thoughtSignature: 'signature',
+              functionCall: {
+                id: 'call-123',
+                name: 'multi_step',
+                args: { steps: [] },
+              },
+            }],
+          },
+        }],
+      }]))
+      .mockImplementationOnce(() => streamOf([{
+        candidates: [{
+          content: {
+            parts: [{ text: '修改已完成。' }],
+          },
+        }],
+      }]));
+
+    const provider = new GeminiProvider({
+      apiKey: 'gemini-key',
+      baseUrl: 'https://gemini.example.test',
+      chatModel: 'gemini-text',
+      imageModel: 'gemini-image',
+    });
+    const events = [];
+    for await (const event of provider.streamEditorAssistant(
+      [{ kind: 'user', content: '扩充地图' }],
+      {
+        designation: 'SCP-173',
+        name: 'Test',
+        containmentClass: 'Euclid',
+        role: 'Researcher',
+      },
+      'zh',
+      vi.fn().mockResolvedValue({ success: true }),
+    )) {
+      events.push(event);
+    }
+
+    const secondRequest = streamSseMock.mock.calls[1][1];
+    expect(secondRequest.contents.at(-1)).toEqual({
+      role: 'user',
+      parts: [{
+        functionResponse: {
+          id: 'call-123',
+          name: 'multi_step',
+          response: { success: true },
+        },
+      }],
+    });
+    expect(events).toContainEqual({ type: 'assistant_delta', delta: '修改已完成。' });
   });
 });

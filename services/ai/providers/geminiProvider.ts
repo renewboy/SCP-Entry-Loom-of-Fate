@@ -616,7 +616,7 @@ export class GeminiProvider implements AIService {
 
         while (loopCount < MAX_LOOPS) {
             loopCount += 1;
-            const toolCalls: { name: string; args: any }[] = [];
+            const toolCalls: { id?: string; name: string; args: any }[] = [];
             console.log(`[GeminiProvider] streamEditorAssistant loop ${loopCount}, contents length: ${currentContents.length}`);
 
             // 1. Call Gemini API with streaming
@@ -646,6 +646,7 @@ export class GeminiProvider implements AIService {
                         }
                         if (part.functionCall) {
                             toolCalls.push({
+                                id: part.functionCall.id,
                                 name: part.functionCall.name,
                                 args: part.functionCall.args || part.functionCall.arguments || {}
                             });
@@ -686,7 +687,7 @@ export class GeminiProvider implements AIService {
             // 4. Execute tools and collect function responses
             const toolResponseParts: any[] = [];
             for (const call of toolCalls) {
-                const callId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+                const callId = call.id || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
                 const startTime = Date.now();
 
                 // Yield "start" event
@@ -717,6 +718,7 @@ export class GeminiProvider implements AIService {
                     const response = typeof result === "string" ? { result } : result;
                     toolResponseParts.push({
                         functionResponse: {
+                            id: call.id,
                             name: call.name,
                             response
                         }
@@ -735,6 +737,7 @@ export class GeminiProvider implements AIService {
 
                     toolResponseParts.push({
                         functionResponse: {
+                            id: call.id,
                             name: call.name,
                             response: { error: String(e) }
                         }
