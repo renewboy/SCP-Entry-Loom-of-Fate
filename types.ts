@@ -418,11 +418,14 @@ export interface AISettings {
   routes: Record<AIModelRouteName, AIModelRoute>;
 }
 
+export type ImageDrawingStyle = 'original' | 'paper-cut';
+
 export interface GlobalSettings {
   enableSceneImages: boolean;
   enableBackgroundImages: boolean;
   enableEntityImages: boolean;
   enableNpcImages: boolean;
+  imageStyle: ImageDrawingStyle;
   difficulty: GameDifficulty;
   bgmVolume: number;
   sfxVolume: number;

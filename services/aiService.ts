@@ -1,9 +1,10 @@
 import { Content } from "@google/genai";
-import { ContextPromptAnchors, ImageAspectRatio } from "./ai/types";
+import { ContextPromptAnchors, ImageAspectRatio, ImageStyleKind } from "./ai/types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../types";
 import { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate, extractNarrativeMedia } from "./ai/utils";
 import { getEmbeddings } from "./ai/providers/embeddingProvider";
-import { hasLocalMemories, searchLocalMemories } from "./indexedDBService";
+import { hasLocalMemories, loadGlobalSettings, searchLocalMemories } from "./indexedDBService";
+import { buildImagePrompt } from "./ai/promptUtils";
 import { hasStagedRagMemories, searchStagedRagMemories } from "./ragStaging";
 import { getAnalysisProvider, getAssistantProvider, getImageProvider, getNarrationProvider, resetProviderRouter } from "./ai/providerRouter";
 import { AgentStreamEvent } from "./ai/streamProtocol";
@@ -188,8 +189,14 @@ export const generateLegacyData = async (
     return (await getNarrationProvider()).generateLegacyData(ending, role, language);
 };
 
-export const generateImage = async (prompt: string, aspectRatio: ImageAspectRatio = "1:1", responseFormat: "url" | "b64_json" = "url"): Promise<string | null> => {
-    return (await getImageProvider()).generateImage(prompt, aspectRatio, responseFormat);
+export const generateImage = async (description: string, aspectRatio: ImageAspectRatio = "1:1", responseFormat: "url" | "b64_json" = "url", styleKind: ImageStyleKind = 'scene'): Promise<string | null> => {
+    const settings = await loadGlobalSettings();
+    const style = settings.imageStyle === 'paper-cut' ? 'paper-cut' : 'original';
+    const prompt = buildImagePrompt(description, styleKind, style);
+    const referenceImages = style === 'paper-cut'
+        ? [(await import('./ai/imageStyleReferences')).getImageStyleReference(styleKind)]
+        : [];
+    return (await getImageProvider()).generateImage(prompt, aspectRatio, responseFormat, referenceImages);
 };
 
 export async function* streamEditorAssistant(

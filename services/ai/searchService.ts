@@ -1,21 +1,33 @@
 import { resolveAIModelConfig } from "../aiConfigService";
+import type { ResolvedAIModelConfig } from "../aiConfigService";
 import { postJson } from "./providers/backendClient";
 
-export const runAssistantWebSearch = async (query: string): Promise<string> => {
-    const config = await resolveAIModelConfig("assistant");
-    const systemPrompt = "You are an SCP Foundation editor assistant. Search the given query, prioritize authoritative sources, and return concise key points and conclusions.";
+type WebSearchConfig = Pick<ResolvedAIModelConfig, 'provider' | 'apiKey' | 'baseUrl' | 'model'>;
+
+export const runWebSearch = async (query: unknown, config: WebSearchConfig, signal?: AbortSignal): Promise<string> => {
+    if (typeof query !== 'string' || !query.trim()) throw new Error('web_search.query must be a non-empty string');
 
     if (config.provider === "gemini") {
         const response = await postJson<any>("/api/ai/gemini/generate-content", {
             apiKey: config.apiKey,
+            baseUrl: config.baseUrl,
             model: config.model,
             contents: [{ role: "user", parts: [{ text: query }] }],
             config: {
-                systemInstruction: systemPrompt,
                 tools: [{ googleSearch: {} }],
             },
-        });
-        return response?.candidates?.[0]?.content?.parts?.[0]?.text || JSON.stringify(response);
+        }, { signal });
+        const candidate = response?.candidates?.[0];
+        if (response?.promptFeedback?.blockReason || (candidate?.finishReason && candidate.finishReason !== 'STOP')) {
+            throw new Error(`Gemini search failed: ${response?.promptFeedback?.blockReason || candidate.finishReason}`);
+        }
+        const text = (candidate?.content?.parts || [])
+            .filter((part: any) => !part.thought && typeof part.text === 'string')
+            .map((part: any) => part.text).join('');
+        if (!text.trim()) throw new Error('Gemini search returned no results');
+        const sources = (candidate?.groundingMetadata?.groundingChunks || [])
+            .map((chunk: any) => chunk.web?.uri).filter(Boolean);
+        return [text, ...new Set(sources)].join('\n');
     }
 
     const response = await postJson<any>("/api/ai/openai/response", {
@@ -23,10 +35,17 @@ export const runAssistantWebSearch = async (query: string): Promise<string> => {
         baseUrl: config.baseUrl,
         chatModel: config.model,
         input: [
-            { role: "system", content: systemPrompt },
             { role: "user", content: query }
         ],
         tools: [{ type: "web_search" }]
-    });
-    return response?.output_text || response?.choices?.[0]?.message?.content || JSON.stringify(response);
+    }, { signal });
+    const text = response?.output_text || (response?.output || [])
+        .filter((item: any) => item.type === 'message')
+        .flatMap((item: any) => item.content || [])
+        .filter((part: any) => part.type === 'output_text').map((part: any) => part.text).join('');
+    if (!text.trim()) throw new Error('OpenAI search returned no results');
+    return text;
 };
+
+export const runAssistantWebSearch = async (query: string): Promise<string> =>
+    runWebSearch(query, await resolveAIModelConfig("assistant"));

@@ -223,6 +223,13 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
         saveGlobalSettings(newSettings);
     };
 
+    const handleImageStyleChange = (imageStyle: GlobalSettings['imageStyle']) => {
+        if (!settings) return;
+        const newSettings = { ...settings, imageStyle };
+        setSettings(newSettings);
+        saveGlobalSettings(newSettings);
+    };
+
     const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
     const handleVolumeChange = (key: 'bgmVolume' | 'sfxVolume', value: number) => {
@@ -411,28 +418,51 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
                                     ))}
                                 </div>
                             </div>
-                            <div className="p-4 border border-scp-gray/30 bg-scp-gray/10 space-y-3">
-                                <div className="text-xs text-gray-400 font-mono uppercase tracking-wider">
+                            <section className="p-4 border border-scp-gray/30 bg-scp-gray/10" aria-labelledby="visual-settings-heading">
+                                <h3 id="visual-settings-heading" className="text-xs text-gray-400 font-mono uppercase tracking-wider">
                                     {t('settings.section_images')}
-                                </div>
-                                {(['enableSceneImages', 'enableBackgroundImages', 'enableEntityImages', 'enableNpcImages'] as const).map((key) => (
-                                    <div key={key} className="flex items-center justify-between px-3 py-2 border border-transparent hover:border-scp-accent/30 transition-colors">
-                                        <span className="text-[13px] text-scp-text font-mono tracking-wider">
-                                            {getLabel(key)}
+                                </h3>
+                                <div className="mt-4 mb-4 px-3 py-3 border-b border-scp-gray/20">
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                                        <span className="text-[13px] text-scp-text font-mono tracking-wider shrink-0">
+                                            {t('settings.image_style')}
                                         </span>
-                                        <button
-                                            onClick={() => handleToggle(key)}
-                                            className={`w-11 h-5 rounded-full p-0.5 transition-colors duration-300 ease-in-out relative ${
-                                                settings[key] ? 'bg-scp-accent' : 'bg-gray-700'
-                                            }`}
-                                        >
-                                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
-                                                settings[key] ? 'translate-x-6' : 'translate-x-0'
-                                            }`}></div>
-                                        </button>
+                                        <div className="w-full sm:w-56">
+                                            <CustomSelect
+                                                value={settings.imageStyle}
+                                                options={[
+                                                    { value: 'original', label: t('settings.image_style_original') },
+                                                    { value: 'paper-cut', label: t('settings.image_style_paper_cut') },
+                                                ]}
+                                                variant="settings"
+                                                onChange={value => handleImageStyleChange(value as GlobalSettings['imageStyle'])}
+                                            />
+                                        </div>
                                     </div>
-                                ))}
-                            </div>
+                                    <p className="mt-3 text-xs text-gray-500 leading-6">
+                                        {t('settings.image_style_help')}
+                                    </p>
+                                </div>
+                                <div className="space-y-3">
+                                    {(['enableSceneImages', 'enableBackgroundImages', 'enableEntityImages', 'enableNpcImages'] as const).map((key) => (
+                                        <div key={key} className="flex items-center justify-between px-3 py-2 border border-transparent hover:border-scp-accent/30 transition-colors">
+                                            <span className="text-[13px] text-scp-text font-mono tracking-wider">
+                                                {getLabel(key)}
+                                            </span>
+                                            <button
+                                                onClick={() => handleToggle(key)}
+                                                className={`w-11 h-5 rounded-full p-0.5 transition-colors duration-300 ease-in-out relative ${
+                                                    settings[key] ? 'bg-scp-accent' : 'bg-gray-700'
+                                                }`}
+                                            >
+                                                <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
+                                                    settings[key] ? 'translate-x-6' : 'translate-x-0'
+                                                }`}></div>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
                             <div className="p-4 border border-scp-gray/30 bg-scp-gray/10 space-y-3">
                                 <div className="text-xs text-gray-400 font-mono uppercase tracking-wider">
                                     {t('settings.section_gameplay')}

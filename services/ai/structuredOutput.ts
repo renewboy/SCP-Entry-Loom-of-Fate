@@ -1,20 +1,26 @@
 import { EntityProfile, SCPData } from '../../types';
 import {
+    AnalyzeScpDataSubmissionSchema,
     AnalyzeScpDataSubmissionJsonSchema,
     ProfileCandidatesSubmissionJsonSchema,
     ProfileCandidatesSubmissionSchema,
     repairAnalyzeScpData,
 } from './schemas';
-import { safeParseJson } from './utils';
 
-type SubmissionProtocol = 'gemini' | 'openai';
-
-interface SubmissionContract<T> {
+export interface SubmissionContract<T> {
     name: string;
     description: string;
     parameters: Record<string, unknown>;
     parse: (value: unknown) => T | null;
+    errors: (value: unknown) => string[];
 }
+
+const schemaErrors = (schema: { safeParse: (value: unknown) => any }, value: unknown): string[] => {
+    const result = schema.safeParse(value);
+    return result.success ? [] : result.error.issues.map(
+        (issue: any) => `${issue.path.join('.') || '(root)'}: ${issue.message}`,
+    );
+};
 
 export const profileCandidatesSubmission: SubmissionContract<EntityProfile[]> = {
     name: 'submit_profile_candidates',
@@ -24,6 +30,7 @@ export const profileCandidatesSubmission: SubmissionContract<EntityProfile[]> = 
         const result = ProfileCandidatesSubmissionSchema.safeParse(value);
         return result.success ? result.data.candidates as EntityProfile[] : null;
     },
+    errors: (value) => schemaErrors(ProfileCandidatesSubmissionSchema, value),
 };
 
 export const scpAnalysisSubmission: SubmissionContract<SCPData> = {
@@ -32,12 +39,30 @@ export const scpAnalysisSubmission: SubmissionContract<SCPData> = {
     parameters: AnalyzeScpDataSubmissionJsonSchema,
     parse: (value) => {
         const result = repairAnalyzeScpData(value);
-        return result.valid ? result.data : null;
+        return result.valid && AnalyzeScpDataSubmissionSchema.safeParse(result.data).success
+            ? result.data : null;
     },
+    errors: (value) => schemaErrors(AnalyzeScpDataSubmissionSchema, repairAnalyzeScpData(value).data),
 };
 
-export const getSubmissionInstruction = <T>(contract: SubmissionContract<T>) =>
-    `After completing the required research, call ${contract.name} exactly once with the final result. Do not return the result as plain text.`;
+export const validateSubmission = <T>(contract: SubmissionContract<T>, value: unknown): T => {
+    const data = contract.parse(value);
+    if (data !== null) return data;
+    const issues = contract.errors(value);
+    const error = new Error(`Invalid ${contract.name} arguments: ${issues.join('; ')}`);
+    Object.assign(error, { issues });
+    throw error;
+};
+
+export const webSearchFunction = {
+    name: 'web_search',
+    description: 'Search authoritative SCP sources and return facts with source URLs.',
+    parameters: {
+        type: 'object',
+        properties: { query: { type: 'string', description: 'The SCP designation, role, and facts to research.' } },
+        required: ['query'],
+    },
+};
 
 export const toOpenAIResponseTool = <T>(contract: SubmissionContract<T>) => ({
     type: 'function',
@@ -62,6 +87,9 @@ const toGeminiSchema = (schema: any): Record<string, unknown> => {
     }
     if (schema?.description) converted.description = schema.description;
     if (schema?.format) converted.format = schema.format;
+    for (const key of ['minItems', 'maxItems', 'minimum', 'maximum', 'minLength', 'maxLength']) {
+        if (schema?.[key] !== undefined) converted[key] = schema[key];
+    }
     if (Array.isArray(schema?.enum)) converted.enum = schema.enum;
     if (Array.isArray(schema?.required)) converted.required = schema.required;
     if (schema?.items) converted.items = toGeminiSchema(schema.items);
@@ -82,35 +110,15 @@ export const toGeminiFunctionTool = <T>(contract: SubmissionContract<T>) => ({
 });
 
 export const getGeminiSubmissionConfig = <T>(contract: SubmissionContract<T>) => ({
-    tools: [toGeminiFunctionTool(contract)],
+    tools: [{
+        functionDeclarations: [
+            { ...webSearchFunction, parameters: toGeminiSchema(webSearchFunction.parameters) },
+            ...toGeminiFunctionTool(contract).functionDeclarations,
+        ],
+    }],
     toolConfig: {
         functionCallingConfig: {
-            mode: 'ANY',
-            allowedFunctionNames: [contract.name],
+            mode: 'AUTO',
         },
     },
 });
-
-const parseArguments = (value: unknown): unknown => {
-    if (typeof value !== 'string') return value;
-    return safeParseJson(value);
-};
-
-export const parseStructuredSubmission = <T>(
-    response: any,
-    protocol: SubmissionProtocol,
-    contract: SubmissionContract<T>,
-): T | null => {
-    if (protocol === 'openai') {
-        const call = response?.output?.find(
-            (item: any) => item?.type === 'function_call' && item?.name === contract.name,
-        );
-        return contract.parse(parseArguments(call?.arguments));
-    }
-
-    const call = response?.functionCalls?.find((item: any) => item?.name === contract.name)
-        || response?.candidates?.[0]?.content?.parts?.find(
-            (part: any) => part?.functionCall?.name === contract.name,
-        )?.functionCall;
-    return contract.parse(parseArguments(call?.args ?? call?.arguments));
-};

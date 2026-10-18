@@ -35,7 +35,7 @@ World Echoes (Past Lives):
 {% endif %}
 
 Task: Generate 3 distinct, creative, and plausible profile candidates for the player character/entity.
-1. **Search**: Use the search tool to understand the Target SCP ({{scpDesignation}}) and how the Role ({{role}}) typically interacts with it.
+1. **Search**: Call `web_search` to understand the Target SCP ({{scpDesignation}}) and how the Role ({{role}}) typically interacts with it.
 2. **Diversity**: Each candidate should offer a unique gameplay flavor (e.g., one combat-focused, one intellect/research-focused, one stealth/social or esoteric).
 3. **Non-Human Adaptation**: If the role is non-human (e.g., SCP object, AI, Monster), adapt fields accordingly (Age -> Existence Duration, Origins, etc.).
 4. **Name Requirements**:
@@ -49,7 +49,7 @@ Output Fields Explanation:
 - **keywords**: "Narrative Anchors". These are 2-3 specific themes, world rules, or plot devices that will shape the story around this character (e.g., "Timeline Corruption", "Secret GOI Agenda", "Memetic Susceptibility", "Reality Bending"). The AI Narrator will use these to guide the plot.
 
 Output Submission:
-{{submissionInstruction}}
+After completing the required research, call `submit_profile_candidates` exactly once with the final result. Do not return the result as plain text.
 The function arguments must contain a "candidates" array with exactly 3 objects. Each object must contain:
 - "name": string
 - "age": string

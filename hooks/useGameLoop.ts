@@ -12,7 +12,6 @@ import {
     setProviderCallbacks
 } from '../services/aiService';
 import { loadGlobalSettings } from '../services/indexedDBService';
-import { enhanceScenePrompt } from '../services/ai/promptUtils';
 import { getSceneAspectRatio } from '../services/ai/utils';
 import { MapUpdate } from './useMapUpdate';
 
@@ -48,8 +47,7 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
             return;
         }
 
-        const enhancedPrompt = enhanceScenePrompt(prompt);
-        const base64 = await generateImage(enhancedPrompt, getSceneAspectRatio());
+        const base64 = await generateImage(prompt, getSceneAspectRatio(), "url", 'scene');
         if (base64) {
             setGameState(prev => ({
                 ...prev,

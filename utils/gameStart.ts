@@ -1,7 +1,6 @@
 import { GameState, GameStatus, Language } from '../types';
 import { initializeGameChatStream, extractStability, extractVisualPrompt, generateImage, extractLoc, extractMapUpdate, setProviderCallbacks } from '../services/aiService';
 import { loadGlobalSettings } from '../services/indexedDBService';
-import { enhanceBackgroundPrompt, enhanceEntityPrompt, enhanceNpcPrompt } from '../services/ai/promptUtils';
 import { getBackgroundAspectRatio, getSceneAspectRatio } from '../services/ai/utils';
 
 interface StartGameParams {
@@ -66,9 +65,8 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
         const hasBg = draftBg || gameState.backgroundImage;
         if (!hasBg && settings.enableBackgroundImages) {
              const bgDesc = finalScpData.visualDescription || `texture and atmosphere of ${finalScpData.name}`;
-             const bgPrompt = enhanceBackgroundPrompt(bgDesc);
              // use b64_json to get base64 image data for bypassing CORS issue when creating thumbnail
-             generateImage(bgPrompt, getBackgroundAspectRatio(), "b64_json").then(bgUrl => {
+             generateImage(bgDesc, getBackgroundAspectRatio(), "b64_json", 'background').then(bgUrl => {
                  if(bgUrl) setGameState(prev => ({...prev, backgroundImage: bgUrl}));
              });
         }
@@ -77,8 +75,7 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
         const hasEntity = draftEntity || gameState.mainImage;
         if (!hasEntity && settings.enableEntityImages) {
             const entityDesc = finalScpData.entityDescription || finalScpData.designation;
-            const mainPrompt = enhanceEntityPrompt(entityDesc);
-            generateImage(mainPrompt, "1:1").then(mainUrl => {
+            generateImage(entityDesc, "1:1", "url", 'entity').then(mainUrl => {
                  if(mainUrl) setGameState(prev => ({...prev, mainImage: mainUrl}));
             });
         }
@@ -88,8 +85,7 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
             Object.entries(finalScpData.npcVisuals).forEach(([npcId, visualPrompt]) => {
                 if (finalScpData.npcImages?.[npcId]) return;
 
-                const enhancedPrompt = enhanceNpcPrompt(visualPrompt);
-                generateImage(enhancedPrompt, "1:1").then(npcUrl => {
+                generateImage(visualPrompt, "1:1", "url", 'npc').then(npcUrl => {
                     if (npcUrl) {
                         setGameState(prev => {
                             if (!prev.scpData) return prev;
@@ -202,7 +198,7 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
         
         // 3. Scene Image (Intro)
         if (visualPrompt && settings.enableSceneImages) {
-            generateImage(visualPrompt, getSceneAspectRatio()).then(introImageUrl => {
+            generateImage(visualPrompt, getSceneAspectRatio(), "url", 'scene').then(introImageUrl => {
                 if (introImageUrl) {
                     setGameState(prev => ({
                         ...prev,

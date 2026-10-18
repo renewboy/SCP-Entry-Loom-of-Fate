@@ -72,6 +72,7 @@ When creating or substantially modifying a map, follow these defaults (can be ad
 **Visual Descriptions** (when updating via update_basic_info):
   - visualDescription: comma-separated nouns/adjectives only (texture, atmosphere, material essence).
   - entityDescription: noun phrases only, no verbs, no background context.
+  - Keep visual descriptions focused on subject matter, physical materials and scene-specific colors or light sources. The image renderer applies the selected drawing style.
 
 These are recommended defaults for game balance. If the user explicitly asks for more nodes, more objectives, or other deviations, comply with their request.
 ${difficultySection}

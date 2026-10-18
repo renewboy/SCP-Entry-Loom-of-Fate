@@ -4,7 +4,8 @@ import fs from "fs";
 import path from "path";
 import { createHash } from "crypto";
 import { GoogleGenAI } from "@google/genai";
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
+import { buildGeminiImageRequest, generateOpenAIImage } from "../supabase/functions/api/imageGeneration.js";
 
 const loadEnvFile = (filePath) => {
   if (!fs.existsSync(filePath)) return;
@@ -257,8 +258,8 @@ const server = http.createServer(async (req, res) => {
       const effectiveBaseUrl = body.baseUrl || geminiBaseUrl;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
       const client = getGeminiClient(effectiveApiKey, effectiveBaseUrl);
-      startSse(res);
       const stream = await client.models.generateContentStream(getGeminiRequestBody(body));
+      startSse(res);
       for await (const chunk of stream) {
         writeSse(res, chunk);
       }
@@ -280,13 +281,7 @@ const server = http.createServer(async (req, res) => {
       const effectiveBaseUrl = body.baseUrl || geminiBaseUrl;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
       const client = getGeminiClient(effectiveApiKey, effectiveBaseUrl);
-      const response = await client.models.generateContent({
-        model: body.model,
-        contents: { parts: [{ text: body.prompt }] },
-        config: {
-          imageConfig: { aspectRatio: body.aspectRatio },
-        },
-      });
+      const response = await client.models.generateContent(buildGeminiImageRequest(body));
       return sendJson(res, 200, response);
     }
     const {
@@ -313,14 +308,33 @@ const server = http.createServer(async (req, res) => {
       const effectiveBaseUrl = body.baseUrl || openaiBaseUrl;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
       const client = new OpenAI({ apiKey: effectiveApiKey, baseURL: effectiveBaseUrl || undefined });
-      startSse(res);
       const stream = await client.responses.create({
         model: body.chatModel || openaiChatModel,
         stream: true,
         ...resBody,
       });
+      startSse(res);
       for await (const event of stream) {
         writeSse(res, event);
+      }
+      endSse(res);
+      return;
+    }
+
+    if (req.method === "POST" && pathname === "/api/ai/openai/chat-completion-stream") {
+      const effectiveApiKey = body.apiKey || openaiApiKey;
+      const effectiveBaseUrl = body.baseUrl || openaiBaseUrl;
+      if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
+      const client = new OpenAI({ apiKey: effectiveApiKey, baseURL: effectiveBaseUrl || undefined });
+      const stream = await client.chat.completions.create({
+        model: body.chatModel || openaiChatModel,
+        messages: body.input || [],
+        tools: body.tools,
+        stream: true,
+      });
+      startSse(res);
+      for await (const chunk of stream) {
+        writeSse(res, chunk);
       }
       endSse(res);
       return;
@@ -331,21 +345,21 @@ const server = http.createServer(async (req, res) => {
       const effectiveBaseUrl = body.baseUrl || openaiBaseUrl;
       if (!effectiveApiKey) return sendJson(res, 503, { error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" });
       const client = new OpenAI({ apiKey: effectiveApiKey, baseURL: effectiveBaseUrl || undefined });
-      const response = await client.images.generate({
-        model: body.model || openaiImageModel,
-        ...resBody,
-      });
+      const response = await generateOpenAIImage(client, body, openaiImageModel, toFile);
       return sendJson(res, 200, response);
     }
 
     return sendJson(res, 404, { error: "Not found" });
   } catch (error) {
+    const message = String(error?.message || error);
+    console.error(`[ai-server] ${message}, ${error?.stack}`);
     if (res.headersSent) {
+      writeSse(res, { error: { message } });
       res.end();
       return;
     }
-    console.error(`[ai-server] ${error?.message}, ${error?.stack}`);
-    return sendJson(res, 500, { error: String(error?.message || error) });
+    const status = Number(error?.status);
+    return sendJson(res, status >= 400 && status < 600 ? status : 500, { error: message });
   }
 });
 

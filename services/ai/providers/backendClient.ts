@@ -65,7 +65,7 @@ const parseErrorResponse = async (response: Response): Promise<Error> => {
   }
 };
 
-export const postJson = async <T>(path: string, body: unknown): Promise<T> => {
+export const postJson = async <T>(path: string, body: unknown, options?: { signal?: AbortSignal }): Promise<T> => {
   const headers = {
     ...(await getRequestHeaders()),
     ...(await signPayload(body)),
@@ -74,6 +74,7 @@ export const postJson = async <T>(path: string, body: unknown): Promise<T> => {
     method: "POST",
     headers,
     body: JSON.stringify(body),
+    signal: options?.signal,
   });
   if (!response.ok) {
     throw await parseErrorResponse(response);
@@ -101,20 +102,28 @@ export async function* streamSse<T>(path: string, body: unknown, options?: { sig
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split("\n\n");
-    buffer = parts.pop() || "";
-    for (const part of parts) {
-      const lines = part.split("\n");
-      for (const line of lines) {
-        if (!line.startsWith("data:")) continue;
-        const data = line.slice(5).trim();
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
+      const parts = buffer.split(/\r?\n\r?\n/);
+      buffer = parts.pop() || "";
+      if (done && buffer.trim()) parts.push(buffer);
+      for (const part of parts) {
+        const data = part.split(/\r?\n/).filter(line => line.startsWith("data:"))
+          .map(line => line.slice(5).trimStart()).join("\n").trim();
+        if (!data) continue;
         if (data === "[DONE]") return;
-        yield JSON.parse(data) as T;
+        const parsed = JSON.parse(data);
+        if (parsed?.error) {
+          throw new Error(typeof parsed.error === 'string' ? parsed.error : parsed.error.message || JSON.stringify(parsed.error));
+        }
+        yield parsed as T;
       }
+      if (done) throw new Error("AI stream closed before completion");
     }
+  } finally {
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
   }
 }

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { GoogleGenAI } from "npm:@google/genai";
-import OpenAI from "npm:openai";
+import OpenAI, { toFile } from "npm:openai";
+import { buildGeminiImageRequest, generateOpenAIImage } from "./imageGeneration.js";
 import { createClient } from "npm:@supabase/supabase-js";
 
 const getCorsHeaders = (origin: string | null) => {
@@ -427,13 +428,7 @@ serve(async (req) => {
       if (!geminiKey) return jsonResponse({ error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" }, 503, corsHeaders);
       const client = getGeminiClient(geminiKey, geminiBaseUrl);
       if (!client) return jsonResponse({ error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" }, 503, corsHeaders);
-      const response = await client.models.generateContent({
-        model: (body as any).model,
-        contents: { parts: [{ text: (body as any).prompt || "" }] },
-        config: {
-          imageConfig: { aspectRatio: (body as any).aspectRatio },
-        },
-      });
+      const response = await client.models.generateContent(buildGeminiImageRequest(body));
       return jsonResponse(response, 200, corsHeaders);
     }
 
@@ -494,10 +489,7 @@ serve(async (req) => {
     if (req.method === "POST" && path === "/api/ai/openai/generate-image") {
       if (!openaiKey) return jsonResponse({ error: "AI_CONFIG_MISSING", code: "AI_CONFIG_MISSING" }, 503, corsHeaders);
       const client = new OpenAI({ apiKey: openaiKey, baseURL: openaiBaseUrl || undefined });
-      const response = await client.images.generate({
-        model: (body as any).model || openaiImageModel,
-        ...resBody,
-      });
+      const response = await generateOpenAIImage(client, body, openaiImageModel, toFile);
       return jsonResponse(response, 200, corsHeaders);
     }
 

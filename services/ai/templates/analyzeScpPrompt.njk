@@ -45,7 +45,7 @@ Instruction: Incorporate these entity details into the story background, role de
 
 Goal:
 1) Determine the referenced SCP designation (e.g., "SCP-173") from user input.
-2) Research (MUST use available search tools): prioritize official pages on scp-wiki.wikidot.com / scp-wiki-cn.wikidot.com; use secondary SCP hubs/discussions only to resolve ambiguity.
+2) Research (MUST call `web_search`): prioritize official pages on scp-wiki.wikidot.com / scp-wiki-cn.wikidot.com; use secondary SCP hubs/discussions only to resolve ambiguity.
 3) Extract:
   - official title (localized to {{languageInstruction}})
   - containmentClass.
@@ -60,14 +60,15 @@ Goal:
   - storyDraft.roleDetails: short profile of the player role.
   - storyDraft.storyBackground: brief overarching premise and context.
 5) Generate two ENGLISH visual strings for image templates:
+  - Describe subject matter, physical materials and scene-specific colors or light sources. The image renderer applies the selected drawing style; keep these strings focused on content.
   - visualDescription
     - Comma-separated nouns/adjectives only.
     - Describe the SCP's texture, atmosphere, and material essence for an abstract background.
-    - (Will be inserted into: "Abstract horror background representing [visualDescription], scp foundation style, dark, subtle texture")
+    - Include environmental shapes and spatial cues suitable for a background image.
   - entityDescription
     - Noun phrases only. No verbs, no background context.
     - Describe the entity's physical appearance in detail.
-    - (Will be inserted into: "Close-up full body shot of [entityDescription], photorealistic, containment cell, scp foundation record photo")
+    - Preserve distinctive anatomy, proportions and identifying features for a complete entity illustration.
 
 6) **Narrative Frame Selection (internal step before map)**:
   - Choose a narrative frame that best fits the SCP and the player role.
@@ -101,13 +102,13 @@ Goal:
     - "blockedText": the reason why the node is blocked, if not blocked, leave it empty.
 8) npcVisuals
   - Map NPC IDs (from mapBlueprint) to visual prompts.
-  - Each prompt should be a concise description of the NPC's appearance.
+  - Each prompt should be a concise ENGLISH description of the NPC's appearance, clothing, equipment and identifying features. Keep it focused on subject matter; the image renderer supplies the drawing treatment.
 
 Naming constraints for Role & NPCs:
   - Use a distinctive, story-rich name; avoid common everyday names and generic titles.
 
 Output:
-{{submissionInstruction}}
+After completing the required research, call `submit_scp_analysis` exactly once with the final result. Do not return the result as plain text.
 
 Missing rules:
 If name or containmentClass not found, fill "???".

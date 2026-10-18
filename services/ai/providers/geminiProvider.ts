@@ -1,5 +1,5 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { AIProviderConfig, AIService, ContextPromptAnchors, ImageAspectRatio } from "../types";
+import { AIProviderConfig, AIService, ContextPromptAnchors, ImageAspectRatio, ImageReference } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
 import { aiConfig } from "../../../config/aiConfig";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt, getCompressionPrompt } from "../prompts";
@@ -8,10 +8,16 @@ import { normalizeGameReviewData, safeParseJson, cleanHistoryText } from "../uti
 import { AudioDramaSchema } from "../schemas";
 import {
     getGeminiSubmissionConfig,
-    parseStructuredSubmission,
     profileCandidatesSubmission,
     scpAnalysisSubmission,
+    SubmissionContract,
+    validateSubmission,
+    webSearchFunction,
 } from "../structuredOutput";
+import { completeAgentLoop, createToolRegistry, runAgentLoop } from "../agentLoop";
+import type { AgentToolHandler } from "../agentLoop";
+import { GeminiAgentAdapter } from "../agentAdapters";
+import { runWebSearch } from "../searchService";
 import { postJson, streamSse } from "./backendClient";
 import { translate } from "../../../utils/i18n";
 import { AgentStreamEvent } from "../streamProtocol";
@@ -20,7 +26,9 @@ import { EditorChatMessage, toGeminiContents } from "../editorAssistantTypes";
 const INIT_EMPTY_MAX_RETRIES = 3;
 
 const getGeminiText = (response: any): string => {
-    return response.candidates?.[0]?.content?.parts?.at(-1)?.text || "";
+    return (response?.candidates?.[0]?.content?.parts || [])
+        .filter((part: any) => !part.thought && typeof part.text === 'string')
+        .map((part: any) => part.text).join('');
 };
 
 export class GeminiProvider implements AIService {
@@ -61,7 +69,7 @@ export class GeminiProvider implements AIService {
         return this.summaryContext;
     }
 
-    public async generateImage(prompt: string, aspectRatio: ImageAspectRatio = "1:1", responseFormat: "url" | "b64_json" = "url"): Promise<string | null> {
+    public async generateImage(prompt: string, aspectRatio: ImageAspectRatio = "1:1", responseFormat: "url" | "b64_json" = "url", referenceImages: ImageReference[] = []): Promise<string | null> {
         try {
             const config = await this.getConfig();
             console.log(`[GeminiProvider] Generating image for prompt: ${prompt}`);
@@ -70,6 +78,7 @@ export class GeminiProvider implements AIService {
                 baseUrl: config.baseUrl,
                 model: config.imageModel,
                 prompt,
+                referenceImages,
                 aspectRatio,
                 imageSize: '2K'
             });
@@ -82,81 +91,50 @@ export class GeminiProvider implements AIService {
                     break;
                 }
             }
-            console.log(`[GeminiProvider] Generated image: ${imageDataUrl.slice(0, 300)}`);
+            console.log(`[GeminiProvider] Generated image: ${imageDataUrl?.slice(0, 300)}`);
             return imageDataUrl;
         } catch (error) {
             return null;
         }
     }
 
-    async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData> {
-        try {
-            const config = await this.getConfig();
-            const prompt = getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData, profile);
-            console.log(`[GeminiProvider] Analyzing SCP: ${input}`);
-            const response = await postJson<any>("/api/ai/gemini/generate-content", {
+    private async runSubmission<T>(prompt: string, contract: SubmissionContract<T>): Promise<T> {
+        const config = await this.getConfig();
+        const adapter = new GeminiAgentAdapter({
+            path: '/api/ai/gemini/generate-content',
+            buildRequest: (contents) => ({
                 apiKey: config.apiKey,
                 baseUrl: config.baseUrl,
                 model: config.chatModel,
-                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                contents,
                 config: {
-                    ...getGeminiSubmissionConfig(scpAnalysisSubmission),
-                    thinkingConfig: {
-                        includeThoughts: true,
-                    }
+                    ...getGeminiSubmissionConfig(contract),
                 },
-            });
-            const parsed = parseStructuredSubmission(response, 'gemini', scpAnalysisSubmission);
-            if (!parsed) throw new Error("Failed to parse analysis JSON");
-            return parsed as SCPData;
+            }),
+        });
+        const tools = new Map<string, AgentToolHandler<T>>([
+            [webSearchFunction.name, async (args, signal) => ({
+                output: await runWebSearch(args.query, {
+                    provider: 'gemini', apiKey: config.apiKey, baseUrl: config.baseUrl, model: config.chatModel,
+                }, signal),
+            })],
+            [contract.name, async args => ({ output: { success: true }, result: validateSubmission(contract, args) })],
+        ]);
+        return completeAgentLoop({
+            adapter,
+            history: [{ role: 'user', parts: [{ text: prompt }] }],
+            tools,
+        });
+    }
 
-        } catch (e) {
-            return {
-                role: role,
-                designation: "???",
-                name: "异常实体",
-                containmentClass: "未知",
-                visualDescription: "dark abstract glitch horror texture, scp foundation aesthetic",
-                entityDescription: "unknown anomaly, redacted silhouette, scp foundation record",
-            };
-        }
+    async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData> {
+        console.log(`[GeminiProvider] Analyzing SCP: ${input}`);
+        return this.runSubmission(getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData, profile), scpAnalysisSubmission);
     }
 
     async generateProfileCandidates(role: string, scpDesignation: string, language: Language, legacyData?: LegacyData): Promise<EntityProfile[]> {
-        const prompt = getProfileCandidatesPrompt(role, scpDesignation, language, legacyData);
-        try {
-            const config = await this.getConfig();
-            console.log(`[GeminiProvider] Generating profile candidates for ${role}, config is ${JSON.stringify(config)}`);
-            const response = await postJson<any>("/api/ai/gemini/generate-content", {
-                apiKey: config.apiKey,
-                baseUrl: config.baseUrl,
-                model: config.chatModel,
-                contents: [{ role: "user", parts: [{ text: prompt }] }],
-                config: {
-                    temperature: 0.9,
-                    ...getGeminiSubmissionConfig(profileCandidatesSubmission),
-                    thinkingConfig: {
-                        includeThoughts: true,
-                    }
-                },
-            });
-
-            const parsed = parseStructuredSubmission(response, 'gemini', profileCandidatesSubmission);
-            if (!parsed) throw new Error("Missing profile candidate submission");
-            return parsed;
-        } catch (error) {
-            console.error("Failed to generate profile candidates:", error);
-            // Return fallback candidates
-            return [
-                {
-                    name: role,
-                    age: "Unknown",
-                    abilities: ["Observation", "Basic Survival"],
-                    background: "A standard personnel assigned to this anomaly.",
-                    keywords: ["Survival", "Mystery"]
-                }
-            ];
-        }
+        console.log(`[GeminiProvider] Generating profile candidates for ${role}`);
+        return this.runSubmission(getProfileCandidatesPrompt(role, scpDesignation, language, legacyData), profileCandidatesSubmission);
     }
 
     private async compressHistory(language: Language): Promise<void> {
@@ -600,163 +578,27 @@ export class GeminiProvider implements AIService {
     ): AsyncGenerator<AgentStreamEvent> {
         const config = await this.getConfig();
         const systemInstruction = `${getEditorAssistantPrompt(language, difficulty, legacyData)}\n\n${getEditorAssistantContext(scpData)}`;
-
-        // Convert EditorChatMessage[] to Gemini-native contents,
-        // which correctly replays prior tool calls via nativeHistory
-        const baseContents: any[] = toGeminiContents(messages);
-        let currentContents: any[] = [...baseContents];
-
-        // Collect all native history entries produced during THIS turn
-        // so the UI can store them for future replay
-        const turnNativeHistory: any[] = [];
-
-        let loopCount = 0;
-        const MAX_LOOPS = 20;
-        console.log(`[GeminiProvider] streamEditorAssistant called. messages: ${messages.length}, baseContents: ${baseContents.length}`);
-
-        while (loopCount < MAX_LOOPS) {
-            loopCount += 1;
-            const toolCalls: { id?: string; name: string; args: any }[] = [];
-            console.log(`[GeminiProvider] streamEditorAssistant loop ${loopCount}, contents length: ${currentContents.length}`);
-
-            // 1. Call Gemini API with streaming
-            const stream = streamSse<any>("/api/ai/gemini/chat-stream", {
+        const adapter = new GeminiAgentAdapter({
+            path: '/api/ai/gemini/chat-stream',
+            stream: true,
+            buildRequest: (contents) => ({
                 apiKey: config.apiKey,
                 baseUrl: config.baseUrl,
                 model: config.chatModel,
-                contents: currentContents,
+                contents,
                 config: {
                     systemInstruction,
                     tools: this.buildGeminiTools(),
                 },
-            });
-
-            // During streaming: yield text deltas to UI, collect raw functionCall parts
-            const rawFunctionCallParts: any[] = [];
-            let fullText = "";
-
-            for await (const chunk of stream) {
-                const candidates = chunk?.candidates || [];
-                for (const candidate of candidates) {
-                    const parts = candidate?.content?.parts || [];
-                    for (const part of parts) {
-                        if (part.text) {
-                            fullText += part.text;
-                            yield { type: "assistant_delta", delta: part.text };
-                        }
-                        if (part.functionCall) {
-                            toolCalls.push({
-                                id: part.functionCall.id,
-                                name: part.functionCall.name,
-                                args: part.functionCall.args || part.functionCall.arguments || {}
-                            });
-                            // Preserve the ENTIRE raw part (including thought_signature etc.)
-                            rawFunctionCallParts.push(part);
-                        }
-                    }
-                }
-            }
-
-            // After stream ends: build a single consolidated model entry
-            // - one merged text part (instead of per-chunk fragments)
-            // - raw functionCall parts as-is (preserving thought_signature)
-            const modelParts: any[] = [];
-            if (fullText) {
-                modelParts.push({ text: fullText });
-            }
-            if (rawFunctionCallParts.length > 0) {
-                modelParts.push(...rawFunctionCallParts);
-            }
-
-            // 2. If no tool calls, we are done - record the model text turn and break
-            if (toolCalls.length === 0) {
-                if (modelParts.length > 0) {
-                    const modelEntry = { role: "model", parts: modelParts };
-                    turnNativeHistory.push(modelEntry);
-                }
-                break;
-            }
-
-            // 3. Append model response (text + functionCalls) to currentContents
-            if (modelParts.length > 0) {
-                const modelEntry = { role: "model", parts: modelParts };
-                currentContents.push(modelEntry);
-                turnNativeHistory.push(modelEntry);
-            }
-
-            // 4. Execute tools and collect function responses
-            const toolResponseParts: any[] = [];
-            for (const call of toolCalls) {
-                const callId = call.id || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-                const startTime = Date.now();
-
-                // Yield "start" event
-                yield {
-                    type: "tool_call",
-                    callId,
-                    name: call.name,
-                    args: call.args,
-                    state: "start",
-                    startTime
-                };
-
-                try {
-                    const result = await onToolCall(call.name, call.args);
-                    const endTime = Date.now();
-                    console.log(`[GeminiProvider] toolCall ${call.name} result:`, JSON.stringify(result).slice(0, 200));
-
-                    // Yield "result" event
-                    yield {
-                        type: "tool_call",
-                        callId,
-                        name: call.name,
-                        state: "result",
-                        result,
-                        endTime
-                    };
-
-                    const response = typeof result === "string" ? { result } : result;
-                    toolResponseParts.push({
-                        functionResponse: {
-                            id: call.id,
-                            name: call.name,
-                            response
-                        }
-                    });
-                } catch (e) {
-                    const endTime = Date.now();
-                    // Yield "error" event
-                    yield {
-                        type: "tool_call",
-                        callId,
-                        name: call.name,
-                        state: "error",
-                        error: String(e),
-                        endTime
-                    };
-
-                    toolResponseParts.push({
-                        functionResponse: {
-                            id: call.id,
-                            name: call.name,
-                            response: { error: String(e) }
-                        }
-                    });
-                }
-            }
-
-            // 5. Append function responses to currentContents (as user turn per Gemini spec)
-            if (toolResponseParts.length > 0) {
-                const toolEntry = { role: "user", parts: toolResponseParts };
-                currentContents.push(toolEntry);
-                turnNativeHistory.push(toolEntry);
-            }
-
-            // Loop continues to get model's response to tool results
-        }
-
-        // 6. Yield turn_complete with the native history for this entire turn
-        yield { type: "turn_complete", nativeHistory: turnNativeHistory };
+            }),
+        });
+        yield* runAgentLoop({
+            adapter,
+            history: toGeminiContents(messages),
+            tools: createToolRegistry(editorTools.map(tool => tool.function.name), async (name, args) => ({
+                output: await onToolCall(name, args),
+            })),
+        });
     }
 
 }

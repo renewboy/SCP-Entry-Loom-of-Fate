@@ -38,7 +38,7 @@ export const EntityProfileSchema = z.object({
 });
 
 export const ProfileCandidatesSubmissionSchema = z.object({
-    candidates: z.array(EntityProfileSchema),
+    candidates: z.array(EntityProfileSchema).length(3),
 });
 
 export const ProfileCandidatesSubmissionJsonSchema = zodToJsonSchema(ProfileCandidatesSubmissionSchema, {
@@ -204,7 +204,7 @@ export const AnalyzeScpDataSchema = z.object({
     storyDraft: StoryDraftSchema.optional(),
 });
 
-const AnalyzeScpDataSubmissionSchema = z.object({
+export const AnalyzeScpDataSubmissionSchema = z.object({
     designation: z.string(),
     name: z.string(),
     containmentClass: z.string(),
@@ -223,7 +223,7 @@ const AnalyzeScpDataSubmissionSchema = z.object({
             discoverables: true,
             requires: true,
             blockedText: true,
-        }).required()),
+        }).required()).nonempty(),
         npcs: z.array(MapBlueprintNPCSchema.required()),
         objectives: z.array(MapBlueprintObjectiveSchema.omit({
             progress: true,

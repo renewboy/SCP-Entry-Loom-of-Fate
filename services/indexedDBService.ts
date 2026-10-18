@@ -20,6 +20,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     enableBackgroundImages: true,
     enableEntityImages: true,
     enableNpcImages: true,
+    imageStyle: 'original',
     difficulty: 'normal',
     bgmVolume: 0.8,
     sfxVolume: 1,
@@ -97,7 +98,7 @@ export const saveGlobalSettings = async (settings: GlobalSettings): Promise<void
 export const loadGlobalSettings = async (): Promise<GlobalSettings> => {
     const settings = await loadSetting(GLOBAL_SETTINGS_KEY);
     if (!settings) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...settings };
+    return { ...DEFAULT_SETTINGS, ...settings, imageStyle: settings.imageStyle === 'paper-cut' ? 'paper-cut' : 'original' };
 };
 
 export const saveEditingSCPData = async (data: SCPData | null): Promise<void> => {

@@ -1,16 +1,20 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { AIProviderConfig, AIService, ContextPromptAnchors, ImageAspectRatio } from "../types";
+import { AIProviderConfig, AIService, ContextPromptAnchors, ImageAspectRatio, ImageReference } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt, getCompressionPrompt } from "../prompts";
 import { getEditorAssistantPrompt, getEditorAssistantContext, editorTools } from "../editorPrompts";
 import { normalizeGameReviewData, safeParseJson, cleanHistoryText } from "../utils";
 import { AudioDramaSchema } from "../schemas";
 import {
-    parseStructuredSubmission,
     profileCandidatesSubmission,
     scpAnalysisSubmission,
+    SubmissionContract,
     toOpenAIResponseTool,
+    validateSubmission,
 } from "../structuredOutput";
+import { completeAgentLoop, createToolRegistry, runAgentLoop } from "../agentLoop";
+import type { AgentToolHandler } from "../agentLoop";
+import { OpenAIChatAgentAdapter, OpenAIResponsesAgentAdapter } from "../agentAdapters";
 import { postJson, streamSse } from "./backendClient";
 import { aiConfig } from "../../../config/aiConfig";
 import { imageSizeFromAspectRatio } from "../utils";
@@ -101,7 +105,7 @@ export class OpenAIProvider implements AIService {
         ];
     }
 
-    public async generateImage(prompt: string, aspectRatio: ImageAspectRatio = "1:1", responseFormat: "url" | "b64_json" = "url"): Promise<string | null> {
+    public async generateImage(prompt: string, aspectRatio: ImageAspectRatio = "1:1", responseFormat: "url" | "b64_json" = "url", referenceImages: ImageReference[] = []): Promise<string | null> {
         try {
             const config = await this.getConfig();
             const response = await postJson<any>("/api/ai/openai/generate-image", {
@@ -110,6 +114,7 @@ export class OpenAIProvider implements AIService {
                 model: config.imageModel,
                 size: imageSizeFromAspectRatio(aspectRatio),
                 prompt: prompt,
+                referenceImages,
                 response_format: 'b64_json',
                 extra_body: {
                     watermark: false,
@@ -122,57 +127,31 @@ export class OpenAIProvider implements AIService {
         }
     }
 
+    private async runSubmission<T>(prompt: string, contract: SubmissionContract<T>): Promise<T> {
+        const config = await this.getConfig();
+        const adapter = new OpenAIResponsesAgentAdapter({
+            path: '/api/ai/openai/response',
+            buildRequest: (input) => this.buildResponseRequest(config, {
+                input,
+                tools: [{ type: 'web_search' }, toOpenAIResponseTool(contract)],
+            }),
+        });
+        const tools = new Map<string, AgentToolHandler<T>>([
+            [contract.name, async args => ({ output: { success: true }, result: validateSubmission(contract, args) })],
+        ]);
+        return completeAgentLoop({
+            adapter,
+            history: [{ role: 'user', content: prompt }],
+            tools,
+        });
+    }
+
     async generateProfileCandidates(role: string, scpDesignation: string, language: Language, legacyData?: LegacyData): Promise<EntityProfile[]> {
-        const prompt = getProfileCandidatesPrompt(role, scpDesignation, language, legacyData);
-        try {
-            const config = await this.getConfig();
-            console.log(`[OpenAIProvider] Generating profile candidates for ${role}...`);
-            const response = await postJson<any>("/api/ai/openai/response", this.buildResponseRequest(config, {
-                input: prompt,
-                tools: [{ type: "web_search" }, toOpenAIResponseTool(profileCandidatesSubmission)],
-            }));
-            const result = parseStructuredSubmission(response, 'openai', profileCandidatesSubmission);
-            if (!result) {
-                throw new Error("Missing profile candidate submission");
-            }
-            return result;
-        } catch (error) {
-             console.error("Failed to generate profile candidates:", error);
-             return [
-                {
-                    name: role,
-                    age: "Unknown",
-                    abilities: ["Observation", "Basic Survival"],
-                    background: "A standard personnel assigned to this anomaly.",
-                    keywords: ["Survival", "Mystery"]
-                }
-            ];
-        }
+        return this.runSubmission(getProfileCandidatesPrompt(role, scpDesignation, language, legacyData), profileCandidatesSubmission);
     }
 
     async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData> {
-        try {
-            const config = await this.getConfig();
-            const prompt = getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData, profile);
-            const response = await postJson<any>("/api/ai/openai/response", this.buildResponseRequest(config, {
-                input: prompt,
-                tools: [{ type: "web_search" }, toOpenAIResponseTool(scpAnalysisSubmission)],
-            }));
-            console.log(`[OpenAIProvider] Raw response for analysis: ${JSON.stringify(response)}`);
-            const parsed = parseStructuredSubmission(response, 'openai', scpAnalysisSubmission);
-            if (!parsed) throw new Error("Failed to parse analysis JSON");
-            return parsed as SCPData;
-
-        } catch (e) {
-            return {
-                role: role,
-                designation: "???",
-                name: "异常实体",
-                containmentClass: "未知",
-                visualDescription: "dark abstract glitch horror texture, scp foundation aesthetic",
-                entityDescription: "unknown anomaly, redacted silhouette, scp foundation record",
-            };
-        }
+        return this.runSubmission(getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData, profile), scpAnalysisSubmission);
     }
 
     async *initializeGameChatStream(scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData, difficulty: GameDifficulty = 'normal'): AsyncGenerator<string> {
@@ -489,169 +468,28 @@ export class OpenAIProvider implements AIService {
     ): AsyncGenerator<AgentStreamEvent> {
         const config = await this.getConfig();
         const systemPrompt = getEditorAssistantPrompt(language, difficulty, legacyData);
-
-        // Convert EditorChatMessage[] to OpenAI-native messages,
-        // which correctly replays prior tool calls via nativeHistory
-        const historyMessages = toOpenAIMessages(messages);
-
-        const contextMessages = [
-            { role: "system", content: systemPrompt },
-            { role: "system", content: getEditorAssistantContext(scpData) },
-            ...historyMessages
-        ];
-
-        let currentLoopMessages: any[] = [...contextMessages];
-
-        // Collect all native history entries produced during THIS turn
-        // so the UI can store them for future replay
-        const turnNativeHistory: any[] = [];
-
-        let loopCount = 0;
-        const MAX_LOOPS = 20;
-
-        while (loopCount < MAX_LOOPS) {
-            loopCount++;
-
-            const toolCallsMap: Record<number, { index: number; id?: string; name?: string; arguments: string }> = {};
-            let hasToolCalls = false;
-            let assistantText = "";
-
-            console.log(`[EditorAssistant] streamEditorAssistant loop ${loopCount}`);
-
-            // 1. Call OpenAI API and stream response
-            const stream = streamSse<any>("/api/ai/openai/chat-completion-stream", {
+        const adapter = new OpenAIChatAgentAdapter({
+            path: '/api/ai/openai/chat-completion-stream',
+            stream: true,
+            buildRequest: (input) => ({
                 apiKey: config.apiKey,
                 baseUrl: config.baseUrl,
                 chatModel: config.chatModel,
-                input: currentLoopMessages,
+                input,
                 tools: editorTools,
-                stream: true
-            });
-
-            for await (const chunk of stream) {
-                const choice = chunk.choices?.[0];
-                if (!choice) continue;
-                const delta = choice.delta;
-
-                // Handle text content delta
-                if (delta.content) {
-                    assistantText += delta.content;
-                    yield { type: "assistant_delta", delta: delta.content };
-                }
-
-                // Handle tool calls delta
-                if (delta.tool_calls) {
-                    hasToolCalls = true;
-                    for (const tc of delta.tool_calls) {
-                        const index = tc.index;
-                        if (!toolCallsMap[index]) {
-                            toolCallsMap[index] = { index, arguments: "" };
-                        }
-                        if (tc.id) toolCallsMap[index].id = tc.id;
-                        if (tc.function?.name) toolCallsMap[index].name = tc.function.name;
-                        if (tc.function?.arguments) toolCallsMap[index].arguments += tc.function.arguments;
-                    }
-                }
-            }
-
-            // 2. If no tool calls, record the assistant text and break
-            if (!hasToolCalls) {
-                if (assistantText) {
-                    turnNativeHistory.push({ role: "assistant", content: assistantText });
-                }
-                break;
-            }
-
-            // 3. Process accumulated tool calls
-            const completedToolCalls = Object.values(toolCallsMap).map(tc => ({
-                id: tc.id || `call_${Date.now()}_${tc.index}`,
-                type: 'function',
-                function: {
-                    name: tc.name || "",
-                    arguments: tc.arguments
-                }
-            }));
-
-            // Build the assistant message with tool_calls (and optional text)
-            const assistantEntry: any = {
-                role: "assistant",
-                content: assistantText || null,
-                tool_calls: completedToolCalls
-            };
-            currentLoopMessages.push(assistantEntry);
-            turnNativeHistory.push(assistantEntry);
-
-            // 4. Execute tools and yield events
-            for (const call of completedToolCalls) {
-                const callId = call.id;
-                const toolName = call.function.name;
-                const startTime = Date.now();
-                let args = {};
-
-                try {
-                    args = JSON.parse(call.function.arguments);
-                } catch (e) {
-                    console.error("Failed to parse tool arguments:", call.function.arguments);
-                }
-
-                // Send "start" event
-                yield {
-                    type: "tool_call",
-                    callId,
-                    name: toolName,
-                    args,
-                    state: "start",
-                    startTime
-                };
-
-                let resultStr = "";
-                try {
-                    console.log(`[EditorAssistant] Executing tool ${toolName}...`);
-                    const result = await onToolCall(toolName, args);
-                    const endTime = Date.now();
-
-                    // Send "result" event
-                    yield {
-                        type: "tool_call",
-                        callId,
-                        name: toolName,
-                        state: "result",
-                        result,
-                        endTime
-                    };
-
-                    resultStr = JSON.stringify(result);
-                } catch (e) {
-                    const endTime = Date.now();
-                    console.error(`Tool execution failed: ${e}`);
-
-                    // Send "error" event
-                    yield {
-                        type: "tool_call",
-                        callId,
-                        name: toolName,
-                        state: "error",
-                        error: String(e),
-                        endTime
-                    };
-
-                    resultStr = JSON.stringify({ error: String(e) });
-                }
-
-                // Append tool result to history
-                const toolResultEntry = {
-                    role: "tool",
-                    tool_call_id: call.id,
-                    name: toolName,
-                    content: resultStr
-                };
-                currentLoopMessages.push(toolResultEntry);
-                turnNativeHistory.push(toolResultEntry);
-            }
-        }
-
-        // Yield turn_complete with the native history for this entire turn
-        yield { type: "turn_complete", nativeHistory: turnNativeHistory };
+            }),
+        });
+        yield* runAgentLoop({
+            adapter,
+            history: [
+                { role: 'system', content: systemPrompt },
+                { role: 'system', content: getEditorAssistantContext(scpData) },
+                ...toOpenAIMessages(messages),
+            ],
+            tools: createToolRegistry(editorTools.map(tool => tool.function.name), async (name, args) => ({
+                output: await onToolCall(name, args),
+            })),
+        });
     }
 
 }

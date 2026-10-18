@@ -1,7 +1,6 @@
 import { useCallback, useState, useEffect } from 'react';
 import { SCPData } from '../../types';
 import { generateImage } from '../../services/aiService';
-import { enhanceBackgroundPrompt, enhanceEntityPrompt, enhanceNpcPrompt } from '../../services/ai/promptUtils';
 import { getBackgroundAspectRatio } from '../../services/ai/utils';
 
 export const useStoryImageManager = ({
@@ -93,8 +92,8 @@ export const useStoryImageManager = ({
     const handleGenerateImage = async (type: 'bg' | 'entity') => {
         setGeneratingState(prev => ({ ...prev, [type]: true }));
         try {
-            const prompt = type === 'bg' ? enhanceBackgroundPrompt(bgImagePrompt) : enhanceEntityPrompt(entityImagePrompt);
-            const url = await generateImage(prompt, type === 'bg' ? getBackgroundAspectRatio() : "1:1");
+            const description = type === 'bg' ? bgImagePrompt : entityImagePrompt;
+            const url = await generateImage(description, type === 'bg' ? getBackgroundAspectRatio() : "1:1", "url", type === 'bg' ? 'background' : 'entity');
             if (url) {
                 setScpData(prev => ({
                     ...prev,
@@ -120,10 +119,7 @@ export const useStoryImageManager = ({
             const basePrompt = npcImagePrompts[npcId];
             if (!basePrompt) return;
             
-            // Add fallback style prompts for consistency
-            const enhancedPrompt = enhanceNpcPrompt(basePrompt);
-            
-            const url = await generateImage(enhancedPrompt, "1:1");
+            const url = await generateImage(basePrompt, "1:1", "url", 'npc');
             if (url) {
                 setScpData(prev => ({
                     ...prev,

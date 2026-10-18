@@ -19,7 +19,7 @@ describe('GeminiProvider', () => {
   });
 
   it('passes the provider base URL to image generation requests', async () => {
-    postJsonMock.mockResolvedValue({
+    postJsonMock.mockResolvedValueOnce({
       candidates: [{
         content: {
           parts: [{
@@ -39,23 +39,25 @@ describe('GeminiProvider', () => {
       imageModel: 'gemini-image',
     });
 
-    await expect(provider.generateImage('draw it')).resolves.toBe('data:image/png;base64,aW1hZ2U=');
+    const references = [{ mimeType: 'image/png' as const, data: 'c3R5bGU=' }];
+    await expect(provider.generateImage('draw it', '1:1', 'url', references)).resolves.toBe('data:image/png;base64,aW1hZ2U=');
     expect(postJsonMock).toHaveBeenCalledWith('/api/ai/gemini/generate-image', expect.objectContaining({
       apiKey: 'gemini-key',
       baseUrl: 'https://gemini.example.test',
       model: 'gemini-image',
+      referenceImages: references,
     }));
   });
 
   it('submits researched profile candidates through the shared function contract', async () => {
-    const candidates = [{
-      name: 'Agent Test',
+    const candidates = Array.from({ length: 3 }, (_, index) => ({
+      name: `Agent ${index}`,
       age: '31',
       abilities: ['Research'],
       background: 'Foundation analyst.',
       keywords: ['Archive'],
-    }];
-    postJsonMock.mockResolvedValue({
+    }));
+    postJsonMock.mockResolvedValueOnce({
       candidates: [{
         content: {
           parts: [{
@@ -66,7 +68,7 @@ describe('GeminiProvider', () => {
           }],
         },
       }],
-    });
+    }).mockResolvedValueOnce({ candidates: [{ content: { parts: [{ text: 'Done.' }] } }] });
 
     const provider = new GeminiProvider({
       apiKey: 'gemini-key',
@@ -80,23 +82,79 @@ describe('GeminiProvider', () => {
       config: expect.objectContaining({
         toolConfig: {
           functionCallingConfig: {
-            mode: 'ANY',
-            allowedFunctionNames: ['submit_profile_candidates'],
+            mode: 'AUTO',
           },
         },
         tools: [
           expect.objectContaining({
-            functionDeclarations: [expect.objectContaining({
+            functionDeclarations: expect.arrayContaining([expect.objectContaining({
               name: 'submit_profile_candidates',
               parameters: expect.objectContaining({
                 type: 'OBJECT',
                 required: ['candidates'],
               }),
-            })],
+            })]),
           }),
         ],
       }),
     }));
+  });
+
+  it('runs search and repairs empty submissions with the original call signatures', async () => {
+    const candidates = Array.from({ length: 3 }, (_, index) => ({
+      name: `Agent ${index}`, age: '31', abilities: ['Research'],
+      background: 'Foundation analyst.', keywords: ['Archive'],
+    }));
+    const searchPart = {
+      thoughtSignature: 'search-signature',
+      functionCall: { id: 'search-id', name: 'web_search', args: { query: 'SCP-6262' } },
+    };
+    const emptyPart = {
+      thoughtSignature: 'submit-signature',
+      functionCall: { id: 'submit-id', name: 'submit_profile_candidates', args: {} },
+    };
+    postJsonMock
+      .mockResolvedValueOnce({ candidates: [{ content: { parts: [searchPart] } }] })
+      .mockResolvedValueOnce({ candidates: [{ content: { parts: [
+        { thought: true, text: 'private reasoning' },
+        { text: 'Verified SCP facts: https://scp-wiki.wikidot.com/scp-6262' },
+      ] } }] })
+      .mockResolvedValueOnce({ candidates: [{ content: { parts: [emptyPart] } }] })
+      .mockResolvedValueOnce({ candidates: [{ content: { parts: [{
+        functionCall: { name: 'submit_profile_candidates', args: { candidates } },
+      }] } }] })
+      .mockResolvedValueOnce({ candidates: [{ content: { parts: [{ text: 'Done.' }] } }] });
+
+    const provider = new GeminiProvider({
+      apiKey: 'gemini-key', baseUrl: 'http://127.0.0.1:8317',
+      chatModel: 'gemini-text', imageModel: 'gemini-image',
+    });
+    await expect(provider.generateProfileCandidates('Researcher', 'SCP-6262', 'zh')).resolves.toEqual(candidates);
+    const searchRequest = postJsonMock.mock.calls[1][1];
+    expect(searchRequest.baseUrl).toBe('http://127.0.0.1:8317');
+    expect(searchRequest.config.tools).toEqual([{ googleSearch: {} }]);
+    const finalRequest = postJsonMock.mock.calls[3][1];
+    expect(finalRequest.contents[1].parts).toEqual([searchPart]);
+    expect(finalRequest.contents[2].parts[0].functionResponse).toEqual({
+      id: 'search-id', name: 'web_search',
+      response: { result: 'Verified SCP facts: https://scp-wiki.wikidot.com/scp-6262' },
+    });
+    expect(finalRequest.contents[3].parts).toEqual([emptyPart]);
+    expect(finalRequest.contents[4].parts[0].functionResponse).toMatchObject({
+      id: 'submit-id', name: 'submit_profile_candidates',
+      response: { success: false, issues: [expect.stringContaining('candidates')] },
+    });
+    expect(finalRequest.config).not.toHaveProperty('responseMimeType');
+    expect(finalRequest.config).not.toHaveProperty('responseJsonSchema');
+  });
+
+  it('propagates API errors instead of returning default characters or empty SCP data', async () => {
+    postJsonMock.mockRejectedValue(new Error('upstream unavailable'));
+    const provider = new GeminiProvider({
+      apiKey: 'key', chatModel: 'gemini-text', imageModel: 'gemini-image',
+    });
+    await expect(provider.generateProfileCandidates('Researcher', 'SCP-173', 'zh')).rejects.toThrow('upstream unavailable');
+    await expect(provider.analyzeSCPUrl('SCP-173', 'zh', 'Researcher')).rejects.toThrow('upstream unavailable');
   });
 
   it('reuses the Gemini function call id when returning tool results', async () => {
