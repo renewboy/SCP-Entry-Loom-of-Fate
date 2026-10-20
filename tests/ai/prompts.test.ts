@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { getAnalyzeSCPPrompt, getContextPrompt, getStartGamePrompt, getSystemInstruction } from '../../services/ai/prompts';
+import { getEditorAssistantPrompt } from '../../services/ai/editorPrompts';
 
 describe('ai prompts', () => {
+  it('生图主体字段保持内容描述，绘画风格由生图模板控制', () => {
+    const analyzePrompt = getAnalyzeSCPPrompt('SCP-173', 'zh', '研究员', 'normal');
+    const editorPrompt = getEditorAssistantPrompt('zh');
+    expect(analyzePrompt).toContain('Noun phrases only. No verbs, no background context.');
+    expect(analyzePrompt).toContain('The image renderer applies the selected drawing style');
+    expect(editorPrompt).toContain('entityDescription: noun phrases only, no verbs, no background context.');
+    expect(editorPrompt).toContain('The image renderer applies the selected drawing style');
+  });
+
   it('系统指令通过模板输出目标语言', () => {
     const prompt = getSystemInstruction('研究员', 'zh');
 

@@ -5,6 +5,7 @@ import { extractVisualPrompt, extractStability, extractEnding, extractLoc, extra
 import { getEmbeddings } from "./ai/providers/embeddingProvider";
 import { hasLocalMemories, loadGlobalSettings, searchLocalMemories } from "./indexedDBService";
 import { buildImagePrompt } from "./ai/promptUtils";
+import { getImageStyleDefinition } from "./ai/imageStyles";
 import { hasStagedRagMemories, searchStagedRagMemories } from "./ragStaging";
 import { getAnalysisProvider, getAssistantProvider, getImageProvider, getNarrationProvider, resetProviderRouter } from "./ai/providerRouter";
 import { AgentStreamEvent } from "./ai/streamProtocol";
@@ -191,11 +192,8 @@ export const generateLegacyData = async (
 
 export const generateImage = async (description: string, aspectRatio: ImageAspectRatio = "1:1", responseFormat: "url" | "b64_json" = "url", styleKind: ImageStyleKind = 'scene'): Promise<string | null> => {
     const settings = await loadGlobalSettings();
-    const style = settings.imageStyle === 'paper-cut' ? 'paper-cut' : 'original';
-    const prompt = buildImagePrompt(description, styleKind, style);
-    const referenceImages = style === 'paper-cut'
-        ? [(await import('./ai/imageStyleReferences')).getImageStyleReference(styleKind)]
-        : [];
+    const prompt = buildImagePrompt(description, styleKind, settings.imageStyle, aspectRatio);
+    const referenceImages = await getImageStyleDefinition(settings.imageStyle).loadReferences();
     return (await getImageProvider()).generateImage(prompt, aspectRatio, responseFormat, referenceImages);
 };
 

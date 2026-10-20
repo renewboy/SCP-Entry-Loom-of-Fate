@@ -1,5 +1,6 @@
 import { GameState, SaveGameMetadata, GlobalSettings, MapBlueprint, StoryDraft, SCPData } from '../types';
 import { compressGameState, createThumbnail, decompressGameState } from '../utils/saveHelpers';
+import { DEFAULT_IMAGE_DRAWING_STYLE, normalizeImageDrawingStyle } from './ai/imageStyles';
 
 export const ERROR_CODES = {
     SAVE_LIMIT_REACHED: 'SAVE_LIMIT_REACHED'
@@ -20,7 +21,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     enableBackgroundImages: true,
     enableEntityImages: true,
     enableNpcImages: true,
-    imageStyle: 'original',
+    imageStyle: DEFAULT_IMAGE_DRAWING_STYLE,
     difficulty: 'normal',
     bgmVolume: 0.8,
     sfxVolume: 1,
@@ -98,7 +99,7 @@ export const saveGlobalSettings = async (settings: GlobalSettings): Promise<void
 export const loadGlobalSettings = async (): Promise<GlobalSettings> => {
     const settings = await loadSetting(GLOBAL_SETTINGS_KEY);
     if (!settings) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...settings, imageStyle: settings.imageStyle === 'paper-cut' ? 'paper-cut' : 'original' };
+    return { ...DEFAULT_SETTINGS, ...settings, imageStyle: normalizeImageDrawingStyle(settings.imageStyle) };
 };
 
 export const saveEditingSCPData = async (data: SCPData | null): Promise<void> => {

@@ -11,6 +11,7 @@ import { setBgmVolume } from '../services/bgmService';
 import { setSfxVolume } from '../services/sfxService';
 import SettingsRange from './common/SettingsRange';
 import CustomSelect from './editor/CustomSelect';
+import { IMAGE_DRAWING_STYLE_OPTIONS } from '../services/ai/imageStyles';
 
 interface GlobalSettingsModalProps {
     isOpen: boolean;
@@ -430,10 +431,7 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
                                         <div className="w-full sm:w-56">
                                             <CustomSelect
                                                 value={settings.imageStyle}
-                                                options={[
-                                                    { value: 'original', label: t('settings.image_style_original') },
-                                                    { value: 'paper-cut', label: t('settings.image_style_paper_cut') },
-                                                ]}
+                                                options={IMAGE_DRAWING_STYLE_OPTIONS.map(({ value, labelKey }) => ({ value, label: t(labelKey) }))}
                                                 variant="settings"
                                                 onChange={value => handleImageStyleChange(value as GlobalSettings['imageStyle'])}
                                             />

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GameStatus, type GameState, type SCPData } from '../../types';
+import { GameStatus, type GameState, type GlobalSettings, type SCPData } from '../../types';
 import { startGameProcess } from '../../utils/gameStart';
 import { loadGlobalSettings } from '../../services/indexedDBService';
 import { getBackgroundAspectRatio, getSceneAspectRatio } from '../../services/ai/utils';
@@ -7,6 +7,16 @@ import { getBackgroundAspectRatio, getSceneAspectRatio } from '../../services/ai
 const initializeGameChatStreamMock = vi.hoisted(() => vi.fn());
 const setProviderCallbacksMock = vi.hoisted(() => vi.fn());
 const generateImageMock = vi.hoisted(() => vi.fn().mockResolvedValue(null));
+const defaultSettings = vi.hoisted(() => ({
+  difficulty: 'normal',
+  imageStyle: 'original',
+  bgmVolume: 0.8,
+  sfxVolume: 1,
+  enableBackgroundImages: false,
+  enableEntityImages: false,
+  enableNpcImages: false,
+  enableSceneImages: false,
+} satisfies GlobalSettings));
 
 vi.mock('../../services/aiService', async () => {
   const actual = await import('../../services/ai/utils');
@@ -19,13 +29,7 @@ vi.mock('../../services/aiService', async () => {
 });
 
 vi.mock('../../services/indexedDBService', () => ({
-  loadGlobalSettings: vi.fn().mockResolvedValue({
-    difficulty: 'normal',
-    enableBackgroundImages: false,
-    enableEntityImages: false,
-    enableNpcImages: false,
-    enableSceneImages: false
-  })
+  loadGlobalSettings: vi.fn().mockResolvedValue(defaultSettings)
 }));
 
 const createScpData = (): SCPData => ({
@@ -78,6 +82,7 @@ describe('startGameProcess', () => {
     initializeGameChatStreamMock.mockReset();
     setProviderCallbacksMock.mockReset();
     generateImageMock.mockReset().mockResolvedValue(null);
+    vi.mocked(loadGlobalSettings).mockReset().mockResolvedValue(defaultSettings);
   });
 
   it('并发触发时只初始化一次开局流', async () => {
@@ -118,7 +123,7 @@ describe('startGameProcess', () => {
 
   it('开局的背景、实体、NPC和场景插图都携带对应绘画提示词并写回图片', async () => {
     vi.mocked(loadGlobalSettings).mockResolvedValueOnce({
-      difficulty: 'normal',
+      ...defaultSettings,
       enableBackgroundImages: true,
       enableEntityImages: true,
       enableNpcImages: true,

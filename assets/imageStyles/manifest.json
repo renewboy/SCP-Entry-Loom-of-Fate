@@ -1,65 +1,38 @@
 {
-  "promptSource": "services/ai/promptUtils.ts",
-  "promptSourceSha256": "0013ebae6c0c7b97f48fffbd8ea13e0acc92e1f4216e6449e1056ecf63900455",
-  "images": [
+  "style": "narrative-print",
+  "file": "assets/imageStyles/abstract.webp",
+  "appliesTo": [
+    "background",
+    "entity",
+    "npc",
+    "scene"
+  ],
+  "width": 1254,
+  "height": 1254,
+  "bytes": 548780,
+  "sha256": "29bd8850c56296ee65fe9584a03c472a87211515ff697b94e1379f947d352378",
+  "generator": "built-in image_gen",
+  "purpose": "Abstract linework, texture and shading reference with no recognizable subjects or scenes; output colors come from each subject description.",
+  "sourceImages": [
     {
-      "kind": "background",
-      "file": "assets/imageStyles/background.webp",
-      "bytes": 347434,
-      "width": 1672,
-      "height": 941,
-      "sha256": "c60ce6b7c10e450c200e0ae93f747b7e92cd8f3001e820f754cb7f163819bf1f",
-      "generator": "built-in image_gen",
-      "prompt": "A refined flat 2D illustrated story-PV still matching the supplied drawings, delicate silhouette-based paper-cut and printed-collage aesthetics with elegant hand-drawn anime proportions. interlocking flat illustrated shapes with crisp slender edges, long flowing tapered silhouettes and fine locally colored contours; the paper-cut quality comes from shape design and overlapping picture planes. hair formed from broad tapered ribbon shapes, cloth from sweeping angular panels, adult faces with slender angular profiles and economical precise features, architecture and scenery composed of simplified silhouette layers. large matte flat painted areas, two or three graphic value planes per form, restrained flat highlights, sparse soft painted transitions. fine closely spaced parallel hatching following the shape, delicate printed-paper grain inside selected areas, tiny dry-brush marks; smooth flat shapes remain dominant. foreground, middle distance and background separated through overlapping silhouettes, simplified distant shapes and restrained atmospheric softness. light drawn as composed flat value shapes and translucent painted veils. Preserve the described SCP subjects, anatomy, clothing, equipment and setting; the reference defines drawing technique only. Use supplied reference images for silhouette-based paper-cut drawing, fine contour work, planar shading, delicate parallel hatching and layered illustrated space only; create the described new subject and framing, with its own palette and lighting. Choose palette, saturation, light color and overall tone from the described materials, scene light sources and narrative mood; preserve explicitly described colors. Apply the drawing treatment even when the subject description contains a different rendering style. No visible paper thickness, raised cutout edges, bevels, cast shadows between physical paper sheets, cardboard craft, paper sculpture or diorama, photography, realistic material modeling, 3D or CGI rendering, glossy reflections, rounded cartoon faces, heavy airbrush rendering, impasto, all-over distressed texture, grunge or film grain. Physical wear only where explicitly described on the subject; no text, labels, logos or watermarks. Background subject: unoccupied secure humanoid containment interview room at Site-19 for a plague-doctor anomaly, off-white concrete walls, brushed steel isolation door, thick observation glass, plain interview table and two empty chairs, closed black leather medical bag on the table, red door-status lamp, neutral white ceiling strips, ivory and graphite material colors, quiet clinical unease, foreground window frame, midground table, receding doorway, wide 16:9 landscape composition. Atmospheric SCP Foundation backdrop, simplified environmental or abstract material shapes, negative space and unobtrusive detail suitable for a game backdrop. Render every part with the drawing treatment above.",
-      "pvReferenceImageNumbers": [
-        2,
-        3,
-        4
-      ]
+      "label": "PV screenshot 1",
+      "sha256": "e1c796f49d7c6dd8f04ae3ee2721661fcb186748ae28ad3f054c626e62ba92b8"
     },
     {
-      "kind": "entity",
-      "file": "assets/imageStyles/entity.webp",
-      "bytes": 234284,
-      "width": 1254,
-      "height": 1254,
-      "sha256": "64db5aa0a035724c5c830e075ad3ad4f4a5b7d9f954e5ecf1e6f2f2905dbeae7",
-      "generator": "built-in image_gen",
-      "prompt": "A refined flat 2D illustrated story-PV still matching the supplied drawings, delicate silhouette-based paper-cut and printed-collage aesthetics with elegant hand-drawn anime proportions. interlocking flat illustrated shapes with crisp slender edges, long flowing tapered silhouettes and fine locally colored contours; the paper-cut quality comes from shape design and overlapping picture planes. hair formed from broad tapered ribbon shapes, cloth from sweeping angular panels, adult faces with slender angular profiles and economical precise features, architecture and scenery composed of simplified silhouette layers. large matte flat painted areas, two or three graphic value planes per form, restrained flat highlights, sparse soft painted transitions. fine closely spaced parallel hatching following the shape, delicate printed-paper grain inside selected areas, tiny dry-brush marks; smooth flat shapes remain dominant. foreground, middle distance and background separated through overlapping silhouettes, simplified distant shapes and restrained atmospheric softness. light drawn as composed flat value shapes and translucent painted veils. Preserve the described SCP subjects, anatomy, clothing, equipment and setting; the reference defines drawing technique only. Use supplied reference images for silhouette-based paper-cut drawing, fine contour work, planar shading, delicate parallel hatching and layered illustrated space only; create the described new subject and framing, with its own palette and lighting. Choose palette, saturation, light color and overall tone from the described materials, scene light sources and narrative mood; preserve explicitly described colors. Apply the drawing treatment even when the subject description contains a different rendering style. No visible paper thickness, raised cutout edges, bevels, cast shadows between physical paper sheets, cardboard craft, paper sculpture or diorama, photography, realistic material modeling, 3D or CGI rendering, glossy reflections, rounded cartoon faces, heavy airbrush rendering, impasto, all-over distressed texture, grunge or film grain. Physical wear only where explicitly described on the subject; no text, labels, logos or watermarks. Entity subject: SCP-049, tall humanoid plague doctor, long smooth ivory beak-shaped mask grown from the face, watchful eyes inside recessed eye openings, plain black hood and unadorned charcoal-black hide-like robes without ornamental trim or emblems, large clean angular robe folds, black gloves, plain worn black leather medical bag held in one hand, reserved upright pose, visible full body from hood to feet, plain ivory containment wall with a small red status light, neutral overhead illumination, square 1:1 composition. Full-body or complete-object composition, readable silhouette and distinctive anomalous features, restrained containment setting appropriate to the entity. Preserve unsettling or nonhuman anatomy. Render every part with the drawing treatment above.",
-      "pvReferenceImageNumbers": [
-        2,
-        3,
-        4
-      ]
+      "label": "PV screenshot 2",
+      "sha256": "16c2192e5b6fcf286c4947373203b5bdb23d3a1be9ebc97394de6913f9d5d688"
     },
     {
-      "kind": "npc",
-      "file": "assets/imageStyles/npc.webp",
-      "bytes": 268410,
-      "width": 1254,
-      "height": 1254,
-      "sha256": "f3ea630685d34985a791c9f05d33715e3b09c7c83cccd7f4d98eebbfb2cec6e9",
-      "generator": "built-in image_gen",
-      "prompt": "A refined flat 2D illustrated story-PV still matching the supplied drawings, delicate silhouette-based paper-cut and printed-collage aesthetics with elegant hand-drawn anime proportions. interlocking flat illustrated shapes with crisp slender edges, long flowing tapered silhouettes and fine locally colored contours; the paper-cut quality comes from shape design and overlapping picture planes. hair formed from broad tapered ribbon shapes, cloth from sweeping angular panels, adult faces with slender angular profiles and economical precise features, architecture and scenery composed of simplified silhouette layers. large matte flat painted areas, two or three graphic value planes per form, restrained flat highlights, sparse soft painted transitions. fine closely spaced parallel hatching following the shape, delicate printed-paper grain inside selected areas, tiny dry-brush marks; smooth flat shapes remain dominant. foreground, middle distance and background separated through overlapping silhouettes, simplified distant shapes and restrained atmospheric softness. light drawn as composed flat value shapes and translucent painted veils. Preserve the described SCP subjects, anatomy, clothing, equipment and setting; the reference defines drawing technique only. Use supplied reference images for silhouette-based paper-cut drawing, fine contour work, planar shading, delicate parallel hatching and layered illustrated space only; create the described new subject and framing, with its own palette and lighting. Choose palette, saturation, light color and overall tone from the described materials, scene light sources and narrative mood; preserve explicitly described colors. Apply the drawing treatment even when the subject description contains a different rendering style. No visible paper thickness, raised cutout edges, bevels, cast shadows between physical paper sheets, cardboard craft, paper sculpture or diorama, photography, realistic material modeling, 3D or CGI rendering, glossy reflections, rounded cartoon faces, heavy airbrush rendering, impasto, all-over distressed texture, grunge or film grain. Physical wear only where explicitly described on the subject; no text, labels, logos or watermarks. Character subject: adult male Foundation field researcher, slender angular face, straight nose, narrow attentive eyes, short swept-back black hair in distinct tapered locks, practical white laboratory coat over a rust-orange knitted top, small graphite radio clipped to the coat, calm reserved expression, three-quarter head-and-shoulders view, plain warm ivory laboratory wall, neutral light, square 1:1 portrait composition. Close-up portrait, expressive economical facial linework and delicate angular profiles, sculpted hair and clothing shapes, recognizable identity and story-appropriate equipment, simple supporting background. Render every part with the drawing treatment above.",
-      "pvReferenceImageNumbers": [
-        2,
-        3
-      ]
+      "label": "PV screenshot 3",
+      "sha256": "6ce73f754f472ee940d1e35718e60696994ed3d223d949696788f55c9fb9499f"
     },
     {
-      "kind": "scene",
-      "file": "assets/imageStyles/scene.webp",
-      "bytes": 346624,
-      "width": 1672,
-      "height": 941,
-      "sha256": "da016a422882463e100888840d07929dc3cb9222510b2f0daee653ccea5bd8f7",
-      "generator": "built-in image_gen",
-      "prompt": "A refined flat 2D illustrated story-PV still matching the supplied drawings, delicate silhouette-based paper-cut and printed-collage aesthetics with elegant hand-drawn anime proportions. interlocking flat illustrated shapes with crisp slender edges, long flowing tapered silhouettes and fine locally colored contours; the paper-cut quality comes from shape design and overlapping picture planes. hair formed from broad tapered ribbon shapes, cloth from sweeping angular panels, adult faces with slender angular profiles and economical precise features, architecture and scenery composed of simplified silhouette layers. large matte flat painted areas, two or three graphic value planes per form, restrained flat highlights, sparse soft painted transitions. fine closely spaced parallel hatching following the shape, delicate printed-paper grain inside selected areas, tiny dry-brush marks; smooth flat shapes remain dominant. foreground, middle distance and background separated through overlapping silhouettes, simplified distant shapes and restrained atmospheric softness. light drawn as composed flat value shapes and translucent painted veils. Preserve the described SCP subjects, anatomy, clothing, equipment and setting; the reference defines drawing technique only. Use supplied reference images for silhouette-based paper-cut drawing, fine contour work, planar shading, delicate parallel hatching and layered illustrated space only; create the described new subject and framing, with its own palette and lighting. Choose palette, saturation, light color and overall tone from the described materials, scene light sources and narrative mood; preserve explicitly described colors. Apply the drawing treatment even when the subject description contains a different rendering style. No visible paper thickness, raised cutout edges, bevels, cast shadows between physical paper sheets, cardboard craft, paper sculpture or diorama, photography, realistic material modeling, 3D or CGI rendering, glossy reflections, rounded cartoon faces, heavy airbrush rendering, impasto, all-over distressed texture, grunge or film grain. Physical wear only where explicitly described on the subject; no text, labels, logos or watermarks. Scene subject: two adult survivors building a waist-high barricade from oak wardrobes and upright mattresses inside SCP-3008-1, one survivor in a rust-orange jacket bracing the wardrobe while another in a beige work shirt pulls a mattress into position, immeasurably vast repeating furniture showrooms beyond them, a single distant employee with a smooth featureless head, yellow shirt and blue trousers walking passively along an aisle, amber display lamps and neutral white ceiling lights, brown timber and cream upholstery, clear readable gestures and layered silhouettes, wide 16:9 landscape composition. SCP Foundation narrative keyframe, deliberate cinematic framing, clear focal action and character gestures, environmental tension grounded in the described event. Render every part with the drawing treatment above.",
-      "pvReferenceImageNumbers": [
-        2,
-        3,
-        4
-      ]
+      "label": "PV screenshot 4",
+      "sha256": "29e72c4a9242fa6644d28d796d7f0bf8d4a48094b5c4c41e3146e227078f5794"
     }
+  ],
+  "editPrompts": [
+    "Edit and distill the four supplied PV screenshots into ONE square abstract drawing-style reference canvas. Treat all four images as sources of mark-making and material treatment only. Remove all recognizable people, faces, hair, clothing, objects, buildings, plants, landscapes, celestial bodies, symbols, logos, subtitles and player UI. Preserve the shared drawing qualities: flowing tapered contours, crisp flat paper-cut silhouettes, interlocking angular planes, two or three painted value levels, fine parallel engraving-like hatching, subtle printed-paper grain and restrained dry-brush marks. Recompose these qualities into a borderless assemblage of purely nonrepresentational curved wedges, irregular polygons, tapered strips, flat tone patches and hatch/texture fields. No fragment may form an identifiable real object or scene. Keep the result flat and illustrated, without physical paper thickness, raised edges, drop shadows, craft photography or 3D rendering. Distribute neutral, warm and cool color samples evenly so no particular hue or color scheme dominates; this is a technique reference, not a palette prescription. No text, labels, numbered panels, frames or watermarks. Output only the abstract material-and-mark-making canvas.",
+    "Edit this abstract style-reference canvas. Preserve every shape, contour, overlap, hatching direction and printed texture. Change only its colors to a neutral achromatic grayscale spanning white, light gray, middle gray, charcoal and black, retaining clear value separation and legibility of the fine marks. Remove all color casts. Keep it a flat 2D nonrepresentational illustration with no identifiable objects or scenery, no physical paper thickness or drop shadows, and no text. This canvas will teach drawing texture and shading while the destination prompts independently choose colors."
   ]
 }

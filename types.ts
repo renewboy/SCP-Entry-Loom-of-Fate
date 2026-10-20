@@ -418,7 +418,7 @@ export interface AISettings {
   routes: Record<AIModelRouteName, AIModelRoute>;
 }
 
-export type ImageDrawingStyle = 'original' | 'paper-cut';
+export type ImageDrawingStyle = 'original' | 'narrative-print' | 'gothic-ink';
 
 export interface GlobalSettings {
   enableSceneImages: boolean;

@@ -28,15 +28,18 @@ describe('drawing style setting', () => {
   });
   afterEach(cleanup);
 
-  it('saves the selected style and restores it when settings are reopened', async () => {
+  it.each([
+    ['版画叙事', 'narrative-print'],
+    ['幽境墨绘', 'gothic-ink'],
+  ])('saves %s and restores it when settings are reopened', async (label, style) => {
     const props = { isOpen: true, onClose: vi.fn() };
     const { rerender } = render(<GlobalSettingsModal {...props} />);
     fireEvent.click(await screen.findByText('默认（原版）'));
-    fireEvent.click(screen.getByText('剪纸叙事'));
-    await waitFor(() => expect(saveMock).toHaveBeenCalledWith(expect.objectContaining({ imageStyle: 'paper-cut', difficulty: 'normal', enableBackgroundImages: true })));
+    fireEvent.click(screen.getByText(label));
+    await waitFor(() => expect(saveMock).toHaveBeenCalledWith(expect.objectContaining({ imageStyle: style, difficulty: 'normal', enableBackgroundImages: true })));
     rerender(<GlobalSettingsModal {...props} isOpen={false} />);
     rerender(<GlobalSettingsModal {...props} />);
-    fireEvent.click(await screen.findByText('剪纸叙事'));
+    fireEvent.click(await screen.findByText(label));
     fireEvent.click(screen.getByText('默认（原版）'));
     await waitFor(() => expect(saveMock).toHaveBeenLastCalledWith(expect.objectContaining({ imageStyle: 'original' })));
   });
