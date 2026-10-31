@@ -18,6 +18,8 @@ interface UseBeatPlayerOptions {
   autoAdvance: boolean;
   /** Earliest time the first beat may appear, so a location title card can finish */
   holdUntilRef: React.MutableRefObject<number>;
+  /** Watching a finished turn again: it plays from the start instead of opening on its end */
+  replaying?: boolean;
 }
 
 export interface BeatPlayer {
@@ -49,7 +51,7 @@ export interface BeatPlayer {
  * player only tracks where the reader is and never touches the message itself.
  */
 export function useBeatPlayer(options: UseBeatPlayerOptions): BeatPlayer {
-  const { turnId, turn, settled, hasEnding, paused, autoAdvance, holdUntilRef } = options;
+  const { turnId, turn, settled, hasEnding, paused, autoAdvance, holdUntilRef, replaying = false } = options;
   const { beats } = turn;
 
   const endPhase = (ending: boolean): StagePhase => (ending ? 'ending' : 'choosing');
@@ -67,8 +69,8 @@ export function useBeatPlayer(options: UseBeatPlayerOptions): BeatPlayer {
 
   if (activeTurn !== turnId) {
     setActiveTurn(turnId);
-    setPhase(settled ? endPhase(hasEnding) : 'waiting');
-    setRestored(settled);
+    setPhase(settled && !replaying ? endPhase(hasEnding) : 'waiting');
+    setRestored(settled && !replaying);
     setIndex(-1);
     setInstant(false);
     setRevealed(false);

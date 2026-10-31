@@ -5,6 +5,7 @@
 .stage-root { --report: "Special Elite", cursive; }
 
 /* ================= 通知 ================= */
+.stage-root #hume-block > .meta-line:first-child { font-family: var(--report); }
 .stage-root #notices { position: absolute; left: 50%; top: clamp(84px, 11vh, 110px); transform: translateX(-50%); z-index: 7; width: min(448px, 90vw); display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
 .stage-root .notice { --n: var(--accent); position: relative; overflow: hidden; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px 16px 13px; color: var(--n); background: rgba(5,5,5,.84); border: 1px solid var(--line); border-left: 3px solid var(--n); box-shadow: 0 10px 30px rgba(0,0,0,.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); animation: st-noticeIn .5s var(--ease-out-expo); }
 @keyframes st-noticeIn { from { opacity: 0; transform: translateY(-14px); } }
@@ -23,6 +24,12 @@
 .stage-root .notice-timer { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: currentColor; opacity: .34; transform-origin: left; animation-name: st-noticeTimer; animation-timing-function: linear; animation-fill-mode: forwards; }
 @keyframes st-noticeTimer { to { transform: scaleX(0); } }
 
+/* ================= 回放 ================= */
+.stage-root #replay-bar { position: absolute; left: var(--gutter); bottom: 26px; z-index: 8; display: flex; align-items: center; gap: 16px; }
+.stage-root #replay-bar .meta-line { color: var(--dim); letter-spacing: .2em; white-space: nowrap; }
+.stage-root #game.replaying #cmd-bar, .stage-root #game.replaying #choices { display: none; }
+.stage-root .log-replay { flex: none; }
+
 /* ================= 进入区域 ================= */
 .stage-root #title-card { top: 40%; }
 .stage-root #title-card::before { content: ""; position: absolute; left: 0; right: 0; top: -60vh; height: 200vh; z-index: -1; background: rgba(0,0,0,.4); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
@@ -37,6 +44,7 @@
 .stage-root .drawer.net { padding: 0; overflow: hidden; background: var(--ink); --panel-w: clamp(320px, 25vw, 400px); box-shadow: -18px 0 50px rgba(0,0,0,.5); transition: transform .65s var(--spring), width .55s var(--ease-cam); }
 .stage-root .drawer.net.full { width: 100%; border-left: 0; }
 .stage-root .net-bg { position: absolute; inset: -4%; background-size: cover; background-position: center; filter: grayscale(.6) blur(12px) brightness(.2); }
+.stage-root #radar .net-sweep i { animation-duration: 6s; }
 .stage-root .net-svg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 .stage-root .net-svg.grabbing { cursor: grabbing; }
 .stage-root .net .grain, .stage-root .net .vignette { z-index: 3; }
@@ -77,11 +85,9 @@
 .stage-root .n-pass { font-family: var(--mono); font-size: 12px; fill: var(--faint); paint-order: stroke; stroke: rgba(5,5,5,.85); stroke-width: 3px; }
 
 .stage-root .net-head { position: absolute; z-index: 5; left: var(--gutter); top: clamp(20px, 4.4vh, 44px); pointer-events: none; max-width: 56%; }
-.stage-root .net-head h1 { font-size: clamp(22px, 2.3vw, 38px); font-weight: 900; letter-spacing: .04em; margin: 10px 0 0; text-shadow: 0 2px 18px rgba(0,0,0,.8); }
+.stage-root .net-head h1 { font-family: var(--report); font-size: clamp(22px, 2.3vw, 38px); font-weight: 400; letter-spacing: .04em; margin: 10px 0 0; text-shadow: 0 2px 18px rgba(0,0,0,.8); }
 .stage-root .net-sub { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; color: var(--dim); margin-top: 8px; }
 .stage-root .net-actions { position: absolute; z-index: 12; top: clamp(14px, 2.6vh, 24px); right: 20px; display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--dim); }
-.stage-root .net-actions button { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; transition: color .2s; }
-.stage-root .net-actions button:hover { color: var(--body); }
 
 .stage-root .net-panel { position: absolute; z-index: 6; top: 0; right: 0; bottom: 0; width: var(--panel-w); background: linear-gradient(to right, rgba(8,8,9,.82), rgba(8,8,9,.96)); border-left: 1px solid var(--line); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .stage-root .nx-scroll { height: 100%; overflow-y: auto; padding: clamp(60px, 9vh, 84px) 26px 30px; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
@@ -95,9 +101,7 @@
 .stage-root .nx-lock p { font-size: 14px; line-height: 1.75; color: rgba(226,232,240,.86); margin: 8px 0 0; }
 .stage-root .nx-pass, .stage-root .nx-note { margin-top: 16px; font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
 .stage-root .nx-note { color: var(--faint); }
-.stage-root .nx-go { display: flex; justify-content: space-between; gap: 10px; width: 100%; margin-top: 18px; padding: 13px 16px; border: 1px solid var(--accent-line); color: var(--accent); font-size: 15px; font-weight: 600; letter-spacing: .06em; text-align: left; transition: background .2s; }
-.stage-root .nx-go:hover { background: var(--accent-soft); }
-.stage-root .nx-go.off { border-color: var(--line); color: var(--faint); cursor: not-allowed; }
+.stage-root .nx-go { justify-content: space-between; margin-top: 18px; padding: 0 16px; letter-spacing: .06em; white-space: normal; text-align: left; }
 .stage-root .net-panel section { margin-top: 26px; }
 .stage-root .nx-title { font-family: var(--mono); font-size: 11px; letter-spacing: .24em; color: var(--faint); padding-bottom: 8px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
 .stage-root .nx-empty { font-size: 13px; color: var(--faint); padding: 10px 0; }
@@ -106,8 +110,7 @@
 .stage-root .nx-adj em { font-style: normal; font-family: var(--mono); font-size: 11px; color: #f59e0b; white-space: nowrap; }
 .stage-root .nx-adj p { font-size: 12.5px; line-height: 1.7; color: var(--dim); margin: 6px 0 0; }
 .stage-root .nx-adj:hover .nx-adj-row > span { color: #fff; }
-.stage-root .nx-mini { font-size: 12.5px; color: var(--accent); padding: 3px 10px; border: 1px solid var(--accent-line); white-space: nowrap; transition: background .2s; }
-.stage-root .nx-mini:hover { background: var(--accent-soft); }
+.stage-root .nx-mini { flex: none; }
 .stage-root .nx-person { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(226,232,240,.06); }
 .stage-root .nx-person > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .stage-root .nx-person b { font-size: 14.5px; font-weight: 600; }
@@ -130,8 +133,6 @@
 .stage-root .nx-obj-detail { font-size: 12.5px; line-height: 1.7; color: var(--dim); margin-top: 5px; }
 
 .stage-root .net-tools { position: absolute; z-index: 5; left: var(--gutter); bottom: 54px; display: flex; align-items: center; gap: 6px; }
-.stage-root .net-tools button { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--line-2); background: rgba(5,5,5,.72); font-family: var(--mono); color: var(--dim); transition: color .2s, border-color .2s; }
-.stage-root .net-tools button:hover { color: var(--accent); border-color: var(--accent-line); }
 .stage-root .net-tools span { font-family: var(--mono); font-size: 10.5px; color: var(--faint); margin-left: 8px; letter-spacing: .08em; }
 .stage-root .net-legend { position: absolute; z-index: 5; left: var(--gutter); bottom: 22px; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 11.5px; color: var(--dim); max-width: calc(100% - 460px); }
 .stage-root .net-legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -140,29 +141,29 @@
 .stage-root .lg-thread { display: inline-block; width: 18px; height: 2px; background: var(--fate-hi); box-shadow: 0 0 6px var(--fate-hi); }
 
 /* 抽屉和手机：地图缩短，信息栏占更多高度，图例留在地图区域 */
-.stage-root .net.tall { --panel-h: min(56%, 100% - 420px); }
-.stage-root .net.tall::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 100px; z-index: 4; pointer-events: none; background: linear-gradient(to bottom, rgba(5,5,5,.96) 62%, rgba(5,5,5,0)); }
-.stage-root .net.tall .net-thread { stroke-width: 2; }
-.stage-root .net.tall .n-name { font-size: 13px; stroke-width: 3px; }
-.stage-root .net.tall .n-danger { font-size: 9.5px; letter-spacing: .1em; }
-.stage-root .net.tall .n-lock, .stage-root .net.tall .n-pass { font-size: 10px; letter-spacing: 0; }
-.stage-root .net.tall .n-q { font-size: 13px; }
-.stage-root .net.tall .n-start { font-size: 11px; }
-.stage-root .net.tall .n-face-q { font-size: 9px; }
-.stage-root .net.tall .net-head { left: 20px; top: 16px; max-width: calc(100% - 170px); }
-.stage-root .net.tall .net-head h1 { font-size: 19px; margin-top: 6px; }
-.stage-root .net.tall .meta-line { font-size: 10px; letter-spacing: .22em; }
-.stage-root .net.tall .net-sub { font-size: 10px; letter-spacing: .04em; margin-top: 5px; }
-.stage-root .net.tall .net-panel { top: auto; left: 0; right: 0; width: auto; height: var(--panel-h); border-left: 0; border-top: 1px solid var(--line-2); background: rgba(8,8,9,.96); }
-.stage-root .net.tall .nx-scroll { padding: 16px 20px 28px; }
-.stage-root .net.tall .nx-scroll h2 { font-size: 21px; margin: 6px 0 10px; }
-.stage-root .net.tall .net-panel section { margin-top: 18px; }
-.stage-root .net.tall .net-legend { left: 20px; right: 108px; bottom: calc(var(--panel-h) + 7px); max-width: none; gap: 2px 10px; font-size: 10.5px; }
-.stage-root .net.tall .net-legend svg { width: 11px; height: 11px; }
-.stage-root .net.tall .lg-thread { width: 13px; }
-.stage-root .net.tall .net-tools { left: auto; right: 12px; bottom: calc(var(--panel-h) + 8px); gap: 4px; }
-.stage-root .net.tall .net-tools button { width: 26px; height: 26px; font-size: 12px; }
-.stage-root .net.tall .net-tools span { display: none; }
+.stage-root .net.compact { --panel-h: min(56%, 100% - 420px); }
+.stage-root .net.compact::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 100px; z-index: 4; pointer-events: none; background: linear-gradient(to bottom, rgba(5,5,5,.96) 62%, rgba(5,5,5,0)); }
+.stage-root .net-svg.compact .net-thread { stroke-width: 2; }
+.stage-root #radar .net-svg.compact .net-thread { stroke-width: 3.6; }
+.stage-root .net-svg.compact .n-name { font-size: 12px; stroke-width: 3px; }
+.stage-root .net-svg.compact .n-danger { font-size: 8.5px; letter-spacing: .08em; }
+.stage-root .net-svg.compact .n-lock, .stage-root .net-svg.compact .n-pass { font-size: 10px; letter-spacing: 0; }
+.stage-root .net-svg.compact .n-q { font-size: 12px; }
+.stage-root .net-svg.compact .n-start { font-size: 10px; }
+.stage-root .net-svg.compact .n-face-q { font-size: 8px; }
+.stage-root .net.compact .net-head { left: 20px; top: 16px; max-width: calc(100% - 170px); }
+.stage-root .net.compact .net-head h1 { font-size: 19px; margin-top: 6px; }
+.stage-root .net.compact .meta-line { font-size: 10px; letter-spacing: .22em; }
+.stage-root .net.compact .net-sub { font-size: 10px; letter-spacing: .04em; margin-top: 5px; }
+.stage-root .net.compact .net-panel { top: auto; left: 0; right: 0; width: auto; height: var(--panel-h); border-left: 0; border-top: 1px solid var(--line-2); background: rgba(8,8,9,.96); }
+.stage-root .net.compact .nx-scroll { padding: 16px 20px 28px; }
+.stage-root .net.compact .nx-scroll h2 { font-size: 21px; margin: 6px 0 10px; }
+.stage-root .net.compact .net-panel section { margin-top: 18px; }
+.stage-root .net.compact .net-legend { left: 20px; right: 108px; bottom: calc(var(--panel-h) + 7px); max-width: none; gap: 2px 10px; font-size: 10.5px; }
+.stage-root .net.compact .net-legend svg { width: 11px; height: 11px; }
+.stage-root .net.compact .lg-thread { width: 13px; }
+.stage-root .net.compact .net-tools { left: auto; right: 12px; bottom: calc(var(--panel-h) + 8px); gap: 4px; }
+.stage-root .net.compact .net-tools span { display: none; }
 
 /* ================= 档案 ================= */
 .stage-root #dossier { position: fixed; inset: 0; z-index: 72; overflow: hidden; background: var(--ink); animation: st-dzIn .35s ease-out; }
@@ -172,7 +173,7 @@
 .stage-root #dossier .grain, .stage-root #dossier .vignette { z-index: 2; }
 .stage-root .dz-scroll { position: absolute; inset: 0; z-index: 4; overflow-y: auto; padding: clamp(20px, 4.4vh, 44px) var(--gutter) 40px; display: flex; flex-direction: column; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
 .stage-root .dz-head { flex: none; }
-.stage-root .dz-head h1 { font-size: clamp(26px, 3.2vw, 54px); font-weight: 900; letter-spacing: .05em; margin: 12px 0 0; text-shadow: 0 2px 22px rgba(0,0,0,.9); }
+.stage-root .dz-head h1 { font-family: var(--report); font-size: clamp(24px, 2.4vw, 40px); font-weight: 400; letter-spacing: .05em; margin: 12px 0 0; text-shadow: 0 2px 22px rgba(0,0,0,.9); }
 .stage-root .dz-tabs { display: flex; gap: 24px; margin-top: clamp(12px, 2vh, 20px); border-bottom: 1px solid var(--line); }
 .stage-root .dz-tabs button { position: relative; padding: 10px 0 12px; font-size: 15px; color: var(--dim); letter-spacing: .08em; transition: color .2s; white-space: nowrap; }
 .stage-root .dz-tabs button span { font-family: var(--mono); font-size: 11.5px; color: var(--faint); margin-left: 4px; }
@@ -185,7 +186,7 @@
 .stage-root .dz-close { position: absolute; z-index: 12; top: clamp(16px, 3vh, 28px); right: clamp(16px, 2.4vw, 34px); }
 
 .stage-root .pc-wall { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(14px, 2vw, 34px); }
-.stage-root .pc { --w: clamp(250px, 21vw, 340px); display: block; width: var(--w); padding: 0; text-align: left; color: inherit; transform: rotate(var(--tilt, 0deg)); transition: transform .45s var(--ease-out-expo), box-shadow .45s; box-shadow: 0 18px 50px rgba(0,0,0,.72); background: #0d0d0e; cursor: pointer; opacity: 0; animation: st-pcIn .8s var(--ease-out-expo) forwards; outline-offset: 4px; }
+.stage-root .pc { --w: clamp(250px, 21vw, 340px); display: block; width: var(--w); padding: 0; text-align: left; color: inherit; transform: rotate(var(--tilt, 0deg)); transition: transform .45s var(--ease-out-expo), box-shadow .45s; box-shadow: 0 18px 50px rgba(0,0,0,.72); background: #0d0d0e; cursor: pointer; opacity: 0; animation: st-pcIn .8s var(--ease-out-expo) forwards; outline: none; }
 @keyframes st-pcIn { from { opacity: 0; transform: translateY(24px) rotate(var(--tilt, 0deg)); } to { opacity: 1; transform: rotate(var(--tilt, 0deg)); } }
 .stage-root button.pc:hover, .stage-root button.pc:focus-visible { transform: rotate(0deg) translateY(-6px) scale(1.015); box-shadow: 0 26px 70px rgba(0,0,0,.85); z-index: 2; }
 .stage-root .pc-photo { position: relative; display: block; height: min(46vh, calc(var(--w) * 1.14)); overflow: hidden; background: radial-gradient(ellipse at 50% 35%, #1b1b1d, #0a0a0a 72%); }
@@ -219,7 +220,7 @@
 .stage-root .pd-photo .pc-photo::after { display: none; }
 .stage-root .pd-photo img { object-position: center 15%; }
 .stage-root .pd-text { overflow-y: auto; padding: clamp(24px, 4vh, 40px) clamp(20px, 3vw, 40px); scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
-.stage-root .pd-text h2 { font-size: clamp(26px, 2.6vw, 38px); font-weight: 900; letter-spacing: .08em; margin: 10px 0 0; }
+.stage-root .pd-text h2 { font-family: var(--report); font-size: clamp(26px, 2.6vw, 38px); font-weight: 400; letter-spacing: .08em; margin: 10px 0 0; }
 .stage-root .pd-text .pc-sub { font-size: 13.5px; }
 .stage-root .pd-sec { margin-top: 26px; }
 .stage-root .pd-secrets { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
@@ -230,8 +231,7 @@
 .stage-root .pd-quote { display: grid; grid-template-columns: 42px 1fr; gap: 10px; padding: 11px 0; border-bottom: 1px solid rgba(226,232,240,.06); }
 .stage-root .pd-quote span { font-family: var(--mono); font-size: 11px; color: var(--faint); padding-top: 4px; }
 .stage-root .pd-quote p { font-family: var(--fangsong); font-size: 15px; line-height: 1.8; color: rgba(226,232,240,.9); margin: 0; }
-.stage-root .pd-close { position: absolute; top: 14px; right: 16px; font-size: 13px; color: var(--dim); }
-.stage-root .pd-close:hover { color: var(--body); }
+.stage-root .pd-close { position: absolute; top: 14px; right: 16px; }
 
 .stage-root .inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 14px; width: min(980px, 100%); margin: 0 auto; }
 .stage-root .inv-card { position: relative; padding: 20px 22px; background: rgba(12,12,13,.86); border: 1px solid var(--line); box-shadow: 0 14px 40px rgba(0,0,0,.6); }
@@ -246,13 +246,17 @@
 .stage-root .lg-card.echo .meta-line { letter-spacing: .12em; }
 
 @media (max-width: 760px) {
+  .stage-root #replay-bar { left: 12px; right: 12px; bottom: 54px; justify-content: space-between; gap: 8px; }
+  .stage-root #replay-bar .meta-line { font-size: 10px; letter-spacing: .1em; }
   .stage-root #notices { top: 12%; }
   .stage-root .notice-msg { font-size: 14px; }
   .stage-root .notice-sub { font-size: 12.5px; }
   .stage-root .net-mode { display: none !important; }
+  .stage-root .net-svg.compact .n-name { font-size: 13.5px; }
+  .stage-root .net-svg.compact .n-danger { font-size: 9.5px; }
   .stage-root .net-actions kbd, .stage-root .dz-tabs kbd, .stage-root .dz-close kbd, .stage-root .pd-close kbd { display: none; }
-  .stage-root .net.tall .net-head { max-width: calc(100% - 64px); }
-  .stage-root .net.tall .net-head h1 { font-size: 18px; }
+  .stage-root .net.compact .net-head { max-width: calc(100% - 64px); }
+  .stage-root .net.compact .net-head h1 { font-size: 18px; }
   .stage-root .dz-scroll { padding: 14px 16px 40px; }
   .stage-root .dz-head h1 { font-size: 23px; max-width: calc(100vw - 90px); }
   .stage-root .dz-body { justify-content: flex-start; }
@@ -267,7 +271,7 @@
   .stage-root .pc-stamp { font-size: 10.5px; padding: 3px 7px; letter-spacing: .04em; }
   .stage-root .pd-card { grid-template-columns: minmax(0, 1fr); grid-template-rows: 34vh minmax(0, 1fr); height: 100%; border: 0; }
   .stage-root #pd { padding: 0; }
-  .stage-root .pd-close { color: #fff; text-shadow: 0 1px 6px #000; }
+  .stage-root .pd-close { --gbtn-fg: #fff; text-shadow: 0 1px 6px #000; }
 }
 @keyframes st-pcInFlat { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 

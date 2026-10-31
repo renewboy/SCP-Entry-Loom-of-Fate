@@ -1,4 +1,5 @@
 import { ItemState, MapBlueprint, MapBlueprintNode, Message } from '../types';
+import { visualLength } from './beats';
 import { buildLayout } from './mapLayout';
 
 export interface NetworkPoint {
@@ -6,34 +7,53 @@ export interface NetworkPoint {
   y: number;
 }
 
-/** wide 用于全屏，从左到右排，标签在节点上下；tall 用于抽屉和手机，从上到下排，标签在节点右侧 */
+/** 大小地图都从左到右排。wide 用于全屏，compact 用于抽屉、手机和小地图，节点更小更紧凑 */
 export const NETWORK_GEOMETRY = {
-  wide: { gapX: 268, gapY: 300, ring: 24, hit: 50, main: 32, mark: 1, reticle: [33, 24], start: 46, side: [21, 16, 9], face: 13, bulge: 9, rings: [190, 380, 570], padLeft: 130, padRight: 130, padY: 120 },
-  tall: { gapX: 160, gapY: 62, ring: 14, hit: 30, main: 19, mark: 0.6, reticle: [20, 14], start: 26, side: [11, 9, 6], face: 8, bulge: 5, rings: [95, 190, 285], padLeft: 34, padRight: 150, padY: 26 },
+  wide: { gapX: 268, gapY: 300, ring: 24, hit: 50, main: 32, mark: 1, reticle: [33, 24], start: 46, side: [21, 16, 9], face: 13, faceGap: 20, faceAt: [46, -28], bulge: 9, rings: [190, 380, 570], padLeft: 130, padRight: 130, padTop: 120, padBottom: 120, nameGap: 26, dangerGap: 30, lineHeight: 22 },
+  compact: { gapX: 100, gapY: 104, ring: 12, hit: 24, main: 17, mark: 0.52, reticle: [18, 12], start: 20, side: [9, 7, 5], face: 7, faceGap: 11, faceAt: [18, -7], bulge: 4, rings: [90, 180, 270], padLeft: 50, padRight: 50, padTop: 50, padBottom: 30, nameGap: 5, dangerGap: 12, lineHeight: 13 },
 } as const;
 
-export const buildNetworkLayout = (blueprint: MapBlueprint, tall: boolean): Record<string, NetworkPoint> => {
-  const geometry = tall ? NETWORK_GEOMETRY.tall : NETWORK_GEOMETRY.wide;
+export const buildNetworkLayout = (blueprint: MapBlueprint, compact: boolean): Record<string, NetworkPoint> => {
+  const geometry = compact ? NETWORK_GEOMETRY.compact : NETWORK_GEOMETRY.wide;
   const { levels } = buildLayout(blueprint);
   const positions: Record<string, NetworkPoint> = {};
   Array.from(levels.entries()).sort((a, b) => a[0] - b[0]).forEach(([, ids], rank) => {
     ids.forEach((id, index) => {
-      const offset = index - (ids.length - 1) / 2;
-      positions[id] = tall
-        ? { x: offset * geometry.gapX, y: rank * geometry.gapY }
-        : { x: rank * geometry.gapX, y: offset * geometry.gapY };
+      positions[id] = { x: rank * geometry.gapX, y: (index - (ids.length - 1) / 2) * geometry.gapY };
     });
   });
   return positions;
 };
 
-export const networkCurve = (a: NetworkPoint, b: NetworkPoint, tall: boolean, bulge = 0) => {
-  if (tall) {
-    const handle = Math.abs(b.y - a.y) < 1 ? 40 : (b.y - a.y) * 0.5;
-    return `C ${a.x + bulge} ${a.y + handle}, ${b.x + bulge} ${b.y - handle}, ${b.x} ${b.y}`;
-  }
+export const networkCurve = (a: NetworkPoint, b: NetworkPoint, bulge = 0) => {
   const handle = Math.abs(b.x - a.x) < 1 ? 70 : (b.x - a.x) * 0.5;
   return `C ${a.x + handle} ${a.y + bulge}, ${b.x - handle} ${b.y + bulge}, ${b.x} ${b.y}`;
+};
+
+/** 紧凑布局的节点间距小，长名字折成两行，优先在空格和括号处断开 */
+export const wrapNodeName = (name: string, limit = 7): string[] => {
+  if (visualLength(name) <= limit) return [name];
+  const chars = Array.from(name);
+  const half = visualLength(name) / 2;
+  let bestBreak = -1;
+  let bestDistance = Infinity;
+  chars.forEach((char, index) => {
+    if (!index || !/[\s（(·—]/.test(char)) return;
+    const at = /\s/.test(char) ? index + 1 : index;
+    const distance = Math.abs(visualLength(chars.slice(0, at).join('')) - half);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestBreak = at;
+    }
+  });
+  if (bestBreak < 0 || bestDistance > half * 0.6) {
+    let width = 0;
+    bestBreak = chars.findIndex(char => {
+      width += visualLength(char);
+      return width >= half;
+    }) + 1;
+  }
+  return [chars.slice(0, bestBreak).join('').trim(), chars.slice(bestBreak).join('').trim()].filter(Boolean);
 };
 
 /**
@@ -52,17 +72,17 @@ export const buildVisitedRoute = (messages: Message[], startNodeId: string, curr
 };
 
 /** 来回走过同一条路时，每一趟错开一点，看得出是两股线 */
-export const buildRoutePath = (route: string[], positions: Record<string, NetworkPoint>, tall: boolean) => {
+export const buildRoutePath = (route: string[], positions: Record<string, NetworkPoint>, compact: boolean) => {
   const stops = route.filter(id => positions[id]);
   if (stops.length < 2) return '';
-  const bulge = (tall ? NETWORK_GEOMETRY.tall : NETWORK_GEOMETRY.wide).bulge;
+  const bulge = (compact ? NETWORK_GEOMETRY.compact : NETWORK_GEOMETRY.wide).bulge;
   const passes = new Map<string, number>();
   const segments = stops.slice(1).map((id, index) => {
     const from = stops[index];
     const key = [from, id].sort().join('|');
     const count = passes.get(key) || 0;
     passes.set(key, count + 1);
-    return networkCurve(positions[from], positions[id], tall, count * bulge * (count % 2 ? 1 : -1));
+    return networkCurve(positions[from], positions[id], count * bulge * (count % 2 ? 1 : -1));
   });
   const start = positions[stops[0]];
   return `M ${start.x} ${start.y} ${segments.join(' ')}`;

@@ -65,7 +65,7 @@
 - **Runtime**: Current node + discovered set + gate status
 - **Enforcement**: `useMapContext()` builds context string; AI must output `[LOC: node_id]` when moving
 - **Adjacency**: `SiteNetwork` shows move legality; gates block unauthorized transit
-- **Display**: `RadarMinimap` stays on the stage; `SiteNetwork` opens as the right-hand drawer by default and can go full screen (`F`). Pure layout and route logic live in `utils/siteNetwork.ts`
+- **Display**: `RadarMinimap` is fixed under the HUME readout; drag and zoom happen inside it. `SiteNetwork` opens as the right-hand drawer by default and can go full screen (`F`). All of them draw `NetworkGraph` left to right and share `hooks/useNetworkView.ts`; pure layout and route logic live in `utils/siteNetwork.ts`
 - **Route**: The red thread comes from `message.nodeId`; older saves have no per-turn location, so they show no route
 - **Updates**: `[MAP_UPDATE: {...}]` mutates NPC location, objective state, inventory, gate lock
 
@@ -84,6 +84,11 @@
 - **Shared metadata location**: Cross-layer strings like language labels, prompt output labels, boot keywords, and locale are stored under `translations.i18n.*`
 - **No pluralization/gender rules** — all manual key paths
 - **Character name injection**: Handled separately at role-selection time via `roleTranslations.ts`
+
+### Ending Replay
+- **Entry**: After an ending, `EndingStage` and each log turn can return to the stage through `startReplay` in `GameStage`
+- **Scope**: Replay plays stored turns only; the input, notices and Hume roll stay off, and failed turns are skipped
+- **State**: Stability and map position come from each message's snapshot, not from live game state
 
 ### 7. Post-Game Report Domain
 - **Entry point**: `GameScreen` opens `WorldLineTree` on `GAME_OVER`
@@ -188,6 +193,7 @@ npm run pack:dir         # Electron builder (unsigned macOS)
 - **Post-game report architecture**: Treat `components/postGameReport/` as the feature root for timeline review, report rendering, Q&A, export, and New Game+
 - **CSS variables**: Stability-driven accent colors are written by `useThemeColors.ts` and consumed through `styles/themeCss.ts`
 - **Tailwind**: Extends via `tailwind.config.js`; SCP palette uses `scp-*` class names
+- **Buttons**: Use `components/common/GameButton.tsx` (`primary`, `secondary`, `danger`, `quiet`, `icon`) for in-game actions instead of styling a new button
 
 ## References
 - **Architecture Deep-Dive**: See `ARCHITECTURE.md`

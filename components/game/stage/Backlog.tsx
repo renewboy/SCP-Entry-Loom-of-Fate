@@ -1,6 +1,8 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Language, Message } from '../../../types';
 import { BriefingContent, LogBlock, parseTurn, ParsedTurn } from '../../../utils/beats';
+import GameButton from '../../common/GameButton';
+import { isFailedTurn } from '../../postGameReport/selectors/worldLine';
 import LogBlockView from './LogBlockView';
 
 /** Only what the player has already read of the current turn, so the log cannot spoil the rest */
@@ -36,11 +38,13 @@ interface BacklogProps {
   onZoom: (url: string) => void;
   /** Clicking an SCP designation fills the command; absent once the game has ended */
   onReference?: (designation: string) => void;
+  /** Plays a turn again on the stage; only once the game is over */
+  onReplay?: (messageId: string) => void;
   onClose: () => void;
   t: (key: string, params?: Record<string, string | number>) => any;
 }
 
-const Backlog: React.FC<BacklogProps> = ({ open, overEnding, messages, reading, language, sceneUrl, nodeName, speakerName, npcImages, briefing, onZoom, onReference, onClose, t }) => {
+const Backlog: React.FC<BacklogProps> = ({ open, overEnding, messages, reading, language, sceneUrl, nodeName, speakerName, npcImages, briefing, onZoom, onReference, onReplay, onClose, t }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const ticksRef = useRef<HTMLDivElement>(null);
   const turnRefs = useRef(new Map<string, HTMLDivElement>());
@@ -88,7 +92,7 @@ const Backlog: React.FC<BacklogProps> = ({ open, overEnding, messages, reading, 
       <div id="log-bg" style={sceneUrl ? { backgroundImage: `url("${sceneUrl}")` } : undefined} />
       <header className="log-head">
         <div className="meta-line">{t('stage.log.title')}</div>
-        <button type="button" className="drawer-close" onClick={onClose}>✕ {t('stage.log.close')} <kbd>L</kbd></button>
+        <GameButton variant="quiet" size="sm" onClick={onClose}>✕ {t('stage.log.close')} <kbd>L</kbd></GameButton>
       </header>
       <div id="log-scroll" ref={scrollRef}>
         <div id="log-body">
@@ -109,6 +113,7 @@ const Backlog: React.FC<BacklogProps> = ({ open, overEnding, messages, reading, 
                   <span className="ln" />
                   <span className="lbl">— {t('stage.turn_label', { n: message.turnIndex + 1 })}{place ? ` · ${place}` : ''} —</span>
                   {message.imageUrl && <button type="button" className="log-thumb" onClick={() => onZoom(message.imageUrl as string)}><img src={message.imageUrl} alt="" /></button>}
+                  {onReplay && !isFailedTurn(message) && <GameButton variant="quiet" size="sm" className="log-replay" onClick={() => onReplay(message.id)}>▸ {t('stage.log.replay')}</GameButton>}
                   <span className="ln" />
                 </div>
                 {turn.command && (

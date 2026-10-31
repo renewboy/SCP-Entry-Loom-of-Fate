@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import CrtSurface from '../common/CrtSurface';
+import GameButton from '../common/GameButton';
 
 const SPOTLIGHT_PADDING = 6;
 
@@ -236,19 +237,9 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ isVisible, onClose, t
           </p>
 
           <div className="flex justify-between items-center">
-            <button 
-              onClick={handleSkip}
-              className="text-xs font-mono text-gray-500 hover:text-gray-300 underline decoration-dotted"
-            >
-              {t('tutorial.skip')}
-            </button>
+            <GameButton variant="quiet" size="sm" onClick={handleSkip}>{t('tutorial.skip')}</GameButton>
             
-            <button 
-              onClick={handleNext}
-              className="px-6 py-2 bg-scp-term text-black font-bold font-mono text-xs hover:bg-white transition-colors shadow-[0_0_10px_rgba(0,255,0,0.4)]"
-            >
-              {isLastStep ? t('tutorial.finish') : t('tutorial.next')}
-            </button>
+            <GameButton variant="primary" size="sm" onClick={handleNext}>{isLastStep ? t('tutorial.finish') : t('tutorial.next')}</GameButton>
           </div>
         </CrtSurface>
       </div>

@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { Dna, Package, Radio } from 'lucide-react';
 import type { LegacyData, LegacyItem, Trait } from '../../../types';
+import GameButton from '../../common/GameButton';
 import LegacySelectionSection from './LegacySelectionSection';
 
 interface LegacySelectionModalProps {
@@ -107,18 +108,8 @@ const LegacySelectionModal: React.FC<LegacySelectionModalProps> = ({
         </div>
 
         <div className="p-6 border-t border-scp-term/30 bg-black/40 flex justify-end gap-4 sticky bottom-0">
-          <button
-            onClick={onCancel}
-            className="px-6 py-2 border border-gray-700 text-gray-400 font-mono text-xs hover:text-white hover:border-gray-500 transition-colors"
-          >
-            {cancelLabel}
-          </button>
-          <button
-            onClick={onConfirm}
-            className="px-8 py-2 bg-scp-term/20 border border-scp-term/30 text-scp-term font-mono text-xs font-bold hover:border-scp-term hover:text-scp-term transition-all shadow-[0_0_15px_rgba(51,255,0,0.2)]"
-          >
-            {confirmLabel}
-          </button>
+          <GameButton size="sm" onClick={onCancel}>{cancelLabel}</GameButton>
+          <GameButton variant="primary" size="sm" onClick={onConfirm}>{confirmLabel}</GameButton>
         </div>
       </div>
     </div>,

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChoiceOption } from '../../../utils/beats';
+import GameButton from '../../common/GameButton';
 
 const MAX_INPUT_HEIGHT = 120;
 
@@ -105,7 +106,7 @@ const ChoicePanel = React.forwardRef<ChoicePanelHandle, ChoicePanelProps>(({ tur
             }
           }}
         />
-        <button type="button" id="cmd-send" onClick={send}>{t('stage.choice.send')} <kbd>↵</kbd></button>
+        <GameButton id="cmd-send" variant={input.trim() ? 'primary' : 'secondary'} size="sm" onClick={send}>{t('stage.choice.send')} <kbd>↵</kbd></GameButton>
       </div>
       <div className="meta-line dim ch-foot">{t('stage.choice.foot', { keys: '1 2 3', log: 'L', back: '←' })}</div>
     </aside>

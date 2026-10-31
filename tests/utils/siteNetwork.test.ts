@@ -8,6 +8,7 @@ import {
   missingRequirements,
   neighborsOf,
   networkCurve,
+  wrapNodeName,
 } from '../../utils/siteNetwork';
 
 const blueprint: MapBlueprint = {
@@ -32,15 +33,25 @@ const blueprint: MapBlueprint = {
 const narrator = (id: string, nodeId?: string): Message => ({ id, sender: 'narrator', content: id, timestamp: 0, turnIndex: 0, nodeId });
 
 describe('siteNetwork', () => {
-  it('全屏从左到右排，抽屉从上到下排', () => {
+  it('全屏和抽屉都从左到右排，抽屉更紧凑', () => {
     const wide = buildNetworkLayout(blueprint, false);
-    const tall = buildNetworkLayout(blueprint, true);
-    expect(wide.a.x).toBeLessThan(wide.b.x);
-    expect(wide.b.x).toBe(wide.c.x);
-    expect(wide.c.x).toBeLessThan(wide.d.x);
-    expect(tall.a.y).toBeLessThan(tall.b.y);
-    expect(tall.b.y).toBe(tall.c.y);
-    expect(tall.b.x).not.toBe(tall.c.x);
+    const compact = buildNetworkLayout(blueprint, true);
+    [wide, compact].forEach(positions => {
+      expect(positions.a.x).toBeLessThan(positions.b.x);
+      expect(positions.b.x).toBe(positions.c.x);
+      expect(positions.b.y).not.toBe(positions.c.y);
+      expect(positions.c.x).toBeLessThan(positions.d.x);
+    });
+    expect(compact.b.x - compact.a.x).toBeLessThan(wide.b.x - wide.a.x);
+  });
+
+  it('长名字折成两行，优先在括号和空格处断开', () => {
+    expect(wrapNodeName('荒漠掩体入口')).toEqual(['荒漠掩体入口']);
+    expect(wrapNodeName('人员宿舍区（废弃）')).toEqual(['人员宿舍区', '（废弃）']);
+    expect(wrapNodeName('反模因工程实验室')).toEqual(['反模因工', '程实验室']);
+    expect(wrapNodeName('Antimemetic Engineering Lab')).toEqual(['Antimemetic', 'Engineering Lab']);
+    expect(wrapNodeName('Decon Bay')).toEqual(['Decon Bay']);
+    expect(wrapNodeName('Site-5作战指挥中心')).toEqual(['Site-5作战', '指挥中心']);
   });
 
   it('老存档没有逐回合地点，路线为空', () => {
@@ -69,9 +80,9 @@ describe('siteNetwork', () => {
     const positions = buildNetworkLayout(blueprint, false);
     const once = buildRoutePath(['a', 'b'], positions, false);
     const twice = buildRoutePath(['a', 'b', 'a'], positions, false);
-    expect(once).toBe(`M ${positions.a.x} ${positions.a.y} ${networkCurve(positions.a, positions.b, false)}`);
-    expect(twice).toContain(networkCurve(positions.b, positions.a, false, 9));
-    expect(twice).not.toContain(networkCurve(positions.b, positions.a, false));
+    expect(once).toBe(`M ${positions.a.x} ${positions.a.y} ${networkCurve(positions.a, positions.b)}`);
+    expect(twice).toContain(networkCurve(positions.b, positions.a, 9));
+    expect(twice).not.toContain(networkCurve(positions.b, positions.a));
     expect(buildRoutePath(['a'], positions, false)).toBe('');
   });
 

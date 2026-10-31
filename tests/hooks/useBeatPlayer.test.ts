@@ -18,19 +18,21 @@ interface PlayerProps {
   turnId?: string;
   paused?: boolean;
   autoAdvance?: boolean;
+  replaying?: boolean;
 }
 
 const setup = (initial: PlayerProps) => {
   const holdUntilRef = { current: 0 };
   return renderHook(
-    ({ content, settled, hasEnding = false, turnId = 't1', paused = false, autoAdvance = false }: PlayerProps) => useBeatPlayer({
+    ({ content, settled, hasEnding = false, turnId = 't1', paused = false, autoAdvance = false, replaying = false }: PlayerProps) => useBeatPlayer({
       turnId,
       turn: parseTurn(content, { id: turnId, streaming: !settled }),
       settled,
       hasEnding,
       paused,
       autoAdvance,
-      holdUntilRef
+      holdUntilRef,
+      replaying
     }),
     { initialProps: initial }
   );
@@ -45,6 +47,27 @@ describe('useBeatPlayer', () => {
   it('存档恢复的回合直接停在选择界面', () => {
     const { result } = setup({ content: TEXT, settled: true });
     expect(result.current.phase).toBe('choosing');
+    expect(result.current.restored).toBe(true);
+  });
+
+  it('回放已写完的回合时从头播放，播完停在选择阶段而不是结局', () => {
+    const { result, rerender } = setup({ content: TEXT, settled: true, hasEnding: true });
+    expect(result.current.phase).toBe('ending');
+    rerender({ content: TEXT, settled: true, hasEnding: false, turnId: 'replay:t1:1', replaying: true });
+    expect(result.current.restored).toBe(false);
+    expect(result.current.phase).toBe('title');
+    tick(500);
+    expect(result.current.phase).toBe('beats');
+    expect(result.current.index).toBe(0);
+    expect(result.current.instant).toBe(false);
+    act(() => result.current.skip());
+    expect(result.current.phase).toBe('choosing');
+  });
+
+  it('退出回放回到结局，不再重播结局动画', () => {
+    const { result, rerender } = setup({ content: TEXT, settled: true, hasEnding: false, turnId: 'replay:t1:1', replaying: true });
+    rerender({ content: TEXT, settled: true, hasEnding: true, turnId: 't1' });
+    expect(result.current.phase).toBe('ending');
     expect(result.current.restored).toBe(true);
   });
 

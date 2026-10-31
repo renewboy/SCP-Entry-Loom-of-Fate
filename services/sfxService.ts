@@ -124,6 +124,49 @@ export const playSfx = (key: SfxKey, options: SfxOptions = {}) => {
   }
 };
 
+const KEYSTROKE_NOISE_SECONDS = 0.05;
+const KEYSTROKE_MIN_GAP = 0.02;
+let keystrokeNoise: { ctx: AudioContext; buffer: AudioBuffer } | null = null;
+let lastKeystrokeAt = 0;
+
+const keystrokeBuffer = (ctx: AudioContext) => {
+  if (keystrokeNoise?.ctx === ctx) return keystrokeNoise.buffer;
+  const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * KEYSTROKE_NOISE_SECONDS), ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1;
+  keystrokeNoise = { ctx, buffer };
+  return buffer;
+};
+
+const playKeystrokeLayer = (ctx: AudioContext, now: number, type: BiquadFilterType, frequency: number, peak: number, attack: number, length: number, q?: number) => {
+  const source = ctx.createBufferSource();
+  source.buffer = keystrokeBuffer(ctx);
+  const filter = ctx.createBiquadFilter();
+  filter.type = type;
+  filter.frequency.value = frequency;
+  if (q !== undefined) filter.Q.value = q;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(peak, now + attack);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + length);
+  source.connect(filter).connect(gain).connect(ctx.destination);
+  source.start(now);
+  source.stop(now + length);
+};
+
+/** The typewriter key: a short click over a low thud, as the old chat view played it */
+export const playKeystroke = () => {
+  if (sfxVolume <= 0) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume().catch(() => null);
+  const now = ctx.currentTime;
+  if (now - lastKeystrokeAt < KEYSTROKE_MIN_GAP) return;
+  lastKeystrokeAt = now;
+  playKeystrokeLayer(ctx, now, 'bandpass', 2500 + Math.random() * 500, 0.15 * sfxVolume, 0.005, 0.03, 2);
+  playKeystrokeLayer(ctx, now, 'lowpass', 300 + Math.random() * 100, 0.3 * sfxVolume, 0.01, 0.05);
+};
+
 export const setSfxVolume = (volume: number) => {
   sfxVolume = clamp01(volume);
 };

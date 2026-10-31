@@ -382,3 +382,11 @@ export const toCharTokens = (text: string): Array<{ ch: string; bold: boolean }>
   }
   return tokens;
 };
+
+/** Players may type only an option's number: show the option it stands for, from the turn that offered it */
+export const restoreChoiceNumber = (command: string, offeringTurn: string | undefined, language?: Language) => {
+  const trimmed = command.trim();
+  if (!offeringTurn || !/^\d+$/.test(trimmed)) return command;
+  const picked = parseTurn(offeringTurn, { language }).options[Number(trimmed) - 1];
+  return picked ? plainText(picked.fill) : command;
+};

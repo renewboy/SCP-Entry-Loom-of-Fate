@@ -312,7 +312,7 @@ export const zh = {
       expand: "展开任务",
     },
     radar: {
-      hint: "拖动可移动 · 点击展开地图",
+      hint: "拖动查看 · 滚轮缩放 · 点击展开地图",
       open: "展开地图",
     },
     choice: {
@@ -351,6 +351,7 @@ export const zh = {
       comm_unknown: "未知信号",
     },
     log: {
+      replay: "在舞台回放",
       title: "记录 · LOG",
       close: "关闭",
       command: "玩家指令",
@@ -383,13 +384,17 @@ export const zh = {
       fx_full: "完整",
       fx_reduced: "减弱",
       fx_off: "关闭",
-      radar: "雷达小地图",
-      radar_reset: "回到默认位置",
       language: "语言",
     },
     drawer: {
       map: "地图 · MAP",
       no_items: "目前没有携带任何物品。",
+    },
+    replay: {
+      label: "回放 · {n} / {total}",
+      prev: "上一回合",
+      next: "下一回合",
+      exit: "返回结局",
     },
     network: {
       title: "站点网络 // SITE NETWORK",
@@ -417,9 +422,9 @@ export const zh = {
     },
     dossier: {
       label: "档案 // DOSSIER",
-      title_people: "他们，都有自己的秘密。",
-      title_items: "你带着这些东西走到了这里。",
-      title_legacy: "上一条世界线留下的。",
+      title_people: "人员档案",
+      title_items: "随身物品",
+      title_legacy: "世界线遗产",
       people: "人员",
       items: "物品",
       legacy: "遗产",
@@ -435,13 +440,14 @@ export const zh = {
       deceased: "已故 · DECEASED",
     },
     hint: {
-      desktop: "点击或空格推进 · L 回看 · B 简报 · M 地图 · P 档案 · J 任务 · 雷达可拖动 · H 隐藏界面",
-      touch: "轻点推进 · 上滑回看 · 雷达可拖动",
+      desktop: "点击或空格推进 · L 回看 · B 简报 · M 地图 · P 档案 · J 任务 · H 隐藏界面",
+      touch: "轻点推进 · 上滑回看",
     },
     ending: {
       skip: "跳过演出",
       view_archive: "查看世界线档案",
       review: "回看记录",
+      replay: "回到舞台",
       auto_archive: "自动归档 00:{n}",
       cancel: "取消",
       archive_paused: "已暂停自动归档",
@@ -478,7 +484,7 @@ export const zh = {
     stability_title: "休谟场稳定性",
     stability_desc: "这是你的生命线。危险行动会让它下跌：绿色稳定，琥珀色波动，红色临界，归零则现实崩溃。",
     map_title: "雷达小地图",
-    map_desc: "雷达显示当前位置和周边区域，可以拖到屏幕任意位置，点击展开完整地图。按 J 或点左上角查看任务。",
+    map_desc: "雷达显示当前位置和周边区域。在上面拖动可以查看，滚轮或旁边的按钮可以缩放，点击展开完整地图。按 J 或点左上角查看任务。",
     narrative_title: "字幕",
     narrative_desc: "叙事像字幕一样逐拍出现。点击或按空格推进，按 ← 退回上一拍，按 L 或向上滚动查看完整记录。",
     input_title: "行动指令",

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EndingType, GameState, GameStatus, Message, ObjectiveState, Role } from '../../../types';
 import { getRoleTranslation, useTranslation } from '../../../utils/i18n';
-import { buildBriefingContent, lastTextIndex, parseTurn, plainText, StageMedia } from '../../../utils/beats';
+import { buildBriefingContent, lastTextIndex, parseTurn, plainText, restoreChoiceNumber, StageMedia } from '../../../utils/beats';
 import { stageAsset } from '../../../utils/stageAssets';
 import { useBeatPlayer } from '../../../hooks/useBeatPlayer';
 import { useStagePrefs } from '../../../hooks/useStagePrefs';
@@ -9,6 +9,8 @@ import { useStagePresentation } from '../../../hooks/useStagePresentation';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { playSfx, preloadSfx } from '../../../services/sfxService';
 import EndingStage from '../ending/EndingStage';
+import GameButton from '../../common/GameButton';
+import { isFailedTurn } from '../../postGameReport/selectors/worldLine';
 import { EndingStats, humeOf } from '../ending/endingSequences';
 import Backlog from './Backlog';
 import { prefersReducedMotion } from './BeatText';
@@ -33,6 +35,7 @@ const TITLE_HOLD_MS = 1500;
 const TITLE_VISIBLE_MS = 2100;
 const MAP_CLOSE_MS = 660;
 const INSERT_EXIT_MS = 520;
+const REPLAY_AUTO_NEXT_MS = 1500;
 const IDLE_MS = 3000;
 const FIRST_HINT_MS = 11000;
 const FIRST_HINT_KEY = 'loom-first-hint';
@@ -71,7 +74,6 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
   const [trackerOpen, setTrackerOpen] = useState(false);
   const [uiHidden, setUiHidden] = useState(false);
   const [uiActive, setUiActive] = useState(false);
-  const [radarResetKey, setRadarResetKey] = useState(0);
   const [flashKey, setFlashKey] = useState(0);
   const { notices, pushNotice } = useNotices();
   const [titleCard, setTitleCard] = useState<string | null>(null);
@@ -82,7 +84,10 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
   const [choosingLatch, setChoosingLatch] = useState(false);
   const [mapMounted, setMapMounted] = useState(false);
   const [mapFull, setMapFull] = useState(false);
+  const [mapFocus, setMapFocus] = useState<string | null>(null);
   const [dossierTab, setDossierTab] = useState<DossierTab>('people');
+  const [replayId, setReplayId] = useState<string | null>(null);
+  const [replayNonce, setReplayNonce] = useState(0);
   const [lightbox, setLightbox] = useState<{ url: string; portrait: boolean } | null>(null);
   const [brokenPortrait, setBrokenPortrait] = useState<string | null>(null);
 
@@ -97,7 +102,6 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
 
   const gameRef = useRef<HTMLElement>(null);
   const stateForKeys = useRef<any>({});
-  const humeRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<StageWorldHandle>(null);
   const choicesRef = useRef<ChoicePanelHandle>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -105,20 +109,32 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
   const touchStartY = useRef<number | null>(null);
   const wheelLockedUntil = useRef(0);
 
+  // Once the game is over a finished turn can be played again on the stage
+  const replayTurns = useMemo(() => messages.filter(message => message.sender === 'narrator' && !isFailedTurn(message)), [messages]);
+  const replayIndex = replayId ? replayTurns.findIndex(message => message.id === replayId) : -1;
+  const replaying = replayIndex >= 0;
+  const shownMessages = useMemo(
+    () => (replaying ? messages.slice(0, messages.findIndex(message => message.id === replayId) + 1) : messages),
+    [messages, replaying, replayId]
+  );
+
   const narrator = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i -= 1) {
-      if (messages[i].sender === 'narrator') return messages[i];
+    for (let i = shownMessages.length - 1; i >= 0; i -= 1) {
+      if (shownMessages[i].sender === 'narrator') return shownMessages[i];
     }
     return null;
-  }, [messages]);
+  }, [shownMessages]);
 
   const command = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i -= 1) {
-      if (messages[i].sender === 'user') return messages[i].content;
-      if (messages[i].sender === 'narrator' && isIntro(messages[i])) return null;
+    for (let i = shownMessages.length - 1; i >= 0; i -= 1) {
+      if (shownMessages[i].sender === 'user') {
+        const offering = shownMessages.slice(0, i).reverse().find(message => message.sender === 'narrator' && !isFailedTurn(message));
+        return restoreChoiceNumber(shownMessages[i].content, offering?.content, language);
+      }
+      if (shownMessages[i].sender === 'narrator' && (isIntro(shownMessages[i]) || i < shownMessages.length - 1)) return null;
     }
     return null;
-  }, [messages]);
+  }, [shownMessages, language]);
 
   const briefing = useMemo(() => buildBriefingContent(scpData, t), [scpData, language]);
   const turn = useMemo(
@@ -149,22 +165,33 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
   }, [introMessage?.id, introMessage?.content, introMessage?.isTyping, language, briefing]);
 
   const settled = !narrator?.isTyping;
-  const hasEnding = !!gameState.endingType || status === GameStatus.GAME_OVER;
+  const gameEnded = !!gameState.endingType || status === GameStatus.GAME_OVER;
+  const hasEnding = gameEnded && !replaying;
   const overlayOpen = overlay !== 'none';
 
   const player = useBeatPlayer({
-    turnId: narrator?.id ?? null,
+    turnId: replaying ? `replay:${replayId}:${replayNonce}` : narrator?.id ?? null,
     turn,
     settled,
     hasEnding,
     paused: overlayOpen || isInputLocked,
     autoAdvance: prefs.autoAdvance,
-    holdUntilRef
+    holdUntilRef,
+    replaying
   });
   const { phase, index, beat } = player;
 
   const reading = phase === 'waiting' || phase === 'title' || phase === 'beats';
-  const presented = useStagePresentation(gameState, reading, phase === 'waiting' || phase === 'title');
+  const livePresented = useStagePresentation(gameState, reading, phase === 'waiting' || phase === 'title');
+  const presented = useMemo(() => {
+    if (!replaying || !narrator) return livePresented;
+    const snapshot = replayTurns.slice(0, replayIndex + 1).reverse().find(message => message.stabilitySnapshot !== undefined);
+    return {
+      ...livePresented,
+      stability: snapshot?.stabilitySnapshot ?? 100,
+      map: livePresented.map && narrator.nodeId ? { ...livePresented.map, currentNodeId: narrator.nodeId } : livePresented.map
+    };
+  }, [livePresented, replaying, narrator, replayTurns, replayIndex]);
   useThemeColors(presented.stability);
 
   const blueprint = scpData?.mapBlueprint;
@@ -180,18 +207,19 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
   }, [gameState.npcs, blueprint]);
 
   const currentNodeId = presented.map?.currentNodeId;
-  const place = nodeName(currentNodeId);
-  const turnLabel = t('stage.turn_label', { n: (narrator?.turnIndex ?? 0) + 1 });
+  // Older saves did not record where each turn happened, so a replay shows no location for them
+  const place = replaying && !narrator?.nodeId ? '' : nodeName(currentNodeId);
+  const turnLabel = t('stage.turn_label', { n: (narrator?.turnIndex ?? (replaying ? replayIndex : 0)) + 1 });
 
   const sceneUrl = useMemo(() => {
-    const narratorTurns = messages.filter(message => message.sender === 'narrator' && message.imageUrl);
+    const narratorTurns = shownMessages.filter(message => message.sender === 'narrator' && message.imageUrl);
     if (narrator?.imageUrl) return narrator.imageUrl;
     for (let i = narratorTurns.length - 1; i >= 0; i -= 1) {
       if (narratorTurns[i].nodeId && narratorTurns[i].nodeId === currentNodeId) return narratorTurns[i].imageUrl as string;
     }
     if (narratorTurns.length) return narratorTurns[narratorTurns.length - 1].imageUrl as string;
     return backgroundImage;
-  }, [messages, narrator?.imageUrl, currentNodeId, backgroundImage]);
+  }, [shownMessages, narrator?.imageUrl, currentNodeId, backgroundImage]);
 
   const slots = useStandins(turn.beats, index, phase === 'beats', scpData?.npcImages);
   const speaking = beat?.kind === 'npc' && !!beat.npcId && !!scpData?.npcImages?.[beat.npcId];
@@ -287,7 +315,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
     previousPresented.current = presented;
     if (before === presented) return;
 
-    if (player.restored) {
+    if (player.restored || replaying) {
       setHumeShown(presented.stability);
       return;
     }
@@ -385,7 +413,17 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
   const toggleOverlay = useCallback((target: Overlay) => {
     setOverlay(current => (current === target ? 'none' : target));
     if (target === 'map' || target === 'briefing') playSfx('quickSweep', { gain: 0.5 });
-    if (target === 'map') setMapMounted(true);
+    if (target === 'map') {
+      setMapFocus(null);
+      setMapMounted(true);
+    }
+  }, []);
+
+  const openMapFromRadar = useCallback((nodeId?: string) => {
+    setMapFocus(nodeId ?? null);
+    playSfx('quickSweep', { gain: 0.5 });
+    setMapMounted(true);
+    setOverlay('map');
   }, []);
 
   const toggleDossier = useCallback((tab: DossierTab) => {
@@ -403,10 +441,35 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
 
   const quickFill = useCallback((text: string) => {
     setOverlay('none');
+    if (replaying) return;
     if (phase === 'title' || phase === 'beats') player.skip();
     setInput(text);
     requestAnimationFrame(() => inputRef.current?.focus());
-  }, [phase, player, setInput]);
+  }, [phase, player, replaying, setInput]);
+
+  const startReplay = useCallback((messageId?: string) => {
+    const target = messageId ?? replayTurns[replayTurns.length - 1]?.id;
+    if (!target) return;
+    setOverlay('none');
+    setReplayId(target);
+    setReplayNonce(nonce => nonce + 1);
+  }, [replayTurns]);
+
+  const stopReplay = useCallback(() => {
+    setOverlay('none');
+    setReplayId(null);
+  }, []);
+
+  const replayStep = useCallback((delta: number) => {
+    const target = replayTurns[replayIndex + delta];
+    if (target) startReplay(target.id);
+  }, [replayTurns, replayIndex, startReplay]);
+
+  useEffect(() => {
+    if (!replaying || phase !== 'choosing' || !player.auto || overlayOpen) return;
+    const timer = setTimeout(() => replayStep(1), REPLAY_AUTO_NEXT_MS);
+    return () => clearTimeout(timer);
+  }, [replaying, phase, player.auto, overlayOpen, replayStep]);
 
   const zoomImage = useCallback((url: string) => setLightbox({ url, portrait: false }), []);
   const zoomPortrait = useCallback(() => {
@@ -423,14 +486,14 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
     if (phase === 'choosing') requestAnimationFrame(() => inputRef.current?.focus());
   }, [phase, setInput]);
 
-  const canSend = phase === 'choosing' && !hasEnding;
+  const canSend = phase === 'choosing' && !hasEnding && !replaying;
   const send = useCallback(() => {
     if (!canSend) return;
     onSend();
   }, [canSend, onSend]);
 
   const hasBriefing = briefingPages.length > 0;
-  stateForKeys.current = { overlay, overlayOpen, uiHidden, phase, input, player, quickFill, toggleOverlay, closeOverlay, isInputLocked, lightbox, hasBriefing, mapFull, dossierTab, toggleDossier };
+  stateForKeys.current = { overlay, overlayOpen, uiHidden, phase, input, player, quickFill, toggleOverlay, closeOverlay, isInputLocked, lightbox, hasBriefing, mapFull, dossierTab, toggleDossier, replaying, replayStep, stopReplay };
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -452,6 +515,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
         event.preventDefault();
         if (current.overlay === 'map' && current.mapFull) setMapFull(false);
         else if (current.overlayOpen) current.closeOverlay();
+        else if (current.replaying) current.stopReplay();
         else current.toggleOverlay('menu');
         return;
       }
@@ -478,12 +542,14 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
       if (lower === 'a') return current.player.setAuto(!current.player.auto);
       if (key === ' ' || key === 'Enter' || key === 'ArrowRight') {
         event.preventDefault();
+        if (current.replaying && current.phase === 'choosing') return current.replayStep(1);
         return current.player.advance();
       }
       if (key === 'ArrowLeft') {
         event.preventDefault();
         return current.player.back();
       }
+      if (current.replaying) return;
       if (key === '/') {
         event.preventDefault();
         return current.quickFill(current.input);
@@ -554,7 +620,8 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
   const panelOpen = overlay === 'map' || overlay === 'dossier';
   const lastDossiers = useRef<NpcDossier[]>([]);
   const dossiers = useMemo(() => {
-    if (panelOpen) {
+    // The minimap needs this too, so it refreshes whenever a turn has been read
+    if (panelOpen || !reading) {
       lastDossiers.current = buildNpcDossiers(messages, presented.npcs || [], {
         currentNodeId,
         language,
@@ -564,8 +631,8 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
     return lastDossiers.current;
   }, [panelOpen, messages, presented.npcs, currentNodeId, language, reading, narrator?.id]);
   const visitedRoute = useMemo(
-    () => (blueprint ? buildVisitedRoute(messages, blueprint.startNodeId, currentNodeId) : []),
-    [messages, blueprint, currentNodeId]
+    () => (blueprint ? buildVisitedRoute(shownMessages, blueprint.startNodeId, currentNodeId) : []),
+    [shownMessages, blueprint, currentNodeId]
   );
   const wallImages = useMemo(() => {
     const portraits = Object.values(scpData?.npcImages || {}).filter((url): url is string => !!url);
@@ -583,7 +650,8 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
     beat?.kind === 'psi' && 'psi',
     isMemoryEchoActive && 'memory-echo',
     isInserting && 'inserting',
-    choosingLatch && 'choosing',
+    choosingLatch && !replaying && 'choosing',
+    replaying && 'replaying',
     player.auto && 'auto',
     uiActive && 'ui-active',
     uiHidden && 'ui-hidden'
@@ -596,7 +664,9 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
     { key: 'task', label: t('stage.nav.task'), hint: 'J', active: trackerOpen, run: () => setTrackerOpen(open => !open) },
     { key: 'map', label: t('stage.nav.map'), hint: 'M', active: overlay === 'map', run: () => toggleOverlay('map') },
     { key: 'dossier', label: t('stage.nav.dossier'), hint: 'P', active: overlay === 'dossier', run: () => toggleDossier('people') },
-    { key: 'menu', label: t('stage.nav.menu'), hint: 'Esc', active: overlay === 'menu', run: () => toggleOverlay('menu'), id: 'game-settings-button' }
+    replaying
+      ? { key: 'exit', label: t('stage.replay.exit'), hint: 'Esc', run: stopReplay }
+      : { key: 'menu', label: t('stage.nav.menu'), hint: 'Esc', active: overlay === 'menu', run: () => toggleOverlay('menu'), id: 'game-settings-button' }
   ];
 
   return (
@@ -613,7 +683,8 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
             return;
           }
           if ((event.target as Element).closest(INTERACTIVE)) return;
-          player.advance();
+          if (replaying && phase === 'choosing') replayStep(1);
+          else player.advance();
         }}
         onTouchStart={event => {
           touchStartY.current = (event.target as Element).closest('#radar-wrap, #tracker, #choices') ? null : event.touches[0].clientY;
@@ -625,7 +696,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
           if (delta < -60 && !overlayOpen && phase !== 'choosing') setOverlay('log');
         }}
         onWheel={event => {
-          if ((event.target as Element).closest('#choices')) return;
+          if ((event.target as Element).closest('#choices, #radar-wrap')) return;
           if (event.deltaY < -24 && Date.now() > wheelLockedUntil.current && !overlayOpen) {
             wheelLockedUntil.current = Date.now() + 800;
             setOverlay('log');
@@ -675,7 +746,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
         </header>
 
         <div id="hud-tr" className={humePhase === 2 ? 'critical' : ''}>
-          <div id="hume-block" ref={humeRef} aria-label={t('stage.hume_aria')}>
+          <div id="hume-block" aria-label={t('stage.hume_aria')}>
             <div className="meta-line dim">HUME {humeOf(humeShown)}</div>
             <div id="hume-row">
               {humeDelta && <span key={humeDelta.key} id="hume-delta" className="show">{humeDelta.text}</span>}
@@ -683,21 +754,21 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
             </div>
             <div className="meta-line dim" id="hume-phase">{t(`stage.phase.${PHASE_KEYS[humePhase]}`)}</div>
           </div>
+          {blueprint && presented.map && (
+            <RadarMinimap
+              blueprint={blueprint}
+              map={presented.map}
+              objectives={presented.objectives || []}
+              inventory={presented.inventory || []}
+              dossiers={dossiers}
+              route={visitedRoute}
+              npcImages={scpData?.npcImages}
+              locationName={place}
+              onOpen={openMapFromRadar}
+              t={t}
+            />
+          )}
         </div>
-
-        {blueprint && presented.map && (
-          <RadarMinimap
-            blueprint={blueprint}
-            map={presented.map}
-            objectives={presented.objectives || []}
-            npcs={presented.npcs || []}
-            locationName={place}
-            resetKey={radarResetKey}
-            anchorRef={humeRef}
-            onOpen={() => toggleOverlay('map')}
-            t={t}
-          />
-        )}
 
         <nav id="hud-br" aria-label={t('stage.nav.menu')}>
           {navItems.map(item => (
@@ -743,11 +814,26 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
 
         <StageNotices notices={notices} t={t} />
 
+        {replaying && (
+          <div id="replay-bar">
+            <span className="meta-line">{t('stage.replay.label', { n: replayIndex + 1, total: replayTurns.length })}</span>
+            <GameButton variant="quiet" size="sm" disabled={replayIndex === 0} onClick={() => replayStep(-1)}>‹ {t('stage.replay.prev')}</GameButton>
+            <GameButton
+              variant={phase === 'choosing' && replayIndex < replayTurns.length - 1 ? 'primary' : 'quiet'}
+              size="sm"
+              disabled={replayIndex >= replayTurns.length - 1}
+              onClick={() => replayStep(1)}
+            >
+              {t('stage.replay.next')} ›
+            </GameButton>
+          </div>
+        )}
+
         <SubtitleStage
           beats={turn.beats}
           player={player}
           command={command}
-          loadingText={phase === 'waiting' && !hasEnding
+          loadingText={phase === 'waiting' && !hasEnding && !replaying
             ? t(gameState.aiState === 'summarizing' ? 'stage.loading.summarizing' : 'stage.loading.weaving')
             : null}
           speed={prefs.textSpeed}
@@ -785,6 +871,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
           route={visitedRoute}
           npcImages={scpData?.npcImages}
           backgroundImage={sceneUrl}
+          focusNodeId={mapFocus}
           onAction={quickFill}
           t={t}
         />
@@ -812,7 +899,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
         open={overlay === 'log'}
         overEnding={phase === 'ending'}
         messages={messages}
-        reading={reading && narrator ? { messageId: narrator.id, beatIndex: index } : null}
+        reading={reading && narrator && !replaying ? { messageId: narrator.id, beatIndex: index } : null}
         language={language}
         sceneUrl={sceneUrl}
         nodeName={nodeName}
@@ -820,7 +907,8 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
         npcImages={scpData?.npcImages}
         briefing={briefing}
         onZoom={zoomImage}
-        onReference={hasEnding ? undefined : fillFromLog}
+        onReference={gameEnded ? undefined : fillFromLog}
+        onReplay={gameEnded ? startReplay : undefined}
         onClose={closeOverlay}
         t={t}
       />
@@ -839,7 +927,6 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
         onSave={() => { closeOverlay(); onSave(); }}
         onLoad={() => { closeOverlay(); onLoad(); }}
         onTerminate={() => { closeOverlay(); onTerminate(); }}
-        onRadarReset={() => setRadarResetKey(key => key + 1)}
         t={t}
       />
 
@@ -858,6 +945,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
           logOpen={overlay === 'log'}
           onArchive={onViewArchive}
           onOpenLog={() => setOverlay('log')}
+          onReplay={() => startReplay()}
           t={t}
         />
       )}

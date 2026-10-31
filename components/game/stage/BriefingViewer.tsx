@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StageMedia } from '../../../utils/beats';
 import { StageTextSpeed } from '../../../types';
 import { playSfx } from '../../../services/sfxService';
+import GameButton from '../../common/GameButton';
 import MediaInsert from './MediaInsert';
 
 const noop = () => {};
@@ -70,7 +71,7 @@ const BriefingViewer: React.FC<BriefingViewerProps> = ({ pages, designation, spe
         onZoomPortrait={onZoomPortrait}
         t={t}
       />
-      <button type="button" className="drawer-close bv-close" onClick={onClose}>✕ {t('stage.log.close')} <kbd>Esc</kbd></button>
+      <GameButton variant="quiet" size="sm" className="bv-close" onClick={onClose}>✕ {t('stage.log.close')} <kbd>Esc</kbd></GameButton>
       {page > 0 && (
         <button type="button" className="page-turn prev" aria-label={t('stage.briefing.prev')} onClick={() => turnTo(page - 1)}>‹</button>
       )}

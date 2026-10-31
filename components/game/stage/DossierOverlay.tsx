@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ItemState, LegacyData } from '../../../types';
 import { NpcDossier } from '../../../utils/npcDossier';
+import GameButton from '../../common/GameButton';
 
 export type DossierTab = 'people' | 'items' | 'legacy';
 
@@ -256,12 +257,12 @@ const DossierOverlay: React.FC<DossierOverlayProps> = ({ open, tab, onTab, dossi
                 ))}
               </div>
             </div>
-            <button type="button" className="pd-close" onClick={() => setDetailId(null)}>✕ {t('stage.dossier.back')} <kbd>Esc</kbd></button>
+            <GameButton variant="quiet" size="sm" className="pd-close" onClick={() => setDetailId(null)}>✕ {t('stage.dossier.back')} <kbd>Esc</kbd></GameButton>
           </div>
         </div>
       )}
 
-      <button type="button" className="dz-close drawer-close" onClick={onClose}>✕ {t('stage.log.close')} <kbd>Esc</kbd></button>
+      <GameButton variant="quiet" size="sm" className="dz-close" onClick={onClose}>✕ {t('stage.log.close')} <kbd>Esc</kbd></GameButton>
     </section>
   );
 };

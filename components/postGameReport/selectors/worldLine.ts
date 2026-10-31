@@ -76,7 +76,7 @@ export interface WorldLineTurn {
   inputLength: number;
 }
 
-const isFailedTurn = (message: Message) => {
+export const isFailedTurn = (message: Message) => {
   const content = message.content.trim();
   return !content || (content.startsWith('⚠️') && message.stabilitySnapshot === undefined);
 };

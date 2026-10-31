@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { getRoleTranslation, useTranslation } from '../../utils/i18n';
+import GameButton from '../common/GameButton';
 import { buildWorldLinePrintDocument } from './export/buildWorldLinePrintDocument';
 import { briefingToMarkdown, buildBriefingContent } from '../../utils/beats';
 import { exportWorldLineReport } from './export/exportWorldLineReport';
@@ -230,9 +231,9 @@ const PostGameReportShell: React.FC<WorldLineTreeProps> = ({
                   aria-label={t('report.qa_title')}
                   disabled={qa.isQaLoading}
                 />
-                <button type="button" onClick={() => void qa.submitQuestion()} disabled={!qa.qaInput.trim() || qa.isQaLoading}>
+                <GameButton variant={qa.qaInput.trim() ? 'primary' : 'secondary'} onClick={() => void qa.submitQuestion()} disabled={!qa.qaInput.trim() || qa.isQaLoading}>
                   {t('report.qa_btn')}
-                </button>
+                </GameButton>
               </div>
             ) : (
               <div className="qa-closed">{t('report.qa_finished')}</div>

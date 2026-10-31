@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, Sparkles } from 'lucide-react';
+import GameButton from '../../common/GameButton';
 
 interface WorldLineActionBarProps {
   showGenerateReview: boolean;
@@ -29,13 +29,18 @@ const WorldLineActionBar: React.FC<WorldLineActionBarProps> = ({
   return (
     <div className="wl-actions">
       {showGenerateReview && (
-        <button type="button" className="rp-btn review" onClick={onGenerateReview} disabled={isGeneratingReview}>
-          {isGeneratingReview ? <><span className="rp-spin" />{generatingReviewLabel}</> : <><Sparkles size={15} strokeWidth={1.75} />{generateReviewLabel}</>}
-        </button>
+        <GameButton variant="primary" loading={isGeneratingReview} onClick={onGenerateReview}>
+          {isGeneratingReview ? generatingReviewLabel : generateReviewLabel}
+        </GameButton>
       )}
-      <button type="button" className="rp-btn legacy" onClick={onGenerateLegacy} disabled={isGeneratingLegacy || isLegacyModalOpen}>
-        {isGeneratingLegacy ? <><span className="rp-spin" />{generatingLegacyLabel}</> : <><RotateCcw size={15} strokeWidth={1.75} />{newGamePlusLabel}</>}
-      </button>
+      <GameButton
+        variant={showGenerateReview ? 'secondary' : 'primary'}
+        loading={isGeneratingLegacy}
+        disabled={isLegacyModalOpen}
+        onClick={onGenerateLegacy}
+      >
+        {isGeneratingLegacy ? generatingLegacyLabel : newGamePlusLabel}
+      </GameButton>
     </div>
   );
 };

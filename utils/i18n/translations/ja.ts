@@ -312,7 +312,7 @@ export const ja = {
       expand: "任務を展開",
     },
     radar: {
-      hint: "ドラッグで移動 · クリックでマップを開く",
+      hint: "ドラッグで移動 · ホイールで拡大縮小 · クリックでマップを開く",
       open: "マップを開く",
     },
     choice: {
@@ -351,6 +351,7 @@ export const ja = {
       comm_unknown: "不明な信号",
     },
     log: {
+      replay: "舞台で再生",
       title: "ログ · LOG",
       close: "閉じる",
       command: "プレイヤーの指令",
@@ -383,13 +384,17 @@ export const ja = {
       fx_full: "完全",
       fx_reduced: "弱め",
       fx_off: "オフ",
-      radar: "レーダー",
-      radar_reset: "既定の位置に戻す",
       language: "言語",
     },
     drawer: {
       map: "マップ · MAP",
       no_items: "何も所持していません。",
+    },
+    replay: {
+      label: "再生 · {n} / {total}",
+      prev: "前のターン",
+      next: "次のターン",
+      exit: "結末に戻る",
     },
     network: {
       title: "サイトネットワーク // SITE NETWORK",
@@ -417,9 +422,9 @@ export const ja = {
     },
     dossier: {
       label: "ファイル // DOSSIER",
-      title_people: "彼らには、それぞれの秘密がある。",
-      title_items: "ここまで持ってきたもの。",
-      title_legacy: "前の世界線が残したもの。",
+      title_people: "人物ファイル",
+      title_items: "所持品",
+      title_legacy: "世界線の遺産",
       people: "人物",
       items: "所持品",
       legacy: "遺産",
@@ -435,13 +440,14 @@ export const ja = {
       deceased: "死亡 · DECEASED",
     },
     hint: {
-      desktop: "クリックかスペースで進行 · L ログ · B 概要 · M マップ · P ファイル · J 任務 · レーダーはドラッグ可 · H UIを隠す",
-      touch: "タップで進行 · 上スワイプでログ · レーダーはドラッグ可",
+      desktop: "クリックかスペースで進行 · L ログ · B 概要 · M マップ · P ファイル · J 任務 · H UIを隠す",
+      touch: "タップで進行 · 上スワイプでログ",
     },
     ending: {
       skip: "スキップ",
       view_archive: "世界線の記録を見る",
       review: "ログを見返す",
+      replay: "舞台に戻る",
       auto_archive: "自動保管 00:{n}",
       cancel: "取消",
       archive_paused: "自動保管を停止しました",
@@ -482,7 +488,7 @@ export const ja = {
     input_title: "行動入力",
     input_desc: "ターンを読み終えると選択肢が表示されます。選択肢で指令を入力して Enter で実行するか、論理的な行動を自由に入力できます。",
     map_title: "レーダー",
-    map_desc: "レーダーは現在地と周辺を表示します。好きな位置へドラッグでき、クリックで全体マップを開きます。任務は J キーか左上で確認できます。",
+    map_desc: "レーダーは現在地と周辺を表示します。ドラッグで見渡し、ホイールか下のボタンで拡大縮小でき、クリックで全体マップを開きます。任務は J キーか左上で確認できます。",
     settings_title: "操作とメニュー",
     settings_desc: "右下にオート、スキップ、ログ、マップ、所持品、メニューがあります。セーブ、ロード、文字速度とサイズはメニューにあります。重要な決断の前に保存してください。",
     tips_title: "生存のヒント",

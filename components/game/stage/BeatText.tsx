@@ -1,8 +1,11 @@
 import React, { useLayoutEffect, useRef } from 'react';
 import { Beat, toCharTokens } from '../../../utils/beats';
 import { StageTextSpeed } from '../../../types';
+import { playKeystroke } from '../../../services/sfxService';
 
 const CHARS_PER_SECOND: Record<StageTextSpeed, number> = { 0: Infinity, 1: 18, 2: 32, 3: 60 };
+const KEYSTROKE_GAP_MS = 50;
+const KEYSTROKE_GAP_JITTER_MS = 40;
 
 export const prefersReducedMotion = () =>
   typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -80,13 +83,19 @@ export function useReveal(containerRef: React.RefObject<HTMLElement>, options: R
     let shown = 0;
     let last = performance.now();
     let budget = 0;
+    let nextKeystrokeAt = 0;
     const tick = (now: number) => {
       budget += now - last;
       last = now;
+      const before = shown;
       while (budget >= step && shown < chars.length) {
         chars[shown].classList.add('on');
         shown += 1;
         budget -= step;
+      }
+      if (shown > before && now >= nextKeystrokeAt && !fastRef.current) {
+        playKeystroke();
+        nextKeystrokeAt = now + KEYSTROKE_GAP_MS + Math.random() * KEYSTROKE_GAP_JITTER_MS;
       }
       if (shown >= chars.length || fastRef.current) {
         finish();

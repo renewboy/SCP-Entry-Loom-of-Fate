@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import GameButton from '../../common/GameButton';
 import { EndingType } from '../../../types';
 import { resetBgmFx } from '../../../services/bgmService';
 import { stageAsset } from '../../../utils/stageAssets';
@@ -53,10 +54,11 @@ interface EndingStageProps {
   logOpen: boolean;
   onArchive: () => void;
   onOpenLog: () => void;
+  onReplay: () => void;
   t: (key: string, params?: Record<string, string | number>) => any;
 }
 
-const EndingStage: React.FC<EndingStageProps> = ({ type, restored, title, subtitle, lastLine, designation, scpName, containmentClass, stats, sceneUrl, logOpen, onArchive, onOpenLog, t }) => {
+const EndingStage: React.FC<EndingStageProps> = ({ type, restored, title, subtitle, lastLine, designation, scpName, containmentClass, stats, sceneUrl, logOpen, onArchive, onOpenLog, onReplay, t }) => {
   const rootRef = useRef<HTMLElement>(null);
   const bgRef = useRef<HTMLDivElement>(null);
   const skipRef = useRef<() => void>(() => {});
@@ -134,14 +136,15 @@ const EndingStage: React.FC<EndingStageProps> = ({ type, restored, title, subtit
 
   const actions = (
     <div className="e-actions ep">
-      <button type="button" className="btn-primary" onClick={onArchive}>{t('stage.ending.view_archive')} →</button>
-      <button type="button" className="btn-ghost" onClick={onOpenLog}>{t('stage.ending.review')}</button>
+      <GameButton variant="primary" onClick={onArchive}>{t('stage.ending.view_archive')} <span aria-hidden="true">→</span></GameButton>
+      <GameButton onClick={onReplay}>{t('stage.ending.replay')}</GameButton>
+      <GameButton onClick={onOpenLog}>{t('stage.ending.review')}</GameButton>
       <div className="e-archive">
         {archivePaused && t('stage.ending.archive_paused')}
         {!archivePaused && countdown !== null && (
           <>
             {t('stage.ending.auto_archive', { n: String(countdown).padStart(2, '0') })}
-            <button type="button" onClick={() => { setCountdown(null); setArchivePaused(true); }}>{t('stage.ending.cancel')}</button>
+            <GameButton variant="quiet" size="sm" onClick={() => { setCountdown(null); setArchivePaused(true); }}>{t('stage.ending.cancel')}</GameButton>
           </>
         )}
       </div>
@@ -264,7 +267,7 @@ const EndingStage: React.FC<EndingStageProps> = ({ type, restored, title, subtit
   return (
     <section id="ending" ref={rootRef} className={`on ${done ? 'done' : ''}`} style={{ '--e-accent': ACCENTS[type] } as React.CSSProperties} aria-label={title}>
       <div className="e-bg" ref={bgRef} style={{ backgroundImage: plateBackground(sceneUrl) }} />
-      <button type="button" className="e-skip" onClick={() => skipRef.current()}>{t('stage.ending.skip')} <kbd>Esc</kbd></button>
+      <GameButton variant="quiet" size="sm" className="e-skip" onClick={() => skipRef.current()}>{t('stage.ending.skip')} <kbd>Esc</kbd></GameButton>
       {sequence}
     </section>
   );

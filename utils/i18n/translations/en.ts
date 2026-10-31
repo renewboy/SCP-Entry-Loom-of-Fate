@@ -312,7 +312,7 @@ export const en = {
       expand: "Expand tasks",
     },
     radar: {
-      hint: "Drag to move · Click to open the map",
+      hint: "Drag to look around · Scroll to zoom · Click to open the map",
       open: "Open map",
     },
     choice: {
@@ -351,6 +351,7 @@ export const en = {
       comm_unknown: "UNKNOWN",
     },
     log: {
+      replay: "Replay on stage",
       title: "LOG",
       close: "Close",
       command: "Player command",
@@ -383,13 +384,17 @@ export const en = {
       fx_full: "Full",
       fx_reduced: "Reduced",
       fx_off: "Off",
-      radar: "Radar minimap",
-      radar_reset: "Reset position",
       language: "Language",
     },
     drawer: {
       map: "MAP",
       no_items: "You are not carrying anything.",
+    },
+    replay: {
+      label: "Replay · {n} / {total}",
+      prev: "Previous turn",
+      next: "Next turn",
+      exit: "Back to ending",
     },
     network: {
       title: "SITE NETWORK",
@@ -417,9 +422,9 @@ export const en = {
     },
     dossier: {
       label: "DOSSIER",
-      title_people: "They all have their secrets.",
-      title_items: "What you carried this far.",
-      title_legacy: "What the last timeline left behind.",
+      title_people: "Personnel Files",
+      title_items: "Inventory",
+      title_legacy: "Legacy",
       people: "People",
       items: "Items",
       legacy: "Legacy",
@@ -435,13 +440,14 @@ export const en = {
       deceased: "DECEASED",
     },
     hint: {
-      desktop: "Click or Space to advance · L log · B brief · M map · P dossier · J tasks · Drag the radar · H hide UI",
-      touch: "Tap to advance · Swipe up for log · Drag the radar",
+      desktop: "Click or Space to advance · L log · B brief · M map · P dossier · J tasks · H hide UI",
+      touch: "Tap to advance · Swipe up for log",
     },
     ending: {
       skip: "Skip",
       view_archive: "View worldline archive",
       review: "Review log",
+      replay: "Back to the stage",
       auto_archive: "Auto-archive 00:{n}",
       cancel: "Cancel",
       archive_paused: "Auto-archive paused",
@@ -482,7 +488,7 @@ export const en = {
     input_title: "Action Input",
     input_desc: "Options appear once you finish the turn. Pick one to fill the command and press Enter, or type any logical action of your own.",
     map_title: "Radar minimap",
-    map_desc: "The radar shows your position and surroundings. Drag it anywhere, click it to open the full map. Press J or use the top-left tracker for tasks.",
+    map_desc: "The radar shows your position and surroundings. Drag on it to look around, zoom with the wheel or the buttons below it, click it to open the full map. Press J or use the top-left tracker for tasks.",
     settings_title: "Controls and menu",
     settings_desc: "The bottom-right bar holds auto, skip, log, map, items and the menu. Save, load, text speed and size are in the menu. Save before key decisions.",
     tips_title: "Survival Tips",

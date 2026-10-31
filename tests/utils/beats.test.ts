@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dwellFor, parseTurn, splitForSubtitle, toCharTokens, visualLength } from '../../utils/beats';
+import { dwellFor, parseTurn, restoreChoiceNumber, splitForSubtitle, toCharTokens, visualLength } from '../../utils/beats';
 
 const TURN = `## 第六回合：人员宿舍区（废弃）
 
@@ -229,5 +229,17 @@ describe('辅助函数', () => {
     expect(dwellFor({ kind: 'narr', text: '短' })).toBe(1600);
     expect(dwellFor({ kind: 'narr', text: '长'.repeat(400) })).toBe(6500);
     expect(dwellFor({ kind: 'narr', text: '长'.repeat(400) }, true)).toBe(140);
+  });
+});
+
+describe('restoreChoiceNumber', () => {
+  it('turns an option number into the option it stands for', () => {
+    expect(restoreChoiceNumber(' 2 ', TURN)).toBe('尝试从宿舍区侧通道前往幽灵档案库。');
+  });
+
+  it('keeps anything that is not a known option', () => {
+    expect(restoreChoiceNumber('打开门', TURN)).toBe('打开门');
+    expect(restoreChoiceNumber('9', TURN)).toBe('9');
+    expect(restoreChoiceNumber('1', undefined)).toBe('1');
   });
 });

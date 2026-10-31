@@ -1,6 +1,7 @@
 import React from 'react';
 import { Mic } from 'lucide-react';
 import type { SCPData } from '../../../types';
+import GameButton from '../../common/GameButton';
 
 interface WorldLineHeaderProps {
   scpData: SCPData | null;
@@ -35,20 +36,20 @@ const WorldLineHeader: React.FC<WorldLineHeaderProps> = ({
     <header className="rp-bar">
       <div className="rp-id"><i />{scpData?.designation}{scpData?.name ? ` · ${scpData.name}` : ''}</div>
       <nav className="rp-nav">
-        {navItems.map(item => <button type="button" key={item.key} onClick={item.onClick}>{item.label}</button>)}
+        {navItems.map(item => <GameButton variant="quiet" size="sm" key={item.key} onClick={item.onClick}>{item.label}</GameButton>)}
       </nav>
       <div className="rp-tools">
         {isAudioDramaEnabled && (
-          <button type="button" onClick={onGenerateDrama} disabled={isGeneratingDrama} title={generateVideoScriptLabel}>
-            {isGeneratingDrama ? <span className="rp-spin" /> : <Mic size={14} strokeWidth={1.75} />}
+          <GameButton variant="quiet" size="sm" loading={isGeneratingDrama} onClick={onGenerateDrama} title={generateVideoScriptLabel}>
+            <Mic size={14} strokeWidth={1.75} />
             <span className="rp-tool-label">{generateVideoScriptLabel}</span>
-          </button>
+          </GameButton>
         )}
-        <button type="button" onClick={onExport}>{exportLabel}</button>
+        <GameButton variant="quiet" size="sm" onClick={onExport}>{exportLabel}</GameButton>
       </div>
       <div className="rp-tools rp-win">
-        <button type="button" onClick={onMinimize}>{minimizeLabel}</button>
-        <button type="button" className="rp-close" onClick={onRestart}>{closeLabel}</button>
+        <GameButton variant="quiet" size="sm" onClick={onMinimize}>{minimizeLabel}</GameButton>
+        <GameButton size="sm" onClick={onRestart}>{closeLabel}</GameButton>
       </div>
     </header>
   );
