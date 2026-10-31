@@ -11,7 +11,8 @@
 - **AI Orchestration**: Centralized in `services/aiService.ts`; uses `GeminiProvider` or `OpenAIProvider`
 - **Backends**: Local Node.js server (`server/index.js`) or Supabase Edge Functions
 - **Storage**: IndexedDB (local) + Supabase (cloud save/auth/RAG)
-- **Visual/Audio**: Stability-driven effects in `StabilityMonitor` & `VisualEffects`
+- **Game UI**: Full-screen beat-driven stage in `components/game/stage/` (`GameStage` is the root; entered from `GameScreen`)
+- **Visual/Audio**: Stability-driven effects in `StageWorld` and the stage's HUD
 - **Prompt Stack**: Gameplay prompts are assembled by `services/ai/prompts.ts` from `services/ai/templates/*.njk` via `services/ai/promptTemplateEngine.ts`; Story Editor agent prompts live in `services/ai/editorPrompts.ts`
 
 ### Data Flow: From Input to Rendering
@@ -27,7 +28,7 @@
    - `[LOC: node_id]` → move player on map
    - `[MAP_UPDATE: {...}]` → update NPC/objective/inventory state
    - `[VISUAL: "...prompt..."]` → trigger image generation
-5. Typewriter effect renders cleaned text in real-time
+5. `utils/beats.ts` cuts the cleaned text into beats; `useBeatPlayer` and `SubtitleStage` play them one at a time, and `useStagePresentation` holds back state changes until the turn has been read
 6. `WorldLineTree` mounts the post-game report domain and delegates orchestration to `components/postGameReport/PostGameReportShell.tsx`
 
 ## Critical Patterns & Conventions
@@ -47,8 +48,8 @@
 - **UI Mapping**: Stability changes theme accent color and visual glitch intensity
   - `useThemeColors.ts` maps stability bands to theme colors and writes root CSS variables such as `--theme-accent`
   - `styles/themeCss.ts` maps SCP utility classes onto those dynamic variables
-  - `VisualEffects` layer glitches based on phase thresholds
-  - `StabilityMonitor` renders waveform + critical alerts
+  - `StageWorld` drives glitches and tears from the phase thresholds
+  - `GameStage` renders the HUME readout and pushes phase-change notices through `StageNotices`
 - **Prompt rules**: Gameplay prompt functions in `services/ai/prompts.ts` render template files under `services/ai/templates/`, including the stability rules used by the model
 - **"Escape hatch" principle**: At stability < 30, AI should introduce reversible options
 
@@ -63,7 +64,9 @@
 - **Blueprint**: Node graph (positions, edges, gates, NPC/objective assignments)
 - **Runtime**: Current node + discovered set + gate status
 - **Enforcement**: `useMapContext()` builds context string; AI must output `[LOC: node_id]` when moving
-- **Adjacency**: MapPanel validates move legality; gates block unauthorized transit
+- **Adjacency**: `SiteNetwork` shows move legality; gates block unauthorized transit
+- **Display**: `RadarMinimap` stays on the stage; `SiteNetwork` opens as the right-hand drawer by default and can go full screen (`F`). Pure layout and route logic live in `utils/siteNetwork.ts`
+- **Route**: The red thread comes from `message.nodeId`; older saves have no per-turn location, so they show no route
 - **Updates**: `[MAP_UPDATE: {...}]` mutates NPC location, objective state, inventory, gate lock
 
 ### 5. Provider Abstraction & Config
@@ -88,6 +91,9 @@
 - **Feature boundary**: Post-game behavior lives under `components/postGameReport/`
 - **Domain composition**: The report domain is split conceptually into derived data, feature state/effects, export, and presentation layers
 - **Scope**: Timeline review, report generation, post-game Q&A, print/PDF export, and New Game+ legacy carry-over are treated as one bounded feature instead of separate ad-hoc components
+- **World line**: `selectors/worldLine.ts#buildWorldLineTurns` pairs each narrator turn with the choice that led to it, resolving a typed option number back to the option and skipping failed turns; `WorldLineThread` draws it and opens a turn on mouse hover (tap on touch screens)
+- **Screen vs PDF**: `review/ReviewBoard.tsx` is the on-screen review; `review/GameReviewReport.tsx` and its `sections/` stay as the paper layout for `buildWorldLinePrintDocument`
+- **Rating**: The S/A/B/C/D/F letter always uses `font-report` and `getRankColorClass`
 
 ## Development Workflows
 
@@ -120,10 +126,11 @@ npm run pack:dir         # Electron builder (unsigned macOS)
 | **Streaming & Parsing** | `services/ai/utils.ts`, `hooks/useGameLoop.ts`, `utils/gameStart.ts` |
 | **Prompt/Tags Rules** | `services/ai/prompts.ts`, `services/ai/templates/`, `services/ai/promptTemplateEngine.ts`, `services/ai/editorPrompts.ts` |
 | **Provider Implementations** | `services/ai/providers/{geminiProvider, openaiProvider}.ts` |
-| **Game Loop & Rendering** | `hooks/useGameLoop.ts`, `components/GameScreen.tsx`, `components/Typewriter.tsx` |
-| **Map & Context** | `hooks/useMapContext.ts`, `hooks/useMapUpdate.ts`, `components/game/MapPanel.tsx` |
-| **Stability UI** | `hooks/useThemeColors.ts`, `styles/themeCss.ts`, `components/game/StabilityMonitor.tsx`, `components/game/VisualEffects.tsx` |
-| **Post-Game Analysis** | `components/WorldLineTree.tsx`, `components/postGameReport/PostGameReportShell.tsx`, `components/postGameReport/` |
+| **Game Loop & Rendering** | `hooks/useGameLoop.ts`, `components/GameScreen.tsx`, `components/game/stage/GameStage.tsx`, `hooks/useBeatPlayer.ts`, `utils/beats.ts` |
+| **Stage Panels** | `components/game/stage/{SiteNetwork,DossierOverlay,StageNotices,Backlog}.tsx`, `styles/stage.css`, `styles/stagePanels.css` |
+| **Map & Context** | `hooks/useMapContext.ts`, `hooks/useMapUpdate.ts`, `utils/siteNetwork.ts`, `utils/mapLayout.ts`, `components/game/stage/SiteNetwork.tsx` |
+| **Stability UI** | `hooks/useThemeColors.ts`, `styles/themeCss.ts`, `components/game/stage/StageWorld.tsx` |
+| **Post-Game Analysis** | `components/WorldLineTree.tsx`, `components/postGameReport/PostGameReportShell.tsx`, `components/postGameReport/`, `styles/report.css` |
 | **Storage & Sync** | `services/indexedDBService.ts`, `services/supabaseService.ts`, `components/SaveLoadModal.tsx` |
 
 ## Common Tasks & Patterns
@@ -145,7 +152,7 @@ npm run pack:dir         # Electron builder (unsigned macOS)
 
 ### Adjusting Stability Thresholds
 - Phase definitions and narrative rules: `services/ai/prompts.ts` + `services/ai/templates/`
-- UI thresholds and theme mapping: `hooks/useThemeColors.ts` + `components/game/VisualEffects.tsx`
+- UI thresholds and theme mapping: `hooks/useThemeColors.ts` + `components/game/stage/StageWorld.tsx`
 - Post-game stability history/report rendering: `components/postGameReport/`
 
 ### Adding a Game Feature (e.g., new message type)
@@ -169,7 +176,7 @@ npm run pack:dir         # Electron builder (unsigned macOS)
 ### Common Issues
 - **Streaming freezes**: Check `IDLE_TIMEOUT_MS` (45s) and `SUMMARIZING_TIMEOUT_MS` in `useGameLoop.ts`
 - **Memory not injected**: Verify `timelineId` is set and `hasLocalMemories()` returns true
-- **Stability UI lag**: Check `useThemeColors.ts` is updating the root `--theme-accent*` variables and that `themeCss.ts` classes are present
+- **Stability UI lag**: The stage shows a held-back snapshot until a turn is read (`useStagePresentation`). Also check `useThemeColors.ts` is updating the root `--theme-accent*` variables and that `themeCss.ts` classes are present
 - **Tag not parsing**: Verify the AI output still matches the supported `[TAG: value]` forms; current regexes allow optional whitespace around `:`
 
 ## Conventions & Gotchas
@@ -177,7 +184,7 @@ npm run pack:dir         # Electron builder (unsigned macOS)
 - **React 19 + useTransition**: Not heavily used; mostly direct `useState`. Consider `useTransition` for long operations.
 - **Async generators**: Streaming uses `for await...of` pattern; always wrap in try-catch for backend errors
 - **IndexedDB promises**: Always await; no callback chains in critical paths
-- **Markdown rendering**: Uses `react-markdown` + `rehype-sanitize`; SCP refs auto-linked via regex in `Typewriter.tsx`
+- **Markdown rendering**: Uses `react-markdown` + `rehype-sanitize`; SCP refs are clickable in the backlog via `renderLogText` in `components/game/stage/BeatText.tsx`
 - **Post-game report architecture**: Treat `components/postGameReport/` as the feature root for timeline review, report rendering, Q&A, export, and New Game+
 - **CSS variables**: Stability-driven accent colors are written by `useThemeColors.ts` and consumed through `styles/themeCss.ts`
 - **Tailwind**: Extends via `tailwind.config.js`; SCP palette uses `scp-*` class names

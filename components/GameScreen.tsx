@@ -202,6 +202,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
               onQAUpdate={handleQAUpdate}
               currentLegacyData={gameState.legacy}
               saveId={gameState.saveId}
+              npcs={gameState.npcs}
           />
         </div>
     )}

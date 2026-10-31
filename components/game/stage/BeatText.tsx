@@ -7,6 +7,10 @@ const CHARS_PER_SECOND: Record<StageTextSpeed, number> = { 0: Infinity, 1: 18, 2
 export const prefersReducedMotion = () =>
   typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
+/** Touch screens can report stray mouse hovers after a tap or a scroll, so they never react to hover */
+export const canHover = () =>
+  typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover)').matches;
+
 /** **bold** markup to React nodes */
 export const renderBold = (text: string): React.ReactNode =>
   text.split('**').map((part, index) => (index % 2 ? <strong key={index}>{part}</strong> : part));

@@ -6,7 +6,7 @@ export interface MapUpdate {
     moveNPCs?: Array<{ id: string; nodeId?: string; alive?: boolean }>;
     updateObjectives?: Array<{ id: string; status?: string; progress?: number }>;
     addObjectives?: Array<ObjectiveState>;
-    deleteObjectives?: Array<{ id: string }>;
+    deleteObjectives?: Array<string | { id: string }>;
 }
 
 export function useMapUpdate(): (prev: GameState, update: MapUpdate | null | undefined) => GameState {
@@ -90,9 +90,10 @@ export function useMapUpdate(): (prev: GameState, update: MapUpdate | null | und
         });
         });
 
-        const deleteObjectives: Array<{ id: string }> = Array.isArray(update.deleteObjectives) ? update.deleteObjectives : [];
-        deleteObjectives.forEach(id => {
-        const idx = objectives.findIndex(o => o.id === id.id);
+        const deleteObjectives: Array<string | { id: string }> = Array.isArray(update.deleteObjectives) ? update.deleteObjectives : [];
+        deleteObjectives.forEach(entry => {
+        const targetId = typeof entry === 'string' ? entry : entry?.id;
+        const idx = objectives.findIndex(o => o.id === targetId);
         if (idx !== -1) objectives.splice(idx, 1);
         });
 

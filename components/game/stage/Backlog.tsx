@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Language, Message } from '../../../types';
-import { BriefingContent, LogBlock, parseTurn, ParsedTurn, plainText, StageMedia } from '../../../utils/beats';
-import { renderLogText } from './BeatText';
+import { BriefingContent, LogBlock, parseTurn, ParsedTurn } from '../../../utils/beats';
+import LogBlockView from './LogBlockView';
 
 /** Only what the player has already read of the current turn, so the log cannot spoil the rest */
 const readBlocks = (parsed: ParsedTurn, beatIndex: number, language: Language): LogBlock[] => {
@@ -18,13 +18,6 @@ const readBlocks = (parsed: ParsedTurn, beatIndex: number, language: Language): 
     blocks[blocks.length - 1] = { ...last, text };
   }
   return blocks;
-};
-
-const mediaLabel = (media: StageMedia, t: BacklogProps['t']) => {
-  if (media.type === 'DOC') return `${t('stage.log.doc')} · ${media.attrs.title || ''}`;
-  if (media.type === 'ENV') return t('stage.log.env');
-  if (media.type === 'COMM') return `${t('stage.log.comm')} · ${media.attrs.source || ''}`;
-  return t('stage.log.dossier');
 };
 
 interface BacklogProps {
@@ -90,38 +83,6 @@ const Backlog: React.FC<BacklogProps> = ({ open, overEnding, messages, reading, 
   const position = (index: number) => (index / Math.max(1, count - 1));
   const sparkPoints = trail.map((value, index) => `${(value / 100 * 30).toFixed(1)},${(position(index) * ticksHeight).toFixed(1)}`).join(' ');
 
-  const renderBlock = (block: LogBlock, index: number) => {
-    if (block.kind === 'p') return <p key={index} className="log-p">{renderLogText(block.text, onReference)}</p>;
-    if (block.kind === 'npc') {
-      const image = npcImages?.[block.npcId];
-      return (
-        <div key={index} className="log-npc">
-          {image ? <button type="button" className="log-thumb" onClick={() => onZoom(image)}><img src={image} alt="" /></button> : <span />}
-          <div>
-            <div className="nm">{speakerName(block.npcId)}</div>
-            <p>{renderLogText(block.text, onReference)}</p>
-          </div>
-        </div>
-      );
-    }
-    if (block.kind === 'system') return <div key={index} className="log-media"><span className="k">◆ {t('stage.log.system')}</span>{block.text}</div>;
-    if (block.kind === 'psi') return <div key={index} className="log-media psi"><span className="k">{t('stage.log.psi')}</span>{plainText(block.text)}</div>;
-    const { media } = block;
-    return (
-      <div key={index} className={`log-media ${media.type.toLowerCase()}`}>
-        <span className="k">{mediaLabel(media, t)}</span>
-        {media.sections && (
-          <>
-            {media.fields?.map((entry, entryIndex) => <div key={entryIndex}><b>{entry.label}</b>：{entry.value}</div>)}
-            {media.sections.map((entry, entryIndex) => <div key={entryIndex} className="log-sec"><b>{entry.label}</b><br />{renderLogText(entry.value, onReference)}</div>)}
-          </>
-        )}
-        {!media.sections && media.items && media.items.map((item, itemIndex) => <React.Fragment key={itemIndex}>{itemIndex > 0 && <br />}{renderLogText(item, onReference)}</React.Fragment>)}
-        {!media.sections && !media.items && media.body.replace(/\s*║\s*/g, ' ｜ ')}
-      </div>
-    );
-  };
-
   return (
     <section id="log" className={open ? 'open' : ''} style={overEnding ? { zIndex: 95 } : undefined} aria-label={t('stage.log.title')} role="log">
       <div id="log-bg" style={sceneUrl ? { backgroundImage: `url("${sceneUrl}")` } : undefined} />
@@ -156,7 +117,9 @@ const Backlog: React.FC<BacklogProps> = ({ open, overEnding, messages, reading, 
                     <p>{turn.command}</p>
                   </div>
                 )}
-                {turn.blocks.map(renderBlock)}
+                {turn.blocks.map((block, blockIndex) => (
+                  <LogBlockView key={blockIndex} block={block} speakerName={speakerName} npcImages={npcImages} onZoom={onZoom} onReference={onReference} t={t} />
+                ))}
                 {!isCurrent && turn.parsed.options.length > 0 && (
                   <ul className="log-opts">
                     {turn.parsed.options.map((option, index) => (

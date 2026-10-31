@@ -1,72 +1,11 @@
 import React from 'react';
-import { ItemState, Language, LegacyData, StageFxLevel, StageTextSpeed } from '../../../types';
+import { Language, StageFxLevel, StageTextSpeed } from '../../../types';
 import { languagePacks } from '../../../utils/i18n';
 import { StagePrefs } from '../../../hooks/useStagePrefs';
 import CustomSelect from '../../common/CustomSelect';
 import SettingsToggle from '../../common/SettingsToggle';
 
 type Translate = (key: string, params?: Record<string, string | number>) => any;
-
-interface ItemsDrawerProps {
-  open: boolean;
-  inventory: ItemState[];
-  legacy?: LegacyData;
-  onClose: () => void;
-  t: Translate;
-}
-
-export const ItemsDrawer: React.FC<ItemsDrawerProps> = ({ open, inventory, legacy, onClose, t }) => (
-  <aside className={`drawer left ${open ? 'open' : ''}`} aria-label={t('stage.drawer.items')}>
-    <div className="drawer-head">
-      <div>
-        <div className="meta-line sys">{t('stage.drawer.items')}</div>
-        <div className="drawer-title">{t('stage.drawer.items_title')}</div>
-      </div>
-      <button type="button" className="drawer-close" onClick={onClose}>✕ <kbd>G</kbd></button>
-    </div>
-    <div className="drawer-sec">
-      <div className="sec-title">{t('stage.drawer.carried')}</div>
-      {inventory.length === 0 && <div className="inv inv-empty">{t('stage.drawer.no_items')}</div>}
-      {inventory.map(item => (
-        // Items picked up through access tokens have no display name, only their id
-        item.name === item.id
-          ? <div key={item.id} className="inv">{item.id.replace(/_/g, ' ')}</div>
-          : <div key={item.id} className="inv">{item.name}<span>{item.id.toUpperCase()}</span></div>
-      ))}
-    </div>
-    {legacy && (
-      <>
-        {legacy.items.length > 0 && (
-          <div className="drawer-sec">
-            <div className="sec-title">{t('legacy.items')}</div>
-            {legacy.items.map((item, index) => (
-              <div key={index} className="trait"><b>{item.icon} {item.name}</b><span>{item.description}</span></div>
-            ))}
-          </div>
-        )}
-        {legacy.traits.length > 0 && (
-          <div className="drawer-sec">
-            <div className="sec-title">{t('legacy.traits')}</div>
-            {legacy.traits.map((trait, index) => (
-              <div key={index} className="trait"><b>{trait.icon} {trait.name}</b><span>{trait.description}</span></div>
-            ))}
-          </div>
-        )}
-        {legacy.echoes.length > 0 && (
-          <div className="drawer-sec">
-            <div className="sec-title">{t('legacy.echoes')} · #{legacy.runCount}</div>
-            {[...legacy.echoes].reverse().map((echo, index) => (
-              <div key={index} className="echo">
-                <div className="meta-line fate">{echo.roleName || 'UNKNOWN'} · {echo.endingType}</div>
-                <p><b>“{echo.title}”</b> {echo.summary}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </>
-    )}
-  </aside>
-);
 
 const MenuSelect: React.FC<{
   label: string;

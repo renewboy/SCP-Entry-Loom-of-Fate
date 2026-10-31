@@ -8,7 +8,6 @@ import { useStagePrefs } from '../../../hooks/useStagePrefs';
 import { useStagePresentation } from '../../../hooks/useStagePresentation';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { playSfx, preloadSfx } from '../../../services/sfxService';
-import MapPanel from '../MapPanel';
 import EndingStage from '../ending/EndingStage';
 import { EndingStats, humeOf } from '../ending/endingSequences';
 import Backlog from './Backlog';
@@ -16,18 +15,23 @@ import { prefersReducedMotion } from './BeatText';
 import BriefingViewer from './BriefingViewer';
 import EntityPortrait from './EntityPortrait';
 import ChoicePanel, { ChoicePanelHandle } from './ChoicePanel';
+import DossierOverlay, { DossierTab } from './DossierOverlay';
 import MediaInsert, { INSERT_PLATES } from './MediaInsert';
 import ObjectiveTracker from './ObjectiveTracker';
 import RadarMinimap from './RadarMinimap';
+import SiteNetwork from './SiteNetwork';
+import StageNotices, { useNotices } from './StageNotices';
 import StageWorld, { phaseIndex, StageWorldHandle, useStandins } from './StageWorld';
-import { ItemsDrawer, StageFilters, StageMenu } from './StageOverlays';
+import { StageFilters, StageMenu } from './StageOverlays';
 import SubtitleStage from './SubtitleStage';
+import { buildNpcDossiers, NpcDossier } from '../../../utils/npcDossier';
+import { buildVisitedRoute } from '../../../utils/siteNetwork';
 import '../../../styles/stage.css';
+import '../../../styles/stagePanels.css';
 
 const TITLE_HOLD_MS = 1500;
 const TITLE_VISIBLE_MS = 2100;
-const SYSTEM_LINE_MS = 4200;
-const SYSTEM_LINE_QUEUED_MS = 2600;
+const MAP_CLOSE_MS = 660;
 const INSERT_EXIT_MS = 520;
 const IDLE_MS = 3000;
 const FIRST_HINT_MS = 11000;
@@ -35,12 +39,7 @@ const FIRST_HINT_KEY = 'loom-first-hint';
 const PHASE_KEYS = ['stable', 'fluctuating', 'critical', 'collapse'];
 const INTERACTIVE = '#choices, #hud-br, #hud-tr, #radar-wrap, #tracker, button, textarea, a, select, input';
 
-type Overlay = 'none' | 'map' | 'items' | 'log' | 'menu' | 'briefing';
-
-interface SystemLine {
-  text: string;
-  alert: boolean;
-}
+type Overlay = 'none' | 'map' | 'dossier' | 'log' | 'menu' | 'briefing';
 
 interface GameStageProps {
   gameState: GameState;
@@ -74,15 +73,16 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
   const [uiActive, setUiActive] = useState(false);
   const [radarResetKey, setRadarResetKey] = useState(0);
   const [flashKey, setFlashKey] = useState(0);
-  const [systemLine, setSystemLine] = useState<SystemLine | null>(null);
-  const [systemVisible, setSystemVisible] = useState(false);
-  const [titleCard, setTitleCard] = useState<{ meta: string; title: string } | null>(null);
+  const { notices, pushNotice } = useNotices();
+  const [titleCard, setTitleCard] = useState<string | null>(null);
   const [sweepKey, setSweepKey] = useState(0);
   const [humeShown, setHumeShown] = useState(gameState.stability);
   const [humeDelta, setHumeDelta] = useState<{ text: string; key: number } | null>(null);
   const [firstHint, setFirstHint] = useState(false);
   const [choosingLatch, setChoosingLatch] = useState(false);
   const [mapMounted, setMapMounted] = useState(false);
+  const [mapFull, setMapFull] = useState(false);
+  const [dossierTab, setDossierTab] = useState<DossierTab>('people');
   const [lightbox, setLightbox] = useState<{ url: string; portrait: boolean } | null>(null);
   const [brokenPortrait, setBrokenPortrait] = useState<string | null>(null);
 
@@ -96,13 +96,12 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
   const entityImage = gameState.mainImage !== brokenPortrait ? gameState.mainImage : null;
 
   const gameRef = useRef<HTMLElement>(null);
+  const stateForKeys = useRef<any>({});
   const humeRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<StageWorldHandle>(null);
   const choicesRef = useRef<ChoicePanelHandle>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const holdUntilRef = useRef(0);
-  const systemQueue = useRef<SystemLine[]>([]);
-  const systemTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartY = useRef<number | null>(null);
   const wheelLockedUntil = useRef(0);
 
@@ -197,30 +196,8 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
   const slots = useStandins(turn.beats, index, phase === 'beats', scpData?.npcImages);
   const speaking = beat?.kind === 'npc' && !!beat.npcId && !!scpData?.npcImages?.[beat.npcId];
 
-  /* ---------- system line ---------- */
-  const pumpSystem = useCallback(() => {
-    const nextLine = systemQueue.current.shift();
-    if (!nextLine) {
-      setSystemVisible(false);
-      systemTimer.current = null;
-      return;
-    }
-    setSystemLine(nextLine);
-    setSystemVisible(true);
-    systemTimer.current = setTimeout(pumpSystem, systemQueue.current.length ? SYSTEM_LINE_QUEUED_MS : SYSTEM_LINE_MS);
-  }, []);
-
-  const pushSystem = useCallback((text: string, alert = false) => {
-    systemQueue.current.push({ text, alert });
-    if (!systemTimer.current) pumpSystem();
-  }, [pumpSystem]);
-
-  useEffect(() => () => {
-    if (systemTimer.current) clearTimeout(systemTimer.current);
-  }, []);
-
   useEffect(() => {
-    if (isMemoryEchoActive) pushSystem(t('game.memory_echo_detected'));
+    if (isMemoryEchoActive) pushNotice('SYSTEM', t('game.memory_echo_detected'));
   }, [isMemoryEchoActive]);
 
   /* ---------- beat side effects ---------- */
@@ -232,7 +209,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
     }
     if (beat.kind === 'system') {
       if (!player.instant) {
-        pushSystem(beat.text);
+        pushNotice('OBJECTIVE_ADD', plainText(beat.text));
         playSfx('objectiveComplete');
       }
       player.markRevealed();
@@ -278,11 +255,11 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
   const showTitleCard = useCallback((title: string) => {
     if (!title) return;
     holdUntilRef.current = Date.now() + (prefersReducedMotion() ? 0 : TITLE_HOLD_MS);
-    setTitleCard({ meta: `${scpData?.designation ?? ''} · ${turnLabel}`, title });
+    setTitleCard(title);
     setSweepKey(key => key + 1);
     playSfx('footstep');
     playSfx('sweep', { gain: 0.6 });
-  }, [scpData?.designation, turnLabel]);
+  }, []);
 
   useEffect(() => {
     if (!titleCard) return;
@@ -320,7 +297,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
       if (phase === 'waiting' || phase === 'title') {
         showTitleCard(name);
       } else {
-        pushSystem(`${t('game.entering_zone')} · ${name}`);
+        pushNotice('LOCATION', t('game.entering_zone'), name);
         playSfx('footstep');
       }
     }
@@ -332,20 +309,20 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
       const previous = previousObjectives.find(item => item.id === objective.id);
       if (!previous) {
         if (!announced.includes(objective.title)) {
-          pushSystem(`${t('game.objective_added')} · ${objective.title}`);
+          pushNotice('OBJECTIVE_ADD', t('game.objective_added'), objective.title);
           playSfx('objectiveComplete');
         }
       } else if (previous.status !== 'COMPLETED' && objective.status === 'COMPLETED') {
-        pushSystem(`${t('game.objective_completed')} · ${objective.title}`);
+        pushNotice('OBJECTIVE', t('game.objective_completed'), objective.title);
         playSfx('objectiveComplete');
       } else if (previous.status !== 'FAILED' && objective.status === 'FAILED') {
-        pushSystem(`${t('game.objective_failed')} · ${objective.title}`, true);
+        pushNotice('OBJECTIVE_FAIL', t('game.objective_failed'), objective.title);
         playSfx('glitch');
       }
     });
     previousObjectives.forEach(objective => {
       if (!currentObjectives.some(item => item.id === objective.id)) {
-        pushSystem(`${t('game.objective_deleted')} · ${objective.title}`);
+        pushNotice('OBJECTIVE_DELETE', t('game.objective_deleted'), objective.title);
         playSfx('glitch');
       }
     });
@@ -367,7 +344,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
         .map(edge => (edge.from === here ? edge.to : edge.from))
         .forEach(neighbor => {
           if (blocked(neighbor, ownedBefore) && !blocked(neighbor, ownedNow)) {
-            pushSystem(`${t('game.access_granted')} · ${nodeName(neighbor) || neighbor}`);
+            pushNotice('UNLOCK', t('game.access_granted'), `>> ${nodeName(neighbor) || neighbor}`);
             playSfx('doorUnlock');
           }
         });
@@ -398,7 +375,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
           }, delay));
           playSfx('doorUnlock', { rate: 0.6, gain: 0.5 });
         }
-        pushSystem(t(`stage.phase_note.${PHASE_KEYS[phaseIndex(to)]}`), true);
+        pushNotice('SYSTEM', t(`stage.phase_note.${PHASE_KEYS[phaseIndex(to)]}`));
       }
     }
   }, [presented]);
@@ -407,9 +384,22 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
   const closeOverlay = useCallback(() => setOverlay('none'), []);
   const toggleOverlay = useCallback((target: Overlay) => {
     setOverlay(current => (current === target ? 'none' : target));
-    if (target === 'map' || target === 'items' || target === 'briefing') playSfx('quickSweep', { gain: 0.5 });
+    if (target === 'map' || target === 'briefing') playSfx('quickSweep', { gain: 0.5 });
     if (target === 'map') setMapMounted(true);
   }, []);
+
+  const toggleDossier = useCallback((tab: DossierTab) => {
+    playSfx('quickSweep', { gain: 0.5 });
+    setDossierTab(tab);
+    setOverlay(current => (current === 'dossier' && stateForKeys.current.dossierTab === tab ? 'none' : 'dossier'));
+  }, []);
+
+  // The map always opens as the drawer; it leaves full screen once it has slid away
+  useEffect(() => {
+    if (overlay === 'map' || !mapFull) return;
+    const timer = setTimeout(() => setMapFull(false), MAP_CLOSE_MS);
+    return () => clearTimeout(timer);
+  }, [overlay, mapFull]);
 
   const quickFill = useCallback((text: string) => {
     setOverlay('none');
@@ -440,8 +430,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
   }, [canSend, onSend]);
 
   const hasBriefing = briefingPages.length > 0;
-  const stateForKeys = useRef({ overlay, overlayOpen, uiHidden, phase, input, player, quickFill, toggleOverlay, closeOverlay, isInputLocked, lightbox, hasBriefing });
-  stateForKeys.current = { overlay, overlayOpen, uiHidden, phase, input, player, quickFill, toggleOverlay, closeOverlay, isInputLocked, lightbox, hasBriefing };
+  stateForKeys.current = { overlay, overlayOpen, uiHidden, phase, input, player, quickFill, toggleOverlay, closeOverlay, isInputLocked, lightbox, hasBriefing, mapFull, dossierTab, toggleDossier };
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -461,7 +450,8 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
       }
       if (key === 'Escape') {
         event.preventDefault();
-        if (current.overlayOpen) current.closeOverlay();
+        if (current.overlay === 'map' && current.mapFull) setMapFull(false);
+        else if (current.overlayOpen) current.closeOverlay();
         else current.toggleOverlay('menu');
         return;
       }
@@ -471,7 +461,12 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
       }
       if (lower === 'l') return current.toggleOverlay('log');
       if (lower === 'm') return current.toggleOverlay('map');
-      if (lower === 'g') return current.toggleOverlay('items');
+      if (lower === 'g') return current.toggleDossier('items');
+      if (lower === 'p') return current.toggleDossier('people');
+      if (lower === 'f') {
+        if (current.overlay === 'map') setMapFull((full: boolean) => !full);
+        return;
+      }
       if (lower === 'b') {
         if (current.hasBriefing) current.toggleOverlay('briefing');
         return;
@@ -555,6 +550,28 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
     return { turns: gameState.turnCount + 1, hume: humeOf(final), drop, trail, role: getRoleTranslation(gameState.role, language) };
   }, [messages, endingType, gameState.stability, gameState.turnCount, gameState.role, language]);
 
+  /* ---------- map and dossier ---------- */
+  const panelOpen = overlay === 'map' || overlay === 'dossier';
+  const lastDossiers = useRef<NpcDossier[]>([]);
+  const dossiers = useMemo(() => {
+    if (panelOpen) {
+      lastDossiers.current = buildNpcDossiers(messages, presented.npcs || [], {
+        currentNodeId,
+        language,
+        skipMessageId: reading ? narrator?.id : undefined
+      });
+    }
+    return lastDossiers.current;
+  }, [panelOpen, messages, presented.npcs, currentNodeId, language, reading, narrator?.id]);
+  const visitedRoute = useMemo(
+    () => (blueprint ? buildVisitedRoute(messages, blueprint.startNodeId, currentNodeId) : []),
+    [messages, blueprint, currentNodeId]
+  );
+  const wallImages = useMemo(() => {
+    const portraits = Object.values(scpData?.npcImages || {}).filter((url): url is string => !!url);
+    return [...new Set([...portraits, entityImage, backgroundImage].filter((url): url is string => !!url))];
+  }, [scpData?.npcImages, entityImage, backgroundImage]);
+
   const lastLineIndex = lastTextIndex(turn.beats);
   const lastLine = lastLineIndex >= 0 ? plainText(turn.beats[lastLineIndex].text) : '';
 
@@ -578,7 +595,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
     { key: 'log', label: t('stage.nav.log'), hint: 'L', active: overlay === 'log', run: () => toggleOverlay('log') },
     { key: 'task', label: t('stage.nav.task'), hint: 'J', active: trackerOpen, run: () => setTrackerOpen(open => !open) },
     { key: 'map', label: t('stage.nav.map'), hint: 'M', active: overlay === 'map', run: () => toggleOverlay('map') },
-    { key: 'items', label: t('stage.nav.items'), hint: 'G', active: overlay === 'items', run: () => toggleOverlay('items') },
+    { key: 'dossier', label: t('stage.nav.dossier'), hint: 'P', active: overlay === 'dossier', run: () => toggleDossier('people') },
     { key: 'menu', label: t('stage.nav.menu'), hint: 'Esc', active: overlay === 'menu', run: () => toggleOverlay('menu'), id: 'game-settings-button' }
   ];
 
@@ -692,8 +709,9 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
 
         <div id="sweep" key={sweepKey} className={sweepKey ? 'run' : ''} aria-hidden="true" />
         <div id="title-card" className={titleCard ? 'on' : ''} aria-hidden="true">
-          <div className="meta-line fate">{titleCard?.meta}</div>
-          <div id="tc-title">{titleCard?.title}</div>
+          <i className="tc-scan" />
+          <div className="meta-line sys">{t('game.entering_zone')}</div>
+          <div id="tc-title">{titleCard}</div>
         </div>
 
         <div id="media-layer">
@@ -723,9 +741,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
           </>
         )}
 
-        <div id="system-line" className={`${systemVisible ? 'on' : ''} ${systemLine?.alert ? 'alert' : ''}`} aria-live="polite">
-          <span className="dia">◆</span>{systemLine?.text}
-        </div>
+        <StageNotices notices={notices} t={t} />
 
         <SubtitleStage
           beats={turn.beats}
@@ -755,35 +771,42 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
         <div className="vignette" aria-hidden="true" />
       </main>
 
-      <aside className={`drawer right map-drawer ${overlay === 'map' ? 'open' : ''}`} aria-label={t('stage.drawer.map')}>
-        <div className="drawer-head">
-          <div>
-            <div className="meta-line sys">{t('stage.drawer.map')}</div>
-            <div className="drawer-title">{place}</div>
-          </div>
-          <button type="button" className="drawer-close" onClick={closeOverlay}>✕ <kbd>M</kbd></button>
-        </div>
-        <div className="drawer-body scp-ui">
-          {mapMounted && (
-            <MapPanel
-              gameState={{ ...gameState, ...presented }}
-              onQuickAction={quickFill}
-              fullWidth
-              embedded
-            />
-          )}
-        </div>
-      </aside>
+      {mapMounted && blueprint && presented.map && (
+        <SiteNetwork
+          open={overlay === 'map'}
+          fullscreen={mapFull}
+          onToggleFullscreen={() => setMapFull(full => !full)}
+          onClose={closeOverlay}
+          blueprint={blueprint}
+          map={presented.map}
+          objectives={presented.objectives || []}
+          inventory={presented.inventory || []}
+          dossiers={dossiers}
+          route={visitedRoute}
+          npcImages={scpData?.npcImages}
+          backgroundImage={sceneUrl}
+          onAction={quickFill}
+          t={t}
+        />
+      )}
 
-      <ItemsDrawer
-        open={overlay === 'items'}
+      <DossierOverlay
+        open={overlay === 'dossier'}
+        tab={dossierTab}
+        onTab={setDossierTab}
+        dossiers={dossiers}
         inventory={presented.inventory || []}
         legacy={gameState.legacy}
+        nodeName={nodeName}
+        npcImages={scpData?.npcImages}
+        wallImages={wallImages}
+        paused={!!lightbox}
+        onZoom={zoomImage}
         onClose={closeOverlay}
         t={t}
       />
 
-      <div id="drawer-scrim" className={overlay === 'map' || overlay === 'items' ? 'on' : ''} onClick={closeOverlay} />
+      <div id="drawer-scrim" className={overlay === 'map' && !mapFull ? 'on' : ''} onClick={closeOverlay} />
 
       <Backlog
         open={overlay === 'log'}

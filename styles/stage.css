@@ -236,16 +236,6 @@
 .stage-root #game.inserting #stage { bottom: 2.6vh; }
 .stage-root #game.inserting #beat-prev, .stage-root #game.inserting #beat-cur, .stage-root #game.inserting #cmd-echo { display: none; }
 /* 系统提示 */
-.stage-root #system-line {
-  position: absolute; left: 50%; top: 24%; transform: translate(-50%, 8px); z-index: 7;
-  font-size: 15px; letter-spacing: .14em; color: var(--accent); opacity: 0; white-space: nowrap;
-  padding: 10px 22px; border-top: 1px solid var(--accent-line); border-bottom: 1px solid var(--accent-line);
-  background: linear-gradient(90deg, rgba(5,5,5,0), rgba(5,5,5,.7) 20%, rgba(5,5,5,.7) 80%, rgba(5,5,5,0));
-  transition: opacity .6s var(--ease-out-expo), transform .8s var(--ease-out-expo);
-}
-.stage-root #system-line.on { opacity: 1; transform: translate(-50%, 0); }
-.stage-root #system-line .dia { font-family: var(--mono); margin-right: 12px; }
-.stage-root #system-line.alert { color: var(--fate-hi); border-color: rgba(224,70,70,.4); }
 /* ================= 叙事介质：全屏特写镜头 + 实时排版的文字 ================= */
 .stage-root #media-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 3; background: #000; opacity: 0; transition: opacity .5s var(--ease-cam); }
 .stage-root #game.inserting #media-layer { opacity: 1; }
@@ -370,13 +360,6 @@
 .stage-root .drawer-sec { margin-top: 26px; }
 .stage-root .sec-title { font-size: 14px; font-weight: 600; color: var(--accent); letter-spacing: .2em; padding-bottom: 10px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
 .stage-root .sec-title .tag { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; color: var(--faint); border: 1px solid var(--line); padding: 1px 5px; margin-left: 8px; vertical-align: 2px; }
-.stage-root .inv { padding: 12px 4px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; }
-.stage-root .inv span { font-family: var(--mono); font-size: 10px; color: var(--faint); }
-.stage-root .echo { padding: 14px 0; border-bottom: 1px solid var(--line); }
-.stage-root .echo p { font-size: 14px; line-height: 1.8; color: var(--dim); margin: 8px 0 0; }
-.stage-root .trait { padding: 10px 0; border-bottom: 1px solid var(--line); }
-.stage-root .trait b { display: block; font-size: 15px; }
-.stage-root .trait span { font-size: 12px; color: var(--dim); }
 /* ================= 记录回看 ================= */
 .stage-root #log { position: fixed; inset: 0; z-index: 80; opacity: 0; pointer-events: none; transition: opacity .45s var(--ease-out-expo); }
 .stage-root #log.open { opacity: 1; pointer-events: auto; }
@@ -603,7 +586,6 @@
   .stage-root #cmd-input { font-size: 16px; padding: 10px 12px; }
   .stage-root #cmd-send { padding: 10px 12px; }
   .stage-root #tc-title { font-size: 32px; }
-  .stage-root #system-line { white-space: normal; width: 86vw; text-align: center; font-size: 13px; padding: 8px 12px; top: 17%; }
   .stage-root .drawer { width: min(460px, 92vw); padding: 26px 20px 30px; }
   .stage-root .log-head { padding: 22px var(--gutter) 14px; }
   .stage-root #log-scroll { top: 60px; }
@@ -656,9 +638,6 @@
   .stage-root .e-plate { left: calc(50vw - 44.45vh); height: 50vh; -webkit-mask-image: linear-gradient(180deg, #000 80%, transparent); mask-image: linear-gradient(180deg, #000 80%, transparent); }
 }
 /* 地图抽屉里直接放原有的地图面板 */
-.stage-root .drawer.map-drawer { padding: 0; display: flex; flex-direction: column; }
-.stage-root .drawer.map-drawer .drawer-head { padding: 28px 28px 0; margin-bottom: 12px; }
-.stage-root .drawer-body { flex: 1; min-height: 0; overflow: hidden; }
 @keyframes st-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .stage-root .choice-empty { padding: 14px; text-align: center; text-transform: none; }
 @media (max-width: 760px) {
@@ -684,7 +663,6 @@
 .stage-root .pg-sec { margin-bottom: .75em; }
 .stage-root .pg-sec h4 { font: inherit; font-weight: 700; margin: 0; }
 .stage-root .pg-sec p { margin: 0; }
-.stage-root .inv-empty { color: var(--dim); font-size: 14px; }
 .stage-root .menu-stats { margin-top: 8px; text-transform: none; letter-spacing: .1em; }
 /* 点图放大 */
 .stage-root #lightbox { position: fixed; inset: 0; z-index: 96; display: grid; place-items: center; padding: 24px; background: rgba(0,0,0,.92); cursor: zoom-out; }

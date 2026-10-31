@@ -4,7 +4,9 @@ import { mergeLegacyData } from '../../../components/postGameReport/selectors/le
 import {
   buildStabilityHistory,
   buildTimelineEvents,
+  buildWorldLineTurns,
   getEndingDisplayConfig,
+  instability,
 } from '../../../components/postGameReport/selectors/worldLine';
 
 const messages: Message[] = [
@@ -113,5 +115,89 @@ describe('postGameReport selectors', () => {
     expect(merged.items?.map((item) => item.name)).toEqual(['Keycard', 'Anchor']);
     expect(merged.runCount).toBe(3);
     expect(merged.echoes).toHaveLength(1);
+  });
+
+  describe('buildWorldLineTurns', () => {
+    const narrator = (id: string, content: string, extra: Partial<Message> = {}): Message =>
+      ({ id, sender: 'narrator', content, timestamp: 0, ...extra } as Message);
+    const user = (id: string, content: string): Message => ({ id, sender: 'user', content, timestamp: 0 } as Message);
+
+    const options = '正文。\n\n1. **冲进去**：不管不顾\n2. **撤退**：先离开';
+
+    it('跳过超时和空消息，回合号仍按全部叙述消息计数，和复盘一致', () => {
+      const turns = buildWorldLineTurns([
+        narrator('intro', '开场。', { stabilitySnapshot: 100 }),
+        user('u1', '前往 观察点'),
+        narrator('t1', '⚠️ [连接超时] 响应时间过长。'),
+        user('u2', '前往 观察点'),
+        narrator('t2', ''),
+        user('u3', '前往 观察点'),
+        narrator('n1', '你到了。', { stabilitySnapshot: 90 }),
+      ]);
+      expect(turns.map(turn => turn.id)).toEqual(['intro', 'n1']);
+      expect(turns[1].turn).toBe(3);
+    });
+
+    it('新存档直接用消息上的回合号', () => {
+      const turns = buildWorldLineTurns([narrator('intro', '开场。', { turnIndex: 0 }), user('u', '走'), narrator('n', '好。', { turnIndex: 7 })]);
+      expect(turns[1].turn).toBe(7);
+    });
+
+    it('序号指令还原成上一回合的选项，其余选项记为没走的路', () => {
+      const [, turn] = buildWorldLineTurns([narrator('intro', options), user('u', '2'), narrator('n', '你撤退了。')]);
+      expect(turn.choice).toEqual({ title: '撤退', detail: '先离开' });
+      expect(turn.unchosen).toEqual(['冲进去']);
+    });
+
+    it('选项全文也能对应到选项', () => {
+      const [, turn] = buildWorldLineTurns([narrator('intro', options), user('u', '冲进去：不管不顾'), narrator('n', '好。')]);
+      expect(turn.choice?.title).toBe('冲进去');
+      expect(turn.unchosen).toEqual(['撤退']);
+    });
+
+    it('自由输入保留原文，所有选项都算没走的路', () => {
+      const [, turn] = buildWorldLineTurns([narrator('intro', options), user('u', '我点燃了档案架'), narrator('n', '火光四起。')]);
+      expect(turn.choice).toEqual({ title: '我点燃了档案架', detail: '' });
+      expect(turn.unchosen).toEqual(['冲进去', '撤退']);
+    });
+
+    it('序号超出选项范围时按自由输入处理', () => {
+      const [, turn] = buildWorldLineTurns([narrator('intro', options), user('u', '9'), narrator('n', '好。')]);
+      expect(turn.choice?.title).toBe('9');
+      expect(turn.unchosen).toEqual(['冲进去', '撤退']);
+    });
+
+    it('计算稳定度变化，缺快照时读标签或沿用上一回合', () => {
+      const turns = buildWorldLineTurns([
+        narrator('intro', '开场。', { stabilitySnapshot: 100 }),
+        narrator('a', '一。[STABILITY: 90]'),
+        narrator('b', '二。'),
+        narrator('c', '三。', { stabilitySnapshot: 70 }),
+      ]);
+      expect(turns.map(turn => [turn.stability, turn.delta])).toEqual([[100, 0], [90, -10], [90, 0], [70, -20]]);
+    });
+
+    it('正文不带控制标签和选项，记录说话的人', () => {
+      const [turn] = buildWorldLineTurns([narrator('n', '[LOC: node_a]\n\n你穿过长廊到了这间屋子里。还有别的。\n\n[@npc_a: 站住]\n\n[@npc_a: 别动]\n\n1. **走**\n\n[STABILITY: 80]\n[MAP_UPDATE: {}]', { turnIndex: 2 })]);
+      const text = JSON.stringify(turn.blocks);
+      expect(text).not.toMatch(/\[LOC|\[STABILITY|\[MAP_UPDATE|\[@/);
+      expect(text).not.toContain('走');
+      expect(turn.speakers).toEqual(['npc_a']);
+      expect(turn.summary).toBe('你穿过长廊到了这间屋子里。');
+    });
+
+    it('开局回合带上结构化简报', () => {
+      const briefing = { fields: [{ label: '目标', value: 'SCP-1' }], sections: [] };
+      const [turn] = buildWorldLineTurns([narrator('intro', '---\n开场。', { turnIndex: 0 })], { briefing });
+      expect(turn.choice).toBeNull();
+      expect(turn.blocks[0].kind).toBe('media');
+    });
+  });
+
+  it('稳定度越低线抖得越厉害', () => {
+    expect(instability(100)).toBe(0);
+    expect(instability(50)).toBeLessThan(instability(10));
+    expect(instability(0)).toBe(1);
+    expect(instability(-20)).toBe(1);
   });
 });

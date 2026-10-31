@@ -71,6 +71,14 @@ describe('useMapUpdate', () => {
     expect(second.stability).toBe(100);
   });
 
+  it('删除任务时 id 字符串和对象两种写法都认', () => {
+    const { result } = renderHook(() => useMapUpdate());
+    const objective = (id: string): ObjectiveState => ({ id, title: id, type: 'SIDE', nodeId: 'n1', status: 'ACTIVE', progress: 0 });
+    const base = { ...createState(), objectives: [objective('a'), objective('b'), objective('c')] };
+    const next = result.current(base, { deleteObjectives: ['a', { id: 'b' }] });
+    expect(next.objectives?.map(item => item.id)).toEqual(['c']);
+  });
+
   it('非法更新保持状态不变', () => {
     const { result } = renderHook(() => useMapUpdate());
     const base = createState();

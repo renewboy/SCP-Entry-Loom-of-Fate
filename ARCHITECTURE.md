@@ -11,7 +11,7 @@ SCP Entry: Loom of Fate 是以 React 19 + Vite 6 + TypeScript 构建的单页应
 - AI 接入拓扑：前端通过 [backendClient.ts](services/ai/providers/backendClient.ts) 调用本地 Node 代理 [server/index.js](server/index.js) 或 Supabase Edge Function [supabase/functions/api/index.ts](supabase/functions/api/index.ts)。  
 - 存储层：本地 IndexedDB + 云端 Supabase 存档协作由 [SaveLoadModal.tsx](components/SaveLoadModal.tsx) 触发，并包含云列表缓存与记忆数据镜像。  
 - 记忆检索（RAG）：按 `timelineId(saveId)` 检索本地记忆并注入模型上下文，由 [aiService.ts](services/aiService.ts) 管理。  
-- 音视频系统：稳定性触发的视效由 [StabilityMonitor.tsx](components/game/StabilityMonitor.tsx) 与 [VisualEffects.tsx](components/game/VisualEffects.tsx) 协作驱动；BGM/SFX 静态资源位于 [public/bgm](public/bgm) 与 [public/sfx](public/sfx)。  
+- 音视频系统：稳定性触发的视效由 [StageWorld.tsx](components/game/stage/StageWorld.tsx) 驱动；BGM/SFX 静态资源位于 [public/bgm](public/bgm) 与 [public/sfx](public/sfx)。  
 - 主题系统：全局主题样式基于 [index.html](index.html) 与 [themeCss.ts](styles/themeCss.ts)，稳定性驱动的主题变量由 [useThemeColors.ts](hooks/useThemeColors.ts) 在运行时写入。
 
 ---
@@ -91,7 +91,7 @@ flowchart TB
   - [MAP_UPDATE]：NPC/任务/门禁与库存更新（[useMapUpdate.ts](hooks/useMapUpdate.ts)）  
   - [VISUAL]：触发场景插图生成  
 - 地图强约束上下文由 [useMapContext.ts](hooks/useMapContext.ts) 构建，要求移动成功时输出 `[LOC: node_id]`。  
-- 稳定性驱动的主题变量与视觉/音频异常见 [useThemeColors.ts](hooks/useThemeColors.ts) [StabilityMonitor.tsx](components/game/StabilityMonitor.tsx) 与 [VisualEffects.tsx](components/game/VisualEffects.tsx)。
+- 稳定性驱动的主题变量与视觉/音频异常见 [useThemeColors.ts](hooks/useThemeColors.ts) 与 [StageWorld.tsx](components/game/stage/StageWorld.tsx)。
 
 ### 4.3 结局流与回顾
 - `GAME_OVER` 是结算报告域的激活条件；运行时从主游戏回合循环切换到只读分析/追问/导出语义。  
@@ -112,7 +112,9 @@ flowchart TB
 - **游戏主屏**：回合循环、消息流、稳定性、图像生成控制、存档入口。[GameScreen.tsx](components/GameScreen.tsx)  
 - **结算入口**：GAME_OVER 后将运行态切换到结算报告域。[WorldLineTree.tsx](components/WorldLineTree.tsx)  
 - **结算视图系统**：承载时间线、复盘报告、问答、导出、遗产选择与 Portal 交互。[postGameReport](components/postGameReport)  
-- **地图面板**：图结构布局与邻接判断、门禁与目标状态提示。[MapPanel.tsx](components/game/MapPanel.tsx)  
+- **站点网络**：默认是右侧抽屉，可切全屏；图结构布局、走过的路线、邻接判断、门禁与目标状态提示。[SiteNetwork.tsx](components/game/stage/SiteNetwork.tsx) [siteNetwork.ts](utils/siteNetwork.ts)
+- **档案页**：人员、物品、遗产三个标签。[DossierOverlay.tsx](components/game/stage/DossierOverlay.tsx) [npcDossier.ts](utils/npcDossier.ts)
+- **通知**：任务、门禁、地点和系统通知，用 report 字体。[StageNotices.tsx](components/game/stage/StageNotices.tsx)  
 - **侧栏容器**：左右滑出式固定面板布局。[SidePanel.tsx](components/common/SidePanel.tsx)
 
 ### 5.2 AI/规则层
@@ -129,8 +131,8 @@ flowchart TB
 - 这一层的核心价值是把“Prompt 文本结构”与“运行时数据装配”解耦：模版文件负责表达叙事协议与输出格式，TypeScript 负责提供上下文数据与调用顺序。
 
 ### 5.3 视觉与音效层
-- **稳定性驱动的视觉干扰**：闪烁、干扰、记忆回响、色彩错位。[VisualEffects.tsx](components/game/VisualEffects.tsx)  
-- **稳定性监控组件**：波形、相位与临界音效触发。[StabilityMonitor.tsx](components/game/StabilityMonitor.tsx)
+- **稳定性驱动的视觉干扰**：闪烁、干扰、记忆回响、色彩错位。[StageWorld.tsx](components/game/stage/StageWorld.tsx)  
+- **稳定性显示**：HUME 读数和相位由舞台顶部显示，相位变化时推送通知并触发特效。[GameStage.tsx](components/game/stage/GameStage.tsx)
 
 ### 5.4 存储与同步层
 - **本地/云存档交互**：本地 IndexedDB + 云存档（含登录、同步、冲突处理与云列表缓存）。[SaveLoadModal.tsx](components/SaveLoadModal.tsx)
@@ -140,7 +142,9 @@ flowchart TB
 
 ### 5.6 结算报告域（Post-Game Report Domain）
 - **域入口**：`WorldLineTree` 是结算报告域的挂载边界，负责接收 `GameState` 中与结算相关的输入并挂载 `PostGameReportShell`。  
-- **编排层**：`PostGameReportShell` 充当 orchestration root，负责统一调度纯函数派生、feature hook、打印导出、Portal 与子视图树。  
+- **编排层**：`PostGameReportShell` 充当 orchestration root，负责统一调度纯函数派生、feature hook、打印导出、Portal 与子视图树。
+- **世界线**：`buildWorldLineTurns` 把每回合和导致它的选择配对，序号指令还原成选项，失败回合跳过；`WorldLineThread` 负责绘制，鼠标悬停展开，触屏轻点展开。
+- **屏幕与 PDF 分开**：屏幕上的复盘是 `ReviewBoard`，`GameReviewReport` 及其 `sections/` 只服务 PDF 的纸质版式。评级字母始终用 `font-report` 和 `getRankColorClass`。  
 - **派生层**：`selectors/` 持有无副作用领域计算，包括时间线投影、稳定度历史重建、结局展示映射、Legacy 合并策略、会话统计聚合。  
 - **效应层**：`hooks/` 持有会触发 IO 或状态迁移的流程，包括 review 生成、事后问答、Legacy 生成/确认、Audio Drama 状态机。  
 - **导出层**：`export/` 形成独立导出管线，将静态文档构建与浏览器侧打印动作解耦，避免把模板拼装与窗口副作用耦合到视图层。  
@@ -167,7 +171,7 @@ flowchart TB
 ## 6. 关键数据模型（概念）
 - **GameState**（全局）：包含状态机、messages、stability、map、npcs、objectives、inventory、legacy 等。权威定义见 [types.ts](types.ts)。  
 - **SCPData**：由开局分析产生，包含 `designation/name/containmentClass` 与 `mapBlueprint` 等。由 [StartScreen.tsx](components/StartScreen.tsx) 使用。  
-- **MapBlueprint + Runtime Map**：蓝图为静态节点/边/门禁与任务配置；运行态记录当前节点与已发现集合。[MapPanel.tsx](components/game/MapPanel.tsx)  
+- **MapBlueprint + Runtime Map**：蓝图为静态节点/边/门禁与任务配置；运行态记录当前节点与已发现集合。[SiteNetwork.tsx](components/game/stage/SiteNetwork.tsx)  
 - **消息流**：narrator/user 交替，narrator 带 stabilitySnapshot 与可选 imageUrl。[GameScreen.tsx](components/GameScreen.tsx)
 
 ---
@@ -176,11 +180,11 @@ flowchart TB
 
 ### 7.1 休谟场稳定性（Hume Stability）
 - 定义、阶段与系统标签规则由 [prompts.ts](services/ai/prompts.ts) 及其模板文件 [templates](services/ai/templates) 约束。  
-- UI 侧通过 [useThemeColors.ts](hooks/useThemeColors.ts) 将稳定性映射为主题变量，并由 [StabilityMonitor.tsx](components/game/StabilityMonitor.tsx) 与 [VisualEffects.tsx](components/game/VisualEffects.tsx) 投影为视觉与音频异常。
+- UI 侧通过 [useThemeColors.ts](hooks/useThemeColors.ts) 将稳定性映射为主题变量，并由 [StageWorld.tsx](components/game/stage/StageWorld.tsx) 投影为视觉与音频异常。
 
 ### 7.2 地图与任务系统
 - AI 生成地图蓝图（nodes/edges/npcs/objectives）由主游戏 Prompt 模版与 Editor Agent Prompt 共同约束。[prompts.ts](services/ai/prompts.ts) [editorPrompts.ts](services/ai/editorPrompts.ts)  
-- 运行态的门禁、邻接、NPC 分布与任务进度渲染在 [MapPanel.tsx](components/game/MapPanel.tsx)  
+- 运行态的门禁、邻接、NPC 分布与任务进度渲染在 [SiteNetwork.tsx](components/game/stage/SiteNetwork.tsx)  
 - 地图上下文与门禁约束由 [useMapContext.ts](hooks/useMapContext.ts) 注入
 
 ### 7.3 记忆检索（RAG）
@@ -213,7 +217,7 @@ flowchart TB
 
 ## 9. 主题系统与音频资产
 - **主题**：全局色板、字体与动画由 [index.html](index.html) 提供基础定义，运行时由 [useThemeColors.ts](hooks/useThemeColors.ts) 根据稳定性写入主题变量，并由 [themeCss.ts](styles/themeCss.ts) 提供 SCP 样式类映射。  
-- **音频**：BGM 与 SFX 资源位于 [public/bgm](public/bgm) 与 [public/sfx](public/sfx)，并由稳定性监控与反馈系统触发播放节奏（UI 侧见 [StabilityMonitor.tsx](components/game/StabilityMonitor.tsx))。
+- **音频**：BGM 与 SFX 资源位于 [public/bgm](public/bgm) 与 [public/sfx](public/sfx)，并由舞台和通知系统触发播放节奏（UI 侧见 [GameStage.tsx](components/game/stage/GameStage.tsx)）。
 
 ---
 

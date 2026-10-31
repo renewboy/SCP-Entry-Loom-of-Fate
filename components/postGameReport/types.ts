@@ -26,6 +26,7 @@ export interface WorldLineTreeProps {
   onQAUpdate: (qa: QAPair) => void;
   currentLegacyData?: LegacyData;
   saveId?: string;
+  npcs?: RuntimeNPCState[];
 }
 
 export interface TimelineEvent {

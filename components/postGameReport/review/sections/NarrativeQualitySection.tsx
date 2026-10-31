@@ -48,7 +48,7 @@ const NarrativeQualitySection: React.FC<NarrativeQualitySectionProps> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="flex flex-col items-center justify-center">
-          <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[220px] h-auto">
+          <svg viewBox={`-44 -4 ${size + 88} ${size + 8}`} className="w-full max-w-[300px] h-auto">
             {gridLevels.map((level) => {
               const points = dimensionLabels.map((_, index) => getPoint(index, level));
               const path = points.map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x},${point.y}`).join(' ') + ' Z';
