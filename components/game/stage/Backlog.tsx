@@ -111,7 +111,7 @@ const Backlog: React.FC<BacklogProps> = ({ open, overEnding, messages, reading, 
               >
                 <div className={`log-div ${isCurrent ? 'current' : ''}`}>
                   <span className="ln" />
-                  <span className="lbl">— {t('stage.turn_label', { n: message.turnIndex + 1 })}{place ? ` · ${place}` : ''} —</span>
+                  <span className="lbl">— {t('stage.turn_label', { n: (message.turnIndex ?? turnIndex) + 1 })}{place ? ` · ${place}` : ''} —</span>
                   {message.imageUrl && <button type="button" className="log-thumb" onClick={() => onZoom(message.imageUrl as string)}><img src={message.imageUrl} alt="" /></button>}
                   {onReplay && !isFailedTurn(message) && <GameButton variant="quiet" size="sm" className="log-replay" onClick={() => onReplay(message.id)}>▸ {t('stage.log.replay')}</GameButton>}
                   <span className="ln" />
@@ -152,7 +152,7 @@ const Backlog: React.FC<BacklogProps> = ({ open, overEnding, messages, reading, 
               style={{ top: `${position(index) * 100}%` }}
               onClick={() => turnRefs.current.get(turn.message.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
             >
-              {String(turn.message.turnIndex + 1).padStart(2, '0')}
+              {String((turn.message.turnIndex ?? index) + 1).padStart(2, '0')}
             </button>
           ))}
         </div>

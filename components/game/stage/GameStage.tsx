@@ -77,7 +77,6 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
   const [flashKey, setFlashKey] = useState(0);
   const { notices, pushNotice } = useNotices();
   const [titleCard, setTitleCard] = useState<string | null>(null);
-  const [sweepKey, setSweepKey] = useState(0);
   const [humeShown, setHumeShown] = useState(gameState.stability);
   const [humeDelta, setHumeDelta] = useState<{ text: string; key: number } | null>(null);
   const [firstHint, setFirstHint] = useState(false);
@@ -286,9 +285,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
     if (!title) return;
     holdUntilRef.current = Date.now() + (prefersReducedMotion() ? 0 : TITLE_HOLD_MS);
     setTitleCard(title);
-    setSweepKey(key => key + 1);
     playSfx('footstep');
-    playSfx('sweep', { gain: 0.6 });
   }, []);
 
   useEffect(() => {
@@ -450,7 +447,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
   }, [phase, player, replaying, setInput]);
 
   const startReplay = useCallback((messageId?: string) => {
-    const target = messageId ?? replayTurns[replayTurns.length - 1]?.id;
+    const target = messageId ?? replayTurns[0]?.id;
     if (!target) return;
     setOverlay('none');
     setReplayId(target);
@@ -780,7 +777,6 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
           ))}
         </nav>
 
-        <div id="sweep" key={sweepKey} className={sweepKey ? 'run' : ''} aria-hidden="true" />
         <div id="title-card" className={titleCard ? 'on' : ''} aria-hidden="true">
           <i className="tc-scan" />
           <div className="meta-line sys">{t('game.entering_zone')}</div>
