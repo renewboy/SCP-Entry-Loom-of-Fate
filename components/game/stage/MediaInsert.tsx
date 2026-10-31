@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { plainText, StageMedia } from '../../../utils/beats';
+import { mediaCaption, plainText, StageMedia } from '../../../utils/beats';
 import { stageAsset } from '../../../utils/stageAssets';
 import { StageTextSpeed } from '../../../types';
 import { CharSpans, renderBold, useReveal } from './BeatText';
@@ -71,6 +71,8 @@ interface MediaInsertProps {
   /** The SCP's portrait, clipped to the first page of the mission brief */
   entityImage?: string | null;
   onZoomPortrait?: () => void;
+  /** Where the player is standing, for writing found on site */
+  place?: string;
   t: (key: string, params?: Record<string, string | number>) => any;
 }
 
@@ -90,7 +92,7 @@ const BriefingBody: React.FC<{ media: StageMedia }> = ({ media }) => (
   </>
 );
 
-const MediaInsert: React.FC<MediaInsertProps> = ({ media, designation, speed, instant, fast, onDone, finishRef, entityImage, onZoomPortrait, t }) => {
+const MediaInsert: React.FC<MediaInsertProps> = ({ media, designation, speed, instant, fast, onDone, finishRef, entityImage, onZoomPortrait, place, t }) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const typedRef = useRef<HTMLDivElement>(null);
   const waveRef = useRef<HTMLCanvasElement>(null);
@@ -163,7 +165,9 @@ const MediaInsert: React.FC<MediaInsertProps> = ({ media, designation, speed, in
   }, [media, finishRef]);
 
   let content: React.ReactNode = null;
-  let caption: string | null = null;
+  const caption = mediaCaption(media, t, place);
+  // These pages print their title, so the caption doesn't repeat it
+  let pageHasTitle = false;
   let className = '';
   let objectWidth = '.35';
   // Share of the plate's height the object spans around its center; wide windows shrink the plate to keep it all in view
@@ -184,16 +188,17 @@ const MediaInsert: React.FC<MediaInsertProps> = ({ media, designation, speed, in
       className = 'ins-doc handwritten';
       objectWidth = '.345';
       objectHeight = '.87';
-      caption = title;
       content = <><InsertPlate name="doc_hand" /><div className="pg"><div className="pg-body fit">{body}</div></div></>;
     } else if (style === 'damaged') {
       className = 'ins-doc damaged';
       objectWidth = '.34';
       objectHeight = '.74';
+      pageHasTitle = true;
       content = <><InsertPlate name="doc_damaged" /><div className="pg"><div className="pg-title">{title}</div><div className="pg-body fit">{body}</div></div></>;
     } else {
       const isFirstPage = isDossier && (!media.attrs.page || media.attrs.page.startsWith('1/'));
       const photo = isFirstPage && entityImage ? entityImage : null;
+      pageHasTitle = true;
       className = `ins-doc typed ${isDossier ? 'dossier' : ''} ${photo ? 'has-photo' : ''}`;
       content = (
         <>
@@ -260,9 +265,7 @@ const MediaInsert: React.FC<MediaInsertProps> = ({ media, designation, speed, in
         <div className="cm-dial" ref={dialRef} />
         <canvas className="cm-wave" ref={waveRef} />
         <div className="cm-head">
-          <span className="rec" />{t('stage.media.comm')}
-          <span className="sep">·</span>{media.attrs.source || t('stage.media.comm_unknown')}
-          {media.attrs.time && <><span className="sep">·</span>{media.attrs.time}</>}
+          <span className="rec" />{t('game.narrative_media.comm_rec')}
         </div>
         <div className="cm-text fit" ref={typedRef}><CharSpans text={plainText(media.body)} /></div>
       </>
@@ -274,7 +277,12 @@ const MediaInsert: React.FC<MediaInsertProps> = ({ media, designation, speed, in
       <div className={`ins ${className} ${on ? 'on' : ''}`} style={{ '--objw': objectWidth, '--objv': objectHeight } as React.CSSProperties}>
         {content}
       </div>
-      {caption && <div className={`ins-cap ${on ? 'on' : ''}`}>{caption}</div>}
+      {caption && (
+        <div className={`ins-cap ${on ? 'on' : ''}`}>
+          <b>{caption.kind}</b>
+          {!pageHasTitle && caption.details.map(detail => <React.Fragment key={detail}><span className="sep">·</span>{detail}</React.Fragment>)}
+        </div>
+      )}
     </div>
   );
 };

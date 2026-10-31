@@ -4,6 +4,7 @@ import MessageContent from '../../shared/MessageContent';
 import QAHistoryPrintSection from '../qa/QAHistoryPrintSection';
 import GameReviewReport from '../review/GameReviewReport';
 import type { PrintableNpc, TimelineEvent, TranslateFn } from '../types';
+import { reportFontLinkTag } from '../../../utils/reportFont';
 
 interface BuildWorldLinePrintDocumentOptions {
   t: TranslateFn;
@@ -62,6 +63,7 @@ export const buildWorldLinePrintDocument = ({
   const styles = `
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Special+Elite&display=swap" rel="stylesheet">
+    ${reportFontLinkTag()}
     <style>
       @page { size: A4; margin: 0; }
       body {

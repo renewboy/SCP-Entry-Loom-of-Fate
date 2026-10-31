@@ -3,6 +3,7 @@ import { Language } from '../../types';
 import { translate } from './translations';
 import { loadLanguage, saveLanguage } from './persistence';
 import { defaultLanguage, getLanguagePack } from './languages';
+import { syncReportFont } from '../reportFont';
 import type { LanguagePack } from './languages';
 
 interface LanguageContextType {
@@ -26,6 +27,10 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
     initLanguage();
   }, []);
+
+  useEffect(() => {
+    syncReportFont(language);
+  }, [language]);
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);

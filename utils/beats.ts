@@ -30,6 +30,26 @@ export interface StageMedia {
   sections?: DossierEntry[];
 }
 
+type MediaTranslate = (key: string, params?: Record<string, string | number>) => any;
+
+const ENV_KINDS = ['screen', 'sign', 'graffiti', 'carving'];
+
+/** What the player is looking at and where it came from. The mission brief prints its own title, so it has none */
+export const mediaCaption = (media: StageMedia, t: MediaTranslate, place = ''): { kind: string; details: string[] } | null => {
+  if (media.type === 'DOC') {
+    const kind = media.attrs.style === 'handwritten' ? 'doc_note' : media.attrs.style === 'damaged' ? 'doc_damaged' : 'doc_found';
+    return { kind: t(`stage.media.${kind}`), details: [media.attrs.title].filter(Boolean) };
+  }
+  if (media.type === 'COMM') {
+    return { kind: t('stage.media.comm'), details: [media.attrs.source || t('stage.media.comm_unknown'), media.attrs.time].filter(Boolean) };
+  }
+  if (media.type === 'ENV') {
+    const type = ENV_KINDS.includes(media.attrs.type) ? media.attrs.type : 'sign';
+    return { kind: t(`stage.media.env_${type}`), details: [place].filter(Boolean) };
+  }
+  return null;
+};
+
 export interface Beat {
   id: string;
   kind: BeatKind;

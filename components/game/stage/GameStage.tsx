@@ -209,6 +209,8 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
   const currentNodeId = presented.map?.currentNodeId;
   // Older saves did not record where each turn happened, so a replay shows no location for them
   const place = replaying && !narrator?.nodeId ? '' : nodeName(currentNodeId);
+  // The stage holds back a move until the turn is read, but writing in this turn was seen where the turn ended
+  const mediaPlace = narrator?.nodeId ? nodeName(narrator.nodeId) : place;
   const turnLabel = t('stage.turn_label', { n: (narrator?.turnIndex ?? (replaying ? replayIndex : 0)) + 1 });
 
   const sceneUrl = useMemo(() => {
@@ -798,6 +800,7 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
               finishRef={player.finishTypingRef}
               entityImage={entityImage}
               onZoomPortrait={zoomPortrait}
+              place={mediaPlace}
               t={t}
             />
           )}

@@ -4,7 +4,7 @@ interface SettingsToggleProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   ariaLabel?: string;
-  /** Track color when on; the in-game menu follows the stability theme */
+  /** Track color when on; the in-game menu uses a neutral one */
   activeClassName?: string;
 }
 

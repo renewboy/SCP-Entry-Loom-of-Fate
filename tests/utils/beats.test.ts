@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dwellFor, parseTurn, restoreChoiceNumber, splitForSubtitle, toCharTokens, visualLength } from '../../utils/beats';
+import { dwellFor, mediaCaption, parseTurn, restoreChoiceNumber, splitForSubtitle, toCharTokens, visualLength } from '../../utils/beats';
 
 const TURN = `## 第六回合：人员宿舍区（废弃）
 
@@ -241,5 +241,30 @@ describe('restoreChoiceNumber', () => {
     expect(restoreChoiceNumber('打开门', TURN)).toBe('打开门');
     expect(restoreChoiceNumber('9', TURN)).toBe('9');
     expect(restoreChoiceNumber('1', undefined)).toBe('1');
+  });
+});
+
+describe('mediaCaption', () => {
+  const t = (key: string) => key.replace('stage.media.', '');
+  const media = (type: 'DOC' | 'COMM' | 'ENV' | 'DOSSIER', attrs: Record<string, string>) => ({ type, attrs, body: '' });
+
+  it('says what each document is', () => {
+    expect(mediaCaption(media('DOC', { title: '日志' }), t)).toEqual({ kind: 'doc_found', details: ['日志'] });
+    expect(mediaCaption(media('DOC', { style: 'handwritten' }), t)).toEqual({ kind: 'doc_note', details: [] });
+    expect(mediaCaption(media('DOC', { style: 'damaged', title: '残页' }), t)?.kind).toBe('doc_damaged');
+  });
+
+  it('names the signal source and time, or says the source is unknown', () => {
+    expect(mediaCaption(media('COMM', { source: '指挥部', time: '03:14' }), t)?.details).toEqual(['指挥部', '03:14']);
+    expect(mediaCaption(media('COMM', {}), t)?.details).toEqual(['comm_unknown']);
+  });
+
+  it('places writing found on site, and treats an unknown type as a sign', () => {
+    expect(mediaCaption(media('ENV', { type: 'screen' }), t, '笼舍')).toEqual({ kind: 'env_screen', details: ['笼舍'] });
+    expect(mediaCaption(media('ENV', { type: 'poster' }), t)).toEqual({ kind: 'env_sign', details: [] });
+  });
+
+  it('leaves the mission brief to its own title', () => {
+    expect(mediaCaption(media('DOSSIER', {}), t)).toBeNull();
   });
 });

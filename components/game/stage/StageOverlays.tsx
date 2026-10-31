@@ -71,7 +71,7 @@ export const StageMenu: React.FC<StageMenuProps> = ({ open, designation, scpName
         onChange={value => onPrefs({ textSpeed: Number(value) as StageTextSpeed })}
       />
       <div className="set-row">{t('stage.menu.auto')}
-        <SettingsToggle checked={prefs.autoAdvance} onChange={autoAdvance => onPrefs({ autoAdvance })} ariaLabel={t('stage.menu.auto')} activeClassName="bg-scp-term" />
+        <SettingsToggle checked={prefs.autoAdvance} onChange={autoAdvance => onPrefs({ autoAdvance })} ariaLabel={t('stage.menu.auto')} activeClassName="menu-toggle-on" />
       </div>
       <MenuSelect
         label={t('stage.menu.font')}

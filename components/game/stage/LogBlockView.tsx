@@ -1,14 +1,12 @@
 import React from 'react';
-import { LogBlock, plainText, StageMedia } from '../../../utils/beats';
+import { LogBlock, mediaCaption, plainText, StageMedia } from '../../../utils/beats';
 import { renderLogText } from './BeatText';
 
 type Translate = (key: string, params?: Record<string, string | number>) => any;
 
 const mediaLabel = (media: StageMedia, t: Translate) => {
-  if (media.type === 'DOC') return `${t('stage.log.doc')} · ${media.attrs.title || ''}`;
-  if (media.type === 'ENV') return t('stage.log.env');
-  if (media.type === 'COMM') return `${t('stage.log.comm')} · ${media.attrs.source || ''}`;
-  return t('stage.log.dossier');
+  const caption = mediaCaption(media, t);
+  return caption ? [caption.kind, ...caption.details].join(' · ') : t('stage.log.dossier');
 };
 
 interface LogBlockViewProps {
