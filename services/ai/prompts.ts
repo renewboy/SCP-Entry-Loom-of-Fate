@@ -1,4 +1,4 @@
-import { GameDifficulty, Language, MapBlueprint, StoryDraft, LegacyData, EntityProfile } from '../../types';
+import { GameDifficulty, Language, MapBlueprint, StoryDraft, LegacyData, EntityProfile, SCPBriefing } from '../../types';
 import { translate } from '../../utils/i18n';
 import { ContextPromptAnchors } from './types';
 import { joinPromptSections, renderPromptTemplate } from './promptTemplateEngine';
@@ -55,7 +55,8 @@ export const getStartGamePrompt = (
     legacyData?: LegacyData,
     mapBlueprint?: MapBlueprint,
     storyDraft?: StoryDraft,
-    npcVisuals?: Record<string, string>
+    npcVisuals?: Record<string, string>,
+    briefing?: SCPBriefing
 ) => {
     const langInstruction = translate(language, 'i18n.prompt_language_labels.zh');
     const isEmptyStoryDraft = Object.values(storyDraft || {}).every(value => !value);
@@ -81,6 +82,8 @@ export const getStartGamePrompt = (
         mapBlueprintJson: sanitizedMapBlueprint ? JSON.stringify(sanitizedMapBlueprint) : '',
         hasNpcVisuals,
         npcVisualsJson: hasNpcVisuals ? JSON.stringify(npcVisuals) : '',
+        hasBriefing: Boolean(briefing),
+        briefingJson: briefing ? JSON.stringify(briefing) : '',
         outputLanguage: langInstruction,
     });
 };

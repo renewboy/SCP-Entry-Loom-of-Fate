@@ -97,6 +97,7 @@ describe('analyze SCP schema validation', () => {
       'storyDraft',
       'mapBlueprint',
       'npcVisuals',
+      'briefing',
     ]));
     expect(mapProperties.edges).toBeDefined();
     expect(root.properties.mapBlueprint.required).toContain('edges');

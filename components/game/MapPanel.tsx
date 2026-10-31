@@ -10,9 +10,11 @@ interface MapPanelProps {
   gameState: GameState;
   onQuickAction: (text: string) => void;
   fullWidth?: boolean;
+  /** Shown inside a stage drawer, which has its own title; objectives live in the tracker */
+  embedded?: boolean;
 }
 
-const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction, fullWidth = false }) => {
+const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction, fullWidth = false, embedded = false }) => {
   const { t } = useTranslation();
   const blueprint = gameState.scpData?.mapBlueprint;
   const runtime = gameState.map;
@@ -175,7 +177,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction, fullWidth
     const { positionById, levels } = buildLayout(blueprint, { width, height, paddingX: 40, paddingY: 40, useExistingLayout: false });
 
     const labelOffsetById = new Map<string, { dx: number; dy: number }>();
-    Array.from(levels.entries()).sort((a, b) => a[0] - b[0]).forEach(([, ids]) => {
+    Array.from(levels.entries()).sort((a, b) => a[0] - b[0]).forEach(([, ids], levelIndex) => {
       const sorted = ids.slice().sort((a, b) => {
         const ay = positionById.get(a)?.y ?? 0;
         const by = positionById.get(b)?.y ?? 0;
@@ -185,12 +187,12 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction, fullWidth
       let toggle = false;
       sorted.forEach(id => {
         const y = positionById.get(id)?.y ?? 0;
-        let dy = -10;
+        let dy = levelIndex % 2 ? 15 : -10;
         if (y - lastY < 14) {
-          dy = toggle ? 14 : -14;
+          dy = toggle ? 15 : -10;
           toggle = !toggle;
         }
-        labelOffsetById.set(id, { dx: 10, dy });
+        labelOffsetById.set(id, { dx: 0, dy });
         lastY = y;
       });
     });
@@ -199,7 +201,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction, fullWidth
       const position = positionById.get(node.id) || { x: width / 2, y: height / 2 };
       const label = node.name.length > 10 ? `${node.name.slice(0, 10)}…` : node.name;
       const objectiveStatus = objectiveStatusByNode.get(node.id) || {};
-      const labelOffset = labelOffsetById.get(node.id) || { dx: 10, dy: -10 };
+      const labelOffset = labelOffsetById.get(node.id) || { dx: 0, dy: -10 };
       return {
         id: node.id,
         name: node.name,
@@ -381,23 +383,25 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction, fullWidth
 
   const mapContent = (
     <>
-      <div className="p-3 border-b border-scp-gray/30 scp-window-header flex justify-between items-center">
-        <div>
-          <div className="text-[12px] font-mono tracking-widest text-scp-term uppercase">{t('game.map_title')}</div>
-          <div className="text-xs text-scp-text font-mono mt-1 opacity-60">
-            {data.currentNode?.name || runtime!.currentNodeId}
+      {!embedded && (
+        <div className="p-3 border-b border-scp-gray/30 scp-window-header flex justify-between items-center">
+          <div>
+            <div className="text-[12px] font-mono tracking-widest text-scp-term uppercase">{t('game.map_title')}</div>
+            <div className="text-xs text-scp-text font-mono mt-1 opacity-60">
+              {data.currentNode?.name || runtime!.currentNodeId}
+            </div>
+          </div>
+          <div className="flex flex-col items-end">
+             <div className="text-[12px] text-scp-alert font-mono animate-pulse">{t('game.map_radar_online')}</div>
           </div>
         </div>
-        <div className="flex flex-col items-end">
-           <div className="text-[12px] text-scp-alert font-mono animate-pulse">{t('game.map_radar_online')}</div>
-        </div>
-      </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
         <MapControls />
         {/* Radar Container */}
         <div className="w-full flex justify-center pt-1 pb-2 relative">
-            <div className={`relative ${fullWidth ? "w-full aspect-square max-w-[300px]" : "w-64 h-64"} bg-scp-dark rounded-full overflow-hidden border-4 border-scp-border-strong shadow-[0_0_30px_rgba(0,0,0,0.8)] group select-none`}>
+            <div className={`relative ${fullWidth ? `w-full aspect-square ${embedded ? "max-w-[400px]" : "max-w-[300px]"}` : "w-64 h-64"} bg-scp-dark rounded-full overflow-hidden border shadow-[0_0_30px_rgba(0,0,0,0.8)] group select-none`} style={{ borderColor: 'rgba(148,163,184,0.34)' }}>
                 {/* Grid Layer */}
                 <div className="absolute inset-0 pointer-events-none opacity-30">
                     <svg viewBox="0 0 200 200" className="w-full h-full">
@@ -574,10 +578,11 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction, fullWidth
                                             <text
                                                 x={node.x + node.labelOffset.dx}
                                                 y={node.y + node.labelOffset.dy}
-                                                fontSize="8"
+                                                fontSize="6.5"
+                                                textAnchor="middle"
                                                 fill={node.isCurrent ? "#33ff00" : "rgba(226,232,240,0.8)"}
-                                                fontFamily="monospace"
-                                                className="uppercase tracking-wider pointer-events-none"
+                                                fontFamily="'Noto Serif SC', serif"
+                                                className="pointer-events-none"
                                             >
                                                 {node.label}
                                             </text>
@@ -717,7 +722,7 @@ const MapPanel: React.FC<MapPanelProps> = ({ gameState, onQuickAction, fullWidth
             )}
 
             {/* Objectives List - Restored */}
-            {data.objectives.length > 0 && (
+            {!embedded && data.objectives.length > 0 && (
               <div>
                 <h3 className="font-mono text-[12px] font-bold text-scp-term/80 uppercase mb-1">{t('game.map_objectives')}</h3>
                 <div className="space-y-1">

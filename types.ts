@@ -80,7 +80,8 @@ export interface Message {
   timestamp: number;
   imageUrl?: string; // If the message comes with an illustration
   isTyping?: boolean; // For stream effect
-  stabilitySnapshot?: number; // Snapshot of stability at this message, used for history chart
+  stabilitySnapshot?: number;
+  nodeId?: string; // Map node the turn ended at // Snapshot of stability at this message, used for history chart
   turnIndex: number; // Explicit turn number for timeline navigation
 }
 
@@ -91,6 +92,13 @@ export interface StoryDraft {
   openingPrompt?: string;
   backgroundImage?: string; // Data URL or Remote URL
   entityImage?: string;     // Data URL or Remote URL
+}
+
+export interface SCPBriefing {
+  disruptionClass: string; // Empty when the article has none
+  riskClass: string; // Empty when the article has none
+  containmentProcedures: string;
+  description: string;
 }
 
 export interface SCPData {
@@ -104,6 +112,7 @@ export interface SCPData {
   npcImages?: Record<string, string>; // Map of NPC ID to image URL/DataURL
   mapBlueprint?: MapBlueprint;
   storyDraft?: StoryDraft;
+  briefing?: SCPBriefing; // Mission brief shown before the opening scene
 }
 
 export interface MapBlueprintNode {
@@ -420,6 +429,9 @@ export interface AISettings {
 
 export type ImageDrawingStyle = 'original' | 'narrative-print' | 'gothic-ink';
 
+export type StageTextSpeed = 0 | 1 | 2 | 3; // 0 shows text instantly
+export type StageFxLevel = 'full' | 'reduced' | 'off';
+
 export interface GlobalSettings {
   enableSceneImages: boolean;
   enableBackgroundImages: boolean;
@@ -432,6 +444,10 @@ export interface GlobalSettings {
   skipTacticalPrep?: boolean;
   skipEntityProfile?: boolean;
   skipBootSequence?: boolean; // Skip the boot sequence animation
+  textSpeed?: StageTextSpeed;
+  autoAdvance?: boolean;
+  fontScale?: number;
+  fxLevel?: StageFxLevel;
   aiSettings?: AISettings;
 }
 

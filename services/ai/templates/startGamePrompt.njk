@@ -53,26 +53,19 @@ World Echoes (Past Lives):
 指令：当NPC出场、被提及或触发视觉描写时，优先参考对应NPC ID的外观提示词，保持形象一致。
 {% endif %}
 
-现在开始游戏，请使用 Search 工具检索{{scpDesignation}}的所有关键资料{% if hasLegacy %}(不要搜索遗产相关数据，只搜索本次SCP的资料){% endif %}，严格按以下格式，用{{outputLanguage}}生成内容：
-- **目标**：{{scpDesignation}}
-
-- **项目等级**：{{containmentClass}}
-
-- **扰动等级（如有）**：
-
-- **风险等级（如有）**：
-
-- **特殊收容措施**
-
-- **项目描述**
-
-- **角色简介**
-(如果存在继承特质，请将其融入此处)
-
-- "{{role}}"的初始遭遇场景, 主线任务等, 200-300字, {{outputLanguage}}。{% if hasLegacy %} （如果存在继承物品，请提及角色已持有它们）{% endif %}
-- 3个初始互动选项。
-- [STABILITY: 100]
-- [VISUAL: prompt] (可选)
+{% if hasBriefing %}
+[任务简报]
+{{ briefingJson }}
+[任务简报结束]
+{% endif %}
+现在开始游戏，请先使用 Search 工具检索{{scpDesignation}}的所有关键资料{% if hasLegacy %}(不要搜索遗产相关数据，只搜索本次SCP的资料){% endif %}，检索过程不要输出任何文字。
+任务简报由系统单独展示给玩家，不要输出目标、项目等级、收容措施、项目描述、角色简介等档案内容。
+检索完成后，严格按以下顺序，用{{outputLanguage}}输出：
+第一行：---
+第二行：[VISUAL: <English Image Prompt>]（必填，描述初始遭遇场景的主体、空间关系、材质和现场光源）
+然后："{{role}}"的初始遭遇场景, 主线任务等, 200-300字, {{outputLanguage}}。{% if hasLegacy %} （如果存在继承特质或继承物品，请自然融入，并提及角色已持有继承物品）{% endif %}
+然后：3个初始互动选项。
+最后：[STABILITY: 100]
 
 主要搜索源: https://scp-wiki.wikidot.com/, https://scp-wiki-cn.wikidot.com/, google
 Hint: 你可以拼接搜索源网址 and SCP目标, 得到目标的档案网页, 例如: https://scp-wiki.wikidot.com/[designation]

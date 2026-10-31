@@ -10,7 +10,8 @@ import CrtSurface from './common/CrtSurface';
 import { setBgmVolume } from '../services/bgmService';
 import { setSfxVolume } from '../services/sfxService';
 import SettingsRange from './common/SettingsRange';
-import CustomSelect from './editor/CustomSelect';
+import CustomSelect from './common/CustomSelect';
+import SettingsToggle from './common/SettingsToggle';
 import { IMAGE_DRAWING_STYLE_OPTIONS } from '../services/ai/imageStyles';
 
 interface GlobalSettingsModalProps {
@@ -447,16 +448,7 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
                                             <span className="text-[13px] text-scp-text font-mono tracking-wider">
                                                 {getLabel(key)}
                                             </span>
-                                            <button
-                                                onClick={() => handleToggle(key)}
-                                                className={`w-11 h-5 rounded-full p-0.5 transition-colors duration-300 ease-in-out relative ${
-                                                    settings[key] ? 'bg-scp-accent' : 'bg-gray-700'
-                                                }`}
-                                            >
-                                                <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
-                                                    settings[key] ? 'translate-x-6' : 'translate-x-0'
-                                                }`}></div>
-                                            </button>
+                                            <SettingsToggle checked={!!settings[key]} onChange={() => handleToggle(key)} />
                                         </div>
                                     ))}
                                 </div>
@@ -469,16 +461,7 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
                                     <span className="text-[13px] text-scp-text font-mono tracking-wider">
                                         {getLabel('skipBootSequence')}
                                     </span>
-                                    <button
-                                        onClick={() => handleToggle('skipBootSequence')}
-                                        className={`w-11 h-5 rounded-full p-0.5 transition-colors duration-300 ease-in-out relative ${
-                                            settings.skipBootSequence ? 'bg-scp-accent' : 'bg-gray-700'
-                                        }`}
-                                    >
-                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
-                                            settings.skipBootSequence ? 'translate-x-6' : 'translate-x-0'
-                                        }`}></div>
-                                    </button>
+                                    <SettingsToggle checked={!!settings.skipBootSequence} onChange={() => handleToggle('skipBootSequence')} />
                                 </div>
                             </div>
                             <div className="p-4 border border-scp-gray/30 bg-scp-gray/10 space-y-4">

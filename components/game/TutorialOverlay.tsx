@@ -1,6 +1,8 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import CrtSurface from '../common/CrtSurface';
 
+const SPOTLIGHT_PADDING = 6;
+
 interface TutorialStep {
   targetId?: string; // ID of the element to highlight (optional)
   title: string;
@@ -28,34 +30,34 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ isVisible, onClose, t
       position: 'center'
     },
     {
-      targetId: 'stability-monitor-ui',
+      targetId: 'hume-block',
       title: t('tutorial.stability_title'),
       content: t('tutorial.stability_desc'),
-      position: 'bottom'
+      position: 'left'
     },
     {
-      targetId: 'map-panel',
+      targetId: 'radar-wrap',
       title: t('tutorial.map_title'),
       content: t('tutorial.map_desc'),
       position: 'left'
     },
     {
-      targetId: 'chat-area',
+      targetId: 'stage',
       title: t('tutorial.narrative_title'),
       content: t('tutorial.narrative_desc'),
       position: 'top'
     },
     {
-      targetId: 'input-area',
+      targetId: 'choices',
       title: t('tutorial.input_title'),
       content: t('tutorial.input_desc'),
       position: 'top'
     },
     {
-      targetId: 'game-settings-button',
+      targetId: 'hud-br',
       title: t('tutorial.settings_title'),
       content: t('tutorial.settings_desc'),
-      position: 'bottom'
+      position: 'top'
     },
     {
       title: t('tutorial.tips_title'),
@@ -207,22 +209,23 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ isVisible, onClose, t
 
   return (
     <div className={`fixed inset-0 z-[202] ${hasTarget ? 'bg-transparent pointer-events-none' : 'bg-black/70 backdrop-blur-sm pointer-events-auto'} scp-ui`}>
-      {/* Highlight Effect (Simulated) */}
-      {step.targetId && (
-        <style>
-          {`
-            #${step.targetId} {
-              position: relative;
-              z-index: 201;
-              box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 255, 255, 0.2);
-              border-color: rgba(255, 255, 255, 0.5);
-            }
-          `}
-        </style>
+      {/* Spotlight drawn above the stage, whatever stacking context the target sits in */}
+      {hasTarget && targetRect && (
+        <div
+          className="fixed pointer-events-none"
+          style={{
+            left: targetRect.left - SPOTLIGHT_PADDING,
+            top: targetRect.top - SPOTLIGHT_PADDING,
+            width: targetRect.width + SPOTLIGHT_PADDING * 2,
+            height: targetRect.height + SPOTLIGHT_PADDING * 2,
+            border: '1px solid rgba(255, 255, 255, 0.5)',
+            boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 255, 255, 0.2)'
+          }}
+        />
       )}
 
       <div ref={panelRef} style={computeFloatingStyle()} className="pointer-events-auto">
-        <CrtSurface className="w-[90vw] max-w-md scp-window border border-scp-term p-6 shadow-[0_0_30px_rgba(0,255,0,0.2)] animate-in fade-in zoom-in-95 duration-300">
+        <CrtSurface className="w-full scp-window border border-scp-term p-6 shadow-[0_0_30px_rgba(0,255,0,0.2)] animate-in fade-in zoom-in-95 duration-300">
           <div className="flex justify-between items-start mb-4 border-b border-scp-term/30 pb-2">
             <h3 className="text-xl font-report text-scp-term tracking-widest uppercase">{step.title}</h3>
             <span className="text-xs font-mono text-scp-term/50">STEP {currentStep + 1}/{steps.length}</span>

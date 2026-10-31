@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from '../../utils/i18n';
 import { buildWorldLinePrintDocument } from './export/buildWorldLinePrintDocument';
+import { briefingToMarkdown, buildBriefingContent } from '../../utils/beats';
 import { exportWorldLineReport } from './export/exportWorldLineReport';
 import { useWorldLineAudioDrama } from './hooks/useWorldLineAudioDrama';
 import { useWorldLineLegacy } from './hooks/useWorldLineLegacy';
@@ -42,7 +43,11 @@ const PostGameReportShell: React.FC<WorldLineTreeProps> = ({
   }, []);
 
   const stabilityHistory = useMemo(() => buildStabilityHistory(messages), [messages]);
-  const timelineEvents = useMemo(() => buildTimelineEvents(messages), [messages]);
+  const briefingText = useMemo(() => {
+    const briefing = buildBriefingContent(scpData, t);
+    return briefing ? briefingToMarkdown(briefing) : '';
+  }, [scpData, language]);
+  const timelineEvents = useMemo(() => buildTimelineEvents(messages, briefingText), [messages, briefingText]);
   const printableNpcs = useMemo(() => buildPrintableNpcs(scpData), [scpData]);
   const endingDisplay = useMemo(() => getEndingDisplayConfig(endingType, t), [endingType, t]);
 
@@ -100,7 +105,7 @@ const PostGameReportShell: React.FC<WorldLineTreeProps> = ({
   };
 
   return (
-    <div className="absolute inset-0 z-[200] flex flex-col bg-black/80 backdrop-blur-md text-scp-text overflow-y-auto crt border-t border-scp-gray/50 scp-ui">
+    <div className="absolute inset-0 z-[200] flex flex-col bg-black/80 backdrop-blur-md text-scp-text overflow-y-auto border-t border-scp-gray/50 scp-ui">
       <WorldLineHeader
         scpData={scpData}
         title={t('report.title')}

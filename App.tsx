@@ -172,9 +172,11 @@ const AppContent: React.FC = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [gameState.status]);
 
+  const isInGame = gameState.status === GameStatus.PLAYING || gameState.status === GameStatus.GAME_OVER;
+
   return (
     <div className="relative w-screen h-screen-safe flex flex-col items-center justify-center overflow-hidden bg-[#0a0a0a] text-scp-text" style={{ paddingTop: 'var(--safe-top)', paddingBottom: 'var(--safe-bottom)' }}>
-      <LanguageToggle status={gameState.status} />
+      {!isInGame && <LanguageToggle status={gameState.status} />}
       <FeedbackOverlay gameState={gameState} />
       
       {/* Dynamic Background Layer - z-0 */}
@@ -196,17 +198,6 @@ const AppContent: React.FC = () => {
         ></div>
       </div>
 
-      {/* Floating Main SCP Image (Decoration) - z-1 */}
-      {/* Placed between background and content */}
-      {gameState.status === GameStatus.PLAYING && gameState.mainImage && (
-        <div className={`absolute top-16 w-32 h-32 md:w-64 md:h-64 border-2 border-scp-gray/30 z-[1] opacity-50 pointer-events-none filter sepia contrast-125 transition-all duration-1000 animate-pulse-slow ${gameState.legacy ? 'right-4 md:right-16 lg:right-[22rem] rotate-6' : 'left-4 md:left-16 -rotate-6'}`}>
-             <img src={gameState.mainImage} className="w-full h-full object-cover" alt="Subject" />
-             <div className="absolute bottom-0 right-0 bg-black/80 text-white text-xs px-2 py-1 font-mono border-t border-l border-scp-gray/50">
-               {t('app.appendix')} // {gameState.scpData?.designation}
-             </div>
-        </div>
-      )}
-
       {/* Main Content Container - z-10 */}
       <div className="relative z-10 w-full flex justify-center items-center p-2 sm:p-4 h-full">
         {(gameState.status === GameStatus.IDLE || gameState.status === GameStatus.ANALYZING || gameState.status === GameStatus.ENTITY_PROFILE) && (
@@ -223,7 +214,7 @@ const AppContent: React.FC = () => {
         )}
       </div>
 
-      {gameState.status !== GameStatus.ENTITY_PROFILE && (
+      {gameState.status !== GameStatus.ENTITY_PROFILE && !isInGame && (
         <>
           <AuthorLinks status={gameState.status} />
 
@@ -250,7 +241,7 @@ const AppContent: React.FC = () => {
       )}
 
       {/* Global CRT Scanline Overlay */}
-       <div className="pointer-events-none absolute inset-0 z-[500] mix-blend-overlay opacity-10 bg-[url('https://www.transparenttextures.com/patterns/black-linen.png')]"></div>
+       {!isInGame && <div className="pointer-events-none absolute inset-0 z-[500] mix-blend-overlay opacity-10 bg-[url('https://www.transparenttextures.com/patterns/black-linen.png')]"></div>}
 
       <GlobalSettingsModal 
         isOpen={settingsModalOpen} 

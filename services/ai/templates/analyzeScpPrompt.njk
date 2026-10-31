@@ -59,6 +59,11 @@ Goal:
 {% endif %}
   - storyDraft.roleDetails: short profile of the player role.
   - storyDraft.storyBackground: brief overarching premise and context.
+  - briefing: the mission file shown to the player before the game starts. Base it on the official pages you researched. Plain prose in {{languageInstruction}}, no Markdown and no lists:
+    - disruptionClass: the article's disruption class; use "" if it has none.
+    - riskClass: the article's risk class; use "" if it has none.
+    - containmentProcedures: one short paragraph, at most 300 characters.
+    - description: one short paragraph, at most 350 characters.
 5) Generate two ENGLISH visual strings for image templates:
   - Describe subject matter, physical materials and scene-specific colors or light sources. The image renderer applies the selected drawing style; keep these strings focused on content.
   - visualDescription
@@ -122,6 +127,12 @@ Function argument structure:
   "storyDraft": {
     "roleDetails": "string",
     "storyBackground": "string"
+  },
+  "briefing": {
+    "disruptionClass": "string",
+    "riskClass": "string",
+    "containmentProcedures": "string",
+    "description": "string"
   },
   "visualDescription": "keywords for background...",
   "entityDescription": "description of entity...",

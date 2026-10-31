@@ -191,6 +191,13 @@ const StoryDraftSchema = z.object({
     entityImage: z.string().optional(),
 });
 
+const BriefingSchema = z.object({
+    disruptionClass: z.string(),
+    riskClass: z.string(),
+    containmentProcedures: z.string(),
+    description: z.string(),
+});
+
 export const AnalyzeScpDataSchema = z.object({
     designation: z.string(),
     name: z.string(),
@@ -202,6 +209,7 @@ export const AnalyzeScpDataSchema = z.object({
     npcImages: z.record(z.string()).optional(),
     mapBlueprint: MapBlueprintSchema.optional(),
     storyDraft: StoryDraftSchema.optional(),
+    briefing: BriefingSchema.optional(),
 });
 
 export const AnalyzeScpDataSubmissionSchema = z.object({
@@ -211,6 +219,7 @@ export const AnalyzeScpDataSubmissionSchema = z.object({
     role: z.string(),
     visualDescription: z.string(),
     entityDescription: z.string(),
+    briefing: BriefingSchema,
     storyDraft: StoryDraftSchema.pick({
         roleDetails: true,
         storyBackground: true,

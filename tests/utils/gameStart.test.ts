@@ -135,7 +135,6 @@ describe('startGameProcess', () => {
       `Intro text [VISUAL: ${sceneDescription}][STABILITY: 95]`
     ]));
     generateImageMock
-      .mockResolvedValueOnce('background.png')
       .mockResolvedValueOnce('entity.png')
       .mockResolvedValueOnce('npc.png')
       .mockResolvedValueOnce('scene.png');
@@ -154,14 +153,64 @@ describe('startGameProcess', () => {
       t: key => key
     });
 
-    expect(generateImageMock).toHaveBeenCalledTimes(4);
-    expect(generateImageMock).toHaveBeenCalledWith(scpData.visualDescription!, getBackgroundAspectRatio(), 'b64_json', 'background');
+    expect(generateImageMock).toHaveBeenCalledTimes(3);
     expect(generateImageMock).toHaveBeenCalledWith(scpData.entityDescription!, '1:1', 'url', 'entity');
     expect(generateImageMock).toHaveBeenCalledWith(npcDescription, '1:1', 'url', 'npc');
-    expect(generateImageMock).toHaveBeenCalledWith(sceneDescription, getSceneAspectRatio(), 'url', 'scene');
-    expect(currentState.backgroundImage).toBe('background.png');
+    expect(generateImageMock).toHaveBeenCalledWith(sceneDescription, getSceneAspectRatio(), 'b64_json', 'scene');
+    expect(currentState.backgroundImage).toBe('scene.png');
     expect(currentState.mainImage).toBe('entity.png');
     expect(currentState.scpData?.npcImages?.npc_researcher).toBe('npc.png');
     expect(currentState.messages[0]).toMatchObject({ content: 'Intro text', imageUrl: 'scene.png' });
+  });
+
+  const runStart = async (settings: Partial<GlobalSettings>, chunks: string[]) => {
+    vi.mocked(loadGlobalSettings).mockResolvedValueOnce({ ...defaultSettings, ...settings });
+    initializeGameChatStreamMock.mockReturnValue(createStream(chunks));
+    let currentState = createState();
+    const scpData = currentState.scpData!;
+    await startGameProcess({
+      gameState: currentState,
+      setGameState: vi.fn((updater: React.SetStateAction<GameState>) => {
+        currentState = typeof updater === 'function' ? updater(currentState) : updater;
+      }),
+      language: 'zh',
+      t: key => key
+    });
+    return { scpData, state: () => currentState };
+  };
+
+  it('关闭场景图时只生成背景图', async () => {
+    generateImageMock.mockResolvedValueOnce('background.png');
+    const { scpData, state } = await runStart(
+      { enableBackgroundImages: true, enableSceneImages: false },
+      ['Intro text [VISUAL: a corridor][STABILITY: 95]']
+    );
+
+    expect(generateImageMock).toHaveBeenCalledTimes(1);
+    expect(generateImageMock).toHaveBeenCalledWith(scpData.visualDescription!, getBackgroundAspectRatio(), 'b64_json', 'background');
+    expect(state().backgroundImage).toBe('background.png');
+    expect(state().messages[0].imageUrl).toBeUndefined();
+  });
+
+  it('模型漏写画面标签时，第一幕仍然生图', async () => {
+    generateImageMock.mockResolvedValueOnce('scene.png');
+    const { scpData, state } = await runStart({ enableSceneImages: true }, ['Intro text [STABILITY: 95]']);
+
+    expect(generateImageMock).toHaveBeenCalledTimes(1);
+    expect(generateImageMock).toHaveBeenCalledWith(scpData.visualDescription!, getSceneAspectRatio(), 'b64_json', 'scene');
+    expect(state().messages[0].imageUrl).toBe('scene.png');
+  });
+
+  it('读到画面标签就开始生图，且只生成一次', async () => {
+    generateImageMock.mockResolvedValueOnce('scene.png');
+    let callsWhenTextArrived = -1;
+    await runStart({ enableSceneImages: true }, ['---\n\n[VISUAL: a corridor]\n\n', '正文写完了。[STABILITY: 95]'].map((chunk, index) => {
+      if (index === 1) queueMicrotask(() => { callsWhenTextArrived = generateImageMock.mock.calls.length; });
+      return chunk;
+    }));
+
+    expect(callsWhenTextArrived).toBeGreaterThanOrEqual(0);
+    expect(generateImageMock).toHaveBeenCalledTimes(1);
+    expect(generateImageMock).toHaveBeenCalledWith('a corridor', getSceneAspectRatio(), 'b64_json', 'scene');
   });
 });

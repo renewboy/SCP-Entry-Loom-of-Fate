@@ -18,6 +18,16 @@ import { MapUpdate } from './useMapUpdate';
 const IDLE_TIMEOUT_MS = 45000;
 const SUMMARIZING_TIMEOUT_MS = IDLE_TIMEOUT_MS * 3;
 
+const moveToNode = (state: GameState, nodeId: string): GameState => {
+    if (!state.map) return state;
+    const discovered = new Set(state.map.discoveredNodeIds);
+    discovered.add(nodeId);
+    return {
+        ...state,
+        map: { ...state.map, currentNodeId: nodeId, discoveredNodeIds: Array.from(discovered) }
+    };
+};
+
 interface UseGameLoopOptions {
     gameState: GameState;
     setGameState: React.Dispatch<React.SetStateAction<GameState>>;
@@ -101,6 +111,8 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
         try {
             console.log("[GameLoop] Invoking sendAction stream...");
             let fullResponse = '';
+            let illustrationStarted = false;
+            let peekedLocId: string | null = null;
 
             const onTokenUpdate = (count: number) => {
                  setGameState(prev => ({ ...prev, tokenCount: count }));
@@ -177,12 +189,27 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
                     }
 
                     fullResponse += chunk;
-                    setGameState(prev => ({
-                        ...prev,
-                        messages: prev.messages.map(m =>
-                            m.id === aiMsgId ? { ...m, content: fullResponse } : m
-                        )
-                    }));
+
+                    // Tags that lead the reply let the scene change before the first line is read
+                    if (!illustrationStarted) {
+                        const earlyVisual = extractVisualPrompt(fullResponse).visualPrompt;
+                        if (earlyVisual) {
+                            illustrationStarted = true;
+                            generateIllustration(aiMsgId, earlyVisual);
+                        }
+                    }
+                    const earlyLoc = peekedLocId ? null : extractLoc(fullResponse).locId;
+                    if (earlyLoc) peekedLocId = earlyLoc;
+
+                    setGameState(prev => {
+                        const base: GameState = {
+                            ...prev,
+                            messages: prev.messages.map(m =>
+                                m.id === aiMsgId ? { ...m, content: fullResponse } : m
+                            )
+                        };
+                        return earlyLoc ? moveToNode(base, earlyLoc) : base;
+                    });
                 }
             } catch (e) {
                 clearTimeout(idleTimeoutId!);
@@ -236,23 +263,20 @@ export function useGameLoop(options: UseGameLoopOptions): UseGameLoopReturn {
                     )
                 };
 
-                if (base.map && locResult.locId) {
-                    const discovered = new Set(base.map.discoveredNodeIds);
-                    discovered.add(locResult.locId);
-                    base = {
-                        ...base,
-                        map: {
-                            ...base.map,
-                            currentNodeId: locResult.locId,
-                            discoveredNodeIds: Array.from(discovered)
-                        }
-                    };
+                if (locResult.locId) {
+                    base = moveToNode(base, locResult.locId);
                 }
+
+                const nodeId = base.map?.currentNodeId;
+                base = {
+                    ...base,
+                    messages: base.messages.map(m => (m.id === aiMsgId ? { ...m, nodeId } : m))
+                };
 
                 return applyMapUpdate(base, mapUpdate);
             });
 
-            if (visualPrompt) {
+            if (visualPrompt && !illustrationStarted) {
                 generateIllustration(aiMsgId, visualPrompt);
             }
 

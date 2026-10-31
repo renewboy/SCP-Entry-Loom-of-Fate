@@ -1,3 +1,5 @@
+import { getAudioContext } from './audioUnlock';
+
 let audio: HTMLAudioElement | null = null;
 let shouldPlay = false;
 let resumeTimer: number | null = null;
@@ -90,7 +92,66 @@ const attachListeners = () => {
   // Removed from here to avoid dual-control conflicts.
 };
 
+interface BgmFxChain {
+  ctx: AudioContext;
+  gain: GainNode;
+  filter: BiquadFilterNode;
+}
+let fxChain: BgmFxChain | null = null;
+const OPEN_FILTER_HZ = 20000;
+
+const getFxChain = (): BgmFxChain | null => {
+  if (fxChain) return fxChain;
+  const ctx = getAudioContext();
+  if (!ctx) return null;
+  try {
+    const source = ctx.createMediaElementSource(getAudio());
+    const filter = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+    filter.type = 'lowpass';
+    filter.frequency.value = OPEN_FILTER_HZ;
+    source.connect(filter).connect(gain).connect(ctx.destination);
+    fxChain = { ctx, gain, filter };
+    if (ctx.state === 'suspended') ctx.resume().catch(() => null);
+    return fxChain;
+  } catch {
+    return null;
+  }
+};
+
+/** Scale the music to `level` of its normal volume without touching the user's volume setting */
+export const duckBgm = (level: number, seconds = 1) => {
+  const chain = getFxChain();
+  if (!chain) {
+    fadeTo(targetVolume * level, seconds * 1000);
+    return;
+  }
+  const param = chain.gain.gain;
+  const now = chain.ctx.currentTime;
+  param.cancelScheduledValues(now);
+  param.setValueAtTime(param.value, now);
+  param.linearRampToValueAtTime(clamp01(level), now + Math.max(0.01, seconds));
+};
+
+/** Sweep a low-pass filter over the music, as if heard through a wall */
+export const muffleBgm = (hz: number, seconds = 1) => {
+  const chain = getFxChain();
+  if (!chain) return;
+  const param = chain.filter.frequency;
+  const now = chain.ctx.currentTime;
+  param.cancelScheduledValues(now);
+  param.setValueAtTime(param.value, now);
+  param.exponentialRampToValueAtTime(hz, now + Math.max(0.01, seconds));
+};
+
+export const resetBgmFx = (seconds = 0.6) => {
+  if (!fxChain) return;
+  duckBgm(1, seconds);
+  muffleBgm(OPEN_FILTER_HZ, seconds);
+};
+
 export const playBgm = () => {
+  resetBgmFx(0);
   shouldPlay = true;
   externalPauseActive = false;
   attachListeners();

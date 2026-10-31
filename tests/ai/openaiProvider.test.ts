@@ -68,6 +68,7 @@ describe('OpenAIProvider', () => {
       visualDescription: 'dark archive',
       entityDescription: 'anomalous record',
       storyDraft: { roleDetails: 'Foundation analyst', storyBackground: 'A sealed archive.' },
+      briefing: { disruptionClass: '', riskClass: '', containmentProcedures: 'Keep sealed.', description: 'A record.' },
       mapBlueprint: {
         id: 'test-map', title: 'Archive', startNodeId: 'node_archive',
         nodes: [{ id: 'node_archive', name: 'Archive', danger: 10, discoverables: [], requires: [], blockedText: '' }],

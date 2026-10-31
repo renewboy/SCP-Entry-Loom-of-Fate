@@ -38,6 +38,12 @@ describe('postGameReport selectors', () => {
     expect(buildStabilityHistory([])).toEqual([100]);
   });
 
+  it('开局卡片带上结构化简报，其他回合不带', () => {
+    const events = buildTimelineEvents(messages, '- **目标**：SCP-173');
+    expect(events[0].response).toBe('- **目标**：SCP-173\n\nContainment started. [STABILITY: 95]');
+    expect(events[1].response).not.toContain('SCP-173');
+  });
+
   it('从消息流构建世界线时间轴事件', () => {
     expect(buildTimelineEvents(messages)).toEqual([
       {

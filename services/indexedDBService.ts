@@ -17,7 +17,7 @@ const GLOBAL_SETTINGS_KEY = 'global_settings';
 const EDITING_SCP_DATA_KEY = 'editing_scp_data';
 
 const DEFAULT_SETTINGS: GlobalSettings = {
-    enableSceneImages: false,
+    enableSceneImages: true,
     enableBackgroundImages: true,
     enableEntityImages: true,
     enableNpcImages: true,
@@ -26,7 +26,11 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     bgmVolume: 0.8,
     sfxVolume: 1,
     skipTacticalPrep: false,
-    skipEntityProfile: false
+    skipEntityProfile: false,
+    textSpeed: 2,
+    autoAdvance: false,
+    fontScale: 1,
+    fxLevel: 'full'
 };
 
 interface IDBSaveGame extends SaveGameMetadata {

@@ -25,7 +25,7 @@ interface PropertyInspectorProps {
 }
 
 import TagInput from './TagInput';
-import CustomSelect from './CustomSelect';
+import CustomSelect from '../common/CustomSelect';
 import {
     deleteButton,
     emptyStateBox,

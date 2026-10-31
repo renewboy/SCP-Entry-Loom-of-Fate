@@ -106,4 +106,17 @@ describe('ai prompts', () => {
     expect(prompt).toContain('SCP-173');
     expect(prompt).toContain('起始遭遇必须发生在startNodeId对应地点');
   });
+
+  it('开局提示只要求检索和开场，不再让模型写简报', () => {
+    const prompt = getStartGamePrompt(
+      '机动特遣队', 'SCP-173', 'Euclid', 'zh', 'hard', undefined, undefined, undefined, undefined,
+      { disruptionClass: 'Dark', riskClass: 'Notice', containmentProcedures: '锁在隔离室', description: '一座雕像' }
+    );
+
+    expect(prompt).toContain('Search 工具');
+    expect(prompt).toContain('第一行：---');
+    expect(prompt).toContain('第二行：[VISUAL:');
+    expect(prompt).toContain('锁在隔离室');
+    expect(prompt).not.toContain('- **特殊收容措施**');
+  });
 });

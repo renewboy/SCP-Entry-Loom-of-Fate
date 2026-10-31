@@ -27,7 +27,7 @@ export const buildStabilityHistory = (messages: Message[]): number[] => {
   return history;
 };
 
-export const buildTimelineEvents = (messages: Message[]): TimelineEvent[] => {
+export const buildTimelineEvents = (messages: Message[], briefingText = ''): TimelineEvent[] => {
   const timelineEvents: TimelineEvent[] = [];
 
   for (let index = 0; index < messages.length; index += 1) {
@@ -41,7 +41,9 @@ export const buildTimelineEvents = (messages: Message[]): TimelineEvent[] => {
 
     timelineEvents.push({
       trigger,
-      response: message.content,
+      response: briefingText && (message.id === 'intro' || message.turnIndex === 0)
+        ? `${briefingText}\n\n${message.content}`
+        : message.content,
       image: message.imageUrl,
       id: message.id,
       stability: message.stabilitySnapshot,

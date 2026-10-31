@@ -158,7 +158,7 @@ export class OpenAIProvider implements AIService {
         console.log(`[OpenAIProvider] Initializing chat stream for ${scp.designation} as ${role} in ${language}`);
         this.systemInstruction = getSystemInstruction(role, language);
         const config = await this.getConfig();
-        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyData, scp.mapBlueprint, scp.storyDraft, scp.npcVisuals);
+        const startPrompt = getStartGamePrompt(role, scp.designation, scp.containmentClass, language, difficulty, legacyData, scp.mapBlueprint, scp.storyDraft, scp.npcVisuals, scp.briefing);
 
         console.log("[OpenAIProvider] Sending start message... ");
         this.messages = [
