@@ -820,6 +820,8 @@ export const zh = {
     record_no: "记录-{n}",
     log_ok: "完成",
     age_unknown: "未知",
+    skip: "跳过补全",
+    skip_hint: "主体档案将由系统自动拟定，直接继续",
   },
   boot: {
     scp_id: "项目编号",

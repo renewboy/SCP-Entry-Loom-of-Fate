@@ -14,6 +14,8 @@ export interface ShatterOptions {
   font?: string;
   weight?: string;
   radius?: number;
+  /** Shrinks the text to the width of the host's parent when it would not fit */
+  fit?: boolean;
 }
 
 export class ShatterText {
@@ -63,7 +65,7 @@ export class ShatterText {
 
   constructor(host: HTMLElement, opts: ShatterOptions) {
     this.host = host;
-    this.o = { tracking: 0, color: '#e8e6e1', ember: '#ff6a3d', pad: 84, font: '"Special Elite", "Noto Serif JP", "Noto Serif SC", serif', weight: 'bold', radius: 34, ...opts };
+    this.o = { tracking: 0, color: '#e8e6e1', ember: '#ff6a3d', pad: 84, font: '"Special Elite", "Noto Serif JP", "Noto Serif SC", serif', weight: 'bold', radius: 34, fit: false, ...opts };
     host.classList.add('shatter');
     this.canvas = document.createElement('canvas');
     this.bloom = document.createElement('canvas');
@@ -94,18 +96,28 @@ export class ShatterText {
 
   async build() {
     const { o } = this;
-    const size = typeof o.size === "function" ? o.size() : o.size;
-    this.fontSize = size;
-    const fontSpec = `${o.weight} ${size}px ${o.font}`;
-    try { await document.fonts.load(fontSpec, this.text); await document.fonts.ready; } catch { /* Falls back to whatever font is there */ }
+    let size = typeof o.size === "function" ? o.size() : o.size;
+    try { await document.fonts.load(`${o.weight} ${size}px ${o.font}`, this.text); await document.fonts.ready; } catch { /* Falls back to whatever font is there */ }
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.dpr = dpr;
     const measure = document.createElement('canvas').getContext('2d') as CanvasRenderingContext2D;
-    measure.font = fontSpec;
     const chars = Array.from(this.text);
-    const widths = chars.map(c => measure.measureText(c).width);
+    const lay = (px: number) => {
+      measure.font = `${o.weight} ${px}px ${o.font}`;
+      const advances = chars.map(c => measure.measureText(c).width);
+      return { advances, width: advances.reduce((a, b) => a + b, 0) + o.tracking * px * (chars.length - 1) };
+    };
+    let laid = lay(size);
+    // Kana and Han run wider than Latin at the same size, so a title sized by the window alone can outgrow its column
+    const room = o.fit ? this.host.parentElement?.clientWidth ?? 0 : 0;
+    if (room > 0 && laid.width > room) {
+      size *= room / laid.width;
+      laid = lay(size);
+    }
+    this.fontSize = size;
+    const widths = laid.advances;
     const track = o.tracking * size;
-    const textW = widths.reduce((a, b) => a + b, 0) + track * (chars.length - 1);
+    const textW = laid.width;
     const textH = Math.ceil(size * 1.22);
     const pad = o.pad;
     const W = Math.ceil((textW + pad * 2) * dpr);

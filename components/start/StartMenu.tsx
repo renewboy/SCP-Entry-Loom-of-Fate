@@ -310,8 +310,8 @@ const StartMenu = React.forwardRef<StartMenuHandle, StartMenuProps>(({
         </div>
 
         <div className={titlesHidden ? 'lm-titles hidden' : 'lm-titles'}>
-          <ParticleText key={`t1-${language}`} id="start-title" className="lm-t1" text={t('start.scp_archive')} size={titleSize} tracking={0.02} color="#ece9e2" ember="#ff6a3d" onReady={onTitleReady(0)} />
-          <ParticleText key={`t2-${language}`} id="start-subtitle" className="lm-t2" text={t('start.fate_loom')} size={subtitleSize} tracking={language === 'en' ? 0.03 : 0.22} color="#d8352f" ember="#ffc2a8" radius={28} onReady={onTitleReady(1)} />
+          <ParticleText key={`t1-${language}`} id="start-title" className="lm-t1" text={t('start.scp_archive')} size={titleSize} fit tracking={0.02} color="#ece9e2" ember="#ff6a3d" onReady={onTitleReady(0)} />
+          <ParticleText key={`t2-${language}`} id="start-subtitle" className="lm-t2" text={t('start.fate_loom')} size={subtitleSize} fit tracking={language === 'en' ? 0.03 : 0.22} color="#d8352f" ember="#ffc2a8" radius={28} onReady={onTitleReady(1)} />
         </div>
 
         {error && <div className="lm-error">{t('start.error_prefix')}{error}</div>}

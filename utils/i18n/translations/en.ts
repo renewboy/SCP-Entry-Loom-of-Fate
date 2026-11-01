@@ -820,6 +820,8 @@ export const en = {
     record_no: "REC-{n}",
     log_ok: "OK",
     age_unknown: "Unknown",
+    skip: "SKIP AUGMENTATION",
+    skip_hint: "The system drafts the subject record and the run carries on",
   },
   boot: {
     scp_id: "ITEM #",

@@ -28,7 +28,7 @@ interface EntityProfileScreenProps {
   selectedProfile: EntityProfile | null;
   loadingAction: 'init' | 'reroll' | null;
   generationError: boolean;
-  onBack: () => void;
+  onSkip: () => void;
   onGenerate: (mode: 'init' | 'reroll') => void;
   onSelect: (profile: EntityProfile) => void;
   onChange: (field: keyof EntityProfile, value: EntityProfile[keyof EntityProfile]) => void;
@@ -59,7 +59,7 @@ const ExecButton: React.FC<ExecButtonProps> = ({ lead = false, busy, disabled = 
 );
 
 /** The archive terminal: the vault behind it reacts as records are searched for and filed */
-const EntityProfileScreen: React.FC<EntityProfileScreenProps> = ({ role, scpDesignation, ready, candidates, selectedProfile, loadingAction, generationError, onBack, onGenerate, onSelect, onChange, onConfirm }) => {
+const EntityProfileScreen: React.FC<EntityProfileScreenProps> = ({ role, scpDesignation, ready, candidates, selectedProfile, loadingAction, generationError, onSkip, onGenerate, onSelect, onChange, onConfirm }) => {
   const { t } = useTranslation();
   const compact = useCompactScreen();
   const [tab, setTab] = useState<'candidates' | 'details'>('candidates');
@@ -160,7 +160,6 @@ const EntityProfileScreen: React.FC<EntityProfileScreenProps> = ({ role, scpDesi
         </div>
 
         <aside className={`ep-side ${tab === 'candidates' ? 'm-on' : ''}`}>
-          <GameButton variant="quiet" size="sm" className="ep-back" disabled={filing} onClick={onBack}>← {t('common.back')}</GameButton>
           <header className="ep-title">
             <div className="meta-line fate">{t('map_editor.secure_terminal')}</div>
             <h1>{t('entity_profile.title')}</h1>
@@ -219,6 +218,12 @@ const EntityProfileScreen: React.FC<EntityProfileScreenProps> = ({ role, scpDesi
             >
               + {t('entity_profile.custom_edit')}
             </button>
+          </div>
+          <div className="ep-skip">
+            <p>{t('entity_profile.skip_hint')}</p>
+            <ExecButton busy={false} disabled={filing} onClick={onSkip}>
+              {t('entity_profile.skip')}<i aria-hidden="true">&gt;&gt;&gt;</i>
+            </ExecButton>
           </div>
         </aside>
 

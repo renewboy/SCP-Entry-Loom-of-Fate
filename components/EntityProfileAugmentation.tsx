@@ -12,7 +12,7 @@ interface EntityProfileAugmentationProps {
     language: Language;
     legacyData?: LegacyData;
     onComplete: (profile: EntityProfile) => void;
-    onBack: () => void;
+    onSkip: () => void;
 }
 
 const EntityProfileAugmentation: React.FC<EntityProfileAugmentationProps> = ({
@@ -21,7 +21,7 @@ const EntityProfileAugmentation: React.FC<EntityProfileAugmentationProps> = ({
     language,
     legacyData,
     onComplete,
-    onBack
+    onSkip
 }) => {
     const { t } = useTranslation();
     const [candidates, setCandidates] = useState<EntityProfile[]>([]);
@@ -74,7 +74,7 @@ const EntityProfileAugmentation: React.FC<EntityProfileAugmentationProps> = ({
         if (enterAugmentation) {
             setShowTransition(false);
         } else {
-            onBack();
+            onSkip();
         }
     };
 
@@ -137,7 +137,7 @@ const EntityProfileAugmentation: React.FC<EntityProfileAugmentationProps> = ({
                 selectedProfile={selectedProfile}
                 loadingAction={loadingAction}
                 generationError={generationError}
-                onBack={onBack}
+                onSkip={onSkip}
                 onGenerate={fetchCandidates}
                 onSelect={handleSelectCandidate}
                 onChange={handleInputChange}

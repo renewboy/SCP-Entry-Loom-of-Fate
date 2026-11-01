@@ -259,7 +259,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
       void startAnalysis(profile);
   };
 
-  const handleProfileBack = () => {
+  const handleProfileSkip = () => {
       if (analysisInFlightRef.current || startFlowRef.current) return;
       setShowProfileAugmentation(false);
       setGameState(prev => ({ ...prev, status: GameStatus.IDLE }));
@@ -326,7 +326,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
                   language={language}
                   legacyData={legacyData}
                   onComplete={handleProfileComplete}
-                  onBack={handleProfileBack}
+                  onSkip={handleProfileSkip}
               />
           </div>
       );

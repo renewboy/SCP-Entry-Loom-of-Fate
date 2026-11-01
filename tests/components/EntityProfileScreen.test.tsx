@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import EntityProfileScreen from '../../components/entityProfile/EntityProfileScreen';
 import { playButtonPress, playLightPress } from '../../services/sfxService';
 import { LanguageProvider } from '../../utils/i18n';
+import { translations } from '../../utils/i18n/translations';
 import type { EntityProfile } from '../../types';
 
 vi.mock('../../services/sfxService', async importOriginal => ({
@@ -23,7 +24,7 @@ const setup = (overrides: Partial<React.ComponentProps<typeof EntityProfileScree
     selectedProfile: null,
     loadingAction: null,
     generationError: false,
-    onBack: vi.fn(),
+    onSkip: vi.fn(),
     onGenerate: vi.fn(),
     onSelect: vi.fn(),
     onChange: vi.fn(),
@@ -116,12 +117,27 @@ describe('EntityProfileScreen', () => {
     setup({ candidates: [candidate], selectedProfile: candidate });
     fireEvent.click(document.querySelector('.ep-card') as Element);
     fireEvent.click(document.querySelector('.ep-exec') as Element);
-    fireEvent.click(document.querySelector('.ep-back') as Element);
+    fireEvent.click(document.querySelector('.ep-skip button') as Element);
     expect(playLightPress).toHaveBeenCalledTimes(3);
     expect(playButtonPress).not.toHaveBeenCalled();
     fireEvent.click(document.querySelector('.weave-btn') as Element);
     expect(playButtonPress).toHaveBeenCalledTimes(1);
     expect(playLightPress).toHaveBeenCalledTimes(3);
+  });
+
+  it('跳过补全是往前走的按钮，不是返回，归档时锁住', () => {
+    const props = setup({ candidates: [candidate], selectedProfile: candidate });
+    expect(document.querySelector('.ep-back')).toBeNull();
+    const skip = document.querySelector('.ep-side .ep-skip button') as HTMLButtonElement;
+    expect(skip.textContent).toContain(translations.en.entity_profile.skip);
+    expect(skip.textContent).toContain('>>>');
+    expect(skip.textContent).not.toMatch(/back|返回|戻る/i);
+    fireEvent.click(skip);
+    expect(props.onSkip).toHaveBeenCalledTimes(1);
+    vi.useFakeTimers();
+    fireEvent.click(document.querySelector('.weave-btn') as Element);
+    expect(skip.disabled).toBe(true);
+    vi.useRealTimers();
   });
 
   it('生成失败时显示错误，并保留手动添加', () => {

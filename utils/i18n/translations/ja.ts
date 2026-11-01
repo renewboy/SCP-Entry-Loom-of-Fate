@@ -820,6 +820,8 @@ export const ja = {
     record_no: "記録-{n}",
     log_ok: "完了",
     age_unknown: "不明",
+    skip: "補完をスキップ",
+    skip_hint: "主体プロファイルはシステムが自動作成し、そのまま続行します",
   },
   boot: {
     scp_id: "項目番号",

@@ -28,10 +28,9 @@
 .stage-root .ep-shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(4,3,3,.72), rgba(4,3,3,.34) 46%, rgba(4,3,3,0) 72%), linear-gradient(0deg, rgba(4,3,3,.5), rgba(4,3,3,0) 26%); }
 
 /* ---------- 左：检索 ---------- */
-.stage-root .ep-side { position: absolute; z-index: 3; left: 0; top: 0; bottom: 0; width: var(--ep-side); display: flex; flex-direction: column; padding: clamp(14px, 2.6vh, 26px) 26px 18px clamp(20px, 2.6vw, 40px); background: rgba(8,6,6,.86); border-right: 1px solid var(--ep-accent-soft); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); opacity: 0; }
+.stage-root .ep-side { position: absolute; z-index: 3; left: 0; top: 0; bottom: 0; width: var(--ep-side); display: flex; flex-direction: column; padding: clamp(14px, 2.6vh, 26px) 26px calc(clamp(14px, 3vh, 30px) + clamp(12px, 2vh, 18px) + 1px) clamp(20px, 2.6vw, 40px); background: rgba(8,6,6,.86); border-right: 1px solid var(--ep-accent-soft); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); opacity: 0; }
 .stage-root .profile-view.ready .ep-side { opacity: 1; transition: opacity .5s .1s; }
-.stage-root .ep-back { flex: none; align-self: flex-start; margin-left: -3px; }
-.stage-root .ep-title { flex: none; margin-top: clamp(10px, 2vh, 20px); }
+.stage-root .ep-title { flex: none; margin-top: clamp(4px, 1vh, 10px); }
 .stage-root .ep-title h1 { font-family: var(--report); font-weight: 400; font-size: clamp(24px, 2.3vw, 34px); line-height: 1.15; letter-spacing: .03em; margin-top: 8px; text-shadow: 0 2px 18px #000; }
 .stage-root .ep-sec { flex: none; margin-top: clamp(12px, 2.2vh, 20px); }
 .stage-root .ep-sec .nx-title { margin-bottom: 8px; border-bottom-color: var(--ep-accent-soft); }
@@ -99,6 +98,12 @@
 .stage-root .ep-custom { display: block; width: 100%; padding: 10px 12px; text-align: center; font-size: 13.5px; color: var(--dim); border: 1px dashed var(--line-2); transition: color .2s, border-color .2s, background .2s; }
 .stage-root .ep-custom:hover { color: #fff; border-color: var(--ep-accent-line); }
 .stage-root .ep-custom.on { color: var(--ep-accent); border-color: var(--ep-accent-line); background: rgba(224,70,70,.06); }
+
+/* 跳过补全：不是返回，是往前走的另一条路。钉在左栏底部，和右边「上传」同一行同样高，箭头也是同一个 */
+.stage-root .ep-skip { flex: none; margin-top: 12px; }
+.stage-root .ep-skip p { margin-bottom: 8px; font-size: 12.5px; line-height: 1.55; color: var(--dim); }
+.stage-root .ep-skip .ep-exec { min-height: 46px; }
+.stage-root .ep-skip .ep-exec-label i { margin-left: 10px; font-style: normal; font-family: var(--mono); letter-spacing: 0; color: var(--ep-accent); }
 
 /* ---------- 右：记录终端，毛玻璃盖在走廊前 ---------- */
 .stage-root .ep-console { position: absolute; z-index: 2; left: var(--ep-console-x); top: clamp(14px, 3vh, 30px); bottom: clamp(14px, 3vh, 30px); width: clamp(460px, calc(var(--ep-door-x) - var(--ep-console-x) - 28px), 760px); display: flex; flex-direction: column; min-width: 0; background: linear-gradient(180deg, rgba(13,9,9,.76), rgba(8,6,6,.86)); border: 1px solid var(--ep-accent-soft); box-shadow: 0 30px 80px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.03); -webkit-backdrop-filter: blur(14px) saturate(.85); backdrop-filter: blur(14px) saturate(.85); opacity: 0; overflow: hidden; }
