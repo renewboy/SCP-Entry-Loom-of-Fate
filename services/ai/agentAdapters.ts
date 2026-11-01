@@ -171,7 +171,11 @@ const responseText = (response: OpenAIResponse): string =>
 export class OpenAIResponsesAgentAdapter implements AgentModelAdapter<ResponsesHistoryEntry> {
     private readonly transport: AgentTransport<ResponsesHistoryEntry, OpenAIResponse | ResponseStreamEvent>;
 
-    constructor(request: AgentHttpRequest<ResponsesHistoryEntry>) {
+    constructor(
+        request: AgentHttpRequest<ResponsesHistoryEntry>,
+        /** Sees each stream event as it arrives, for showing work in progress */
+        private readonly onStreamEvent?: (event: ResponseStreamEvent) => void,
+    ) {
         this.transport = createTransport(request);
     }
 
@@ -186,6 +190,7 @@ export class OpenAIResponsesAgentAdapter implements AgentModelAdapter<ResponsesH
                 completed = response;
                 continue;
             }
+            this.onStreamEvent?.(response);
             switch (response.type) {
                 case 'response.output_text.delta':
                     text += response.delta;

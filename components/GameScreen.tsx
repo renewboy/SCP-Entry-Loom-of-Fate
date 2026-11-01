@@ -30,7 +30,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   const [saveLoadMode, setSaveLoadMode] = useState<'save' | 'load'>('save');
   const [isReportOpen, setIsReportOpen] = useState(true);
   const [isMemoryEchoActive, setMemoryEchoActive] = useState(false);
-  const [door, setDoor] = useState<'closed' | 'opening' | 'gone'>(() => (hasPendingStageEntry() ? 'closed' : 'gone'));
+  const [freshRun] = useState(hasPendingStageEntry);
+  const [door, setDoor] = useState<'closed' | 'opening' | 'gone'>(freshRun ? 'closed' : 'gone');
 
   useEffect(clearStageEntry, []);
 
@@ -173,6 +174,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
     <style>{THEME_CSS}</style>
     {door !== 'gone' && <StageEntryDoor onReveal={() => setDoor('opening')} onDone={() => setDoor('gone')} />}
     {door !== 'closed' && <GameStage
+      freshRun={freshRun}
       gameState={gameState}
       input={input}
       setInput={setInput}

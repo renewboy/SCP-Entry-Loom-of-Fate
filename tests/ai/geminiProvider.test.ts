@@ -100,6 +100,37 @@ describe('GeminiProvider', () => {
     }));
   });
 
+  it('reports each search and what it found while analyzing', async () => {
+    const analysis = {
+      designation: 'SCP-173', name: 'Name', containmentClass: 'Euclid', role: 'Agent',
+      visualDescription: 'v', entityDescription: 'e',
+      briefing: { disruptionClass: 'a', riskClass: 'b', containmentProcedures: 'c', description: 'd' },
+      storyDraft: { roleDetails: 'r', storyBackground: 's' },
+      mapBlueprint: { id: 'm', title: 't', startNodeId: 'n', nodes: [{ id: 'n', name: 'Node', danger: 1, discoverables: [], requires: [], blockedText: '' }], edges: [], npcs: [], objectives: [] },
+      npcVisuals: {},
+    };
+    postJsonMock
+      .mockResolvedValueOnce({ candidates: [{ content: { parts: [{ functionCall: { id: 'search-id', name: 'web_search', args: { query: 'SCP-173 class' } } }] } }] })
+      .mockResolvedValueOnce({ candidates: [{
+        content: { parts: [{ text: 'SCP-173 is a statue.' }] },
+        groundingMetadata: { groundingChunks: [{ web: { uri: 'https://redirect/1', title: 'scp-wiki.wikidot.com' } }] },
+      }] })
+      .mockResolvedValueOnce({ candidates: [{ content: { parts: [{ functionCall: { id: 'submit-id', name: 'submit_scp_analysis', args: analysis } }] } }] })
+      .mockResolvedValueOnce({ candidates: [{ content: { parts: [{ text: 'Done.' }] } }] });
+    const progress: unknown[] = [];
+
+    const provider = new GeminiProvider({ apiKey: 'gemini-key', chatModel: 'gemini-text', imageModel: 'gemini-image' });
+    await expect(provider.analyzeSCPUrl('SCP-173', 'zh', 'Researcher', 'normal', undefined, undefined, item => progress.push(item))).resolves.toMatchObject({ designation: 'SCP-173' });
+
+    expect(progress).toEqual([
+      { type: 'search_start', id: 'search_1', query: 'SCP-173 class' },
+      { type: 'search_result', id: 'search_1', text: 'SCP-173 is a statue.', sources: [{ title: 'scp-wiki.wikidot.com', url: 'https://redirect/1' }] },
+    ]);
+    // The model still reads the findings with their addresses
+    const toolResponse = postJsonMock.mock.calls[2][1].contents.at(-1).parts[0].functionResponse.response;
+    expect(toolResponse.result).toBe('SCP-173 is a statue.\nhttps://redirect/1');
+  });
+
   it('runs search and repairs empty submissions with the original call signatures', async () => {
     const candidates = Array.from({ length: 3 }, (_, index) => ({
       name: `Agent ${index}`, age: '31', abilities: ['Research'],

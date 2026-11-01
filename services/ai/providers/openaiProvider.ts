@@ -1,5 +1,5 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { AIProviderConfig, AIService, ContextPromptAnchors, ImageAspectRatio, ImageReference } from "../types";
+import { AIProviderConfig, AIService, AnalysisProgress, ContextPromptAnchors, ImageAspectRatio, ImageReference } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt, getCompressionPrompt } from "../prompts";
 import { getEditorAssistantPrompt, getEditorAssistantContext, editorTools } from "../editorPrompts";
@@ -19,8 +19,12 @@ import { postJson, streamSse } from "./backendClient";
 import { aiConfig } from "../../../config/aiConfig";
 import { imageSizeFromAspectRatio } from "../utils";
 import { translate } from "../../../utils/i18n";
+import { parsePartialJson } from "../../../utils/partialJson";
 import { AgentStreamEvent } from "../streamProtocol";
 import { EditorChatMessage, toOpenAIMessages } from "../editorAssistantTypes";
+
+/** The partial submission is parsed from the start each time, so not on every delta */
+const DRAFT_INTERVAL_MS = 250;
 
 type ChatMessage = {
   role: "system" | "user" | "assistant";
@@ -127,31 +131,72 @@ export class OpenAIProvider implements AIService {
         }
     }
 
-    private async runSubmission<T>(prompt: string, contract: SubmissionContract<T>): Promise<T> {
+    private async runSubmission<T>(prompt: string, contract: SubmissionContract<T>, onProgress?: (progress: AnalysisProgress) => void): Promise<T> {
         const config = await this.getConfig();
-        const adapter = new OpenAIResponsesAgentAdapter({
-            path: '/api/ai/openai/response',
-            buildRequest: (input) => this.buildResponseRequest(config, {
-                input,
-                tools: [{ type: 'web_search' }, toOpenAIResponseTool(contract)],
-            }),
-        });
-        const tools = new Map<string, AgentToolHandler<T>>([
-            [contract.name, async args => ({ output: { success: true }, result: validateSubmission(contract, args) })],
-        ]);
-        return completeAgentLoop({
-            adapter,
-            history: [{ role: 'user', content: prompt }],
-            tools,
-        });
+        const run = (stream: boolean) => {
+            const adapter = new OpenAIResponsesAgentAdapter({
+                path: stream ? '/api/ai/openai/response-stream' : '/api/ai/openai/response',
+                stream,
+                buildRequest: (input) => this.buildResponseRequest(config, {
+                    input,
+                    tools: [{ type: 'web_search' }, toOpenAIResponseTool(contract)],
+                }),
+            }, stream ? this.submissionProgress(contract.name, onProgress) : undefined);
+            const tools = new Map<string, AgentToolHandler<T>>([
+                [contract.name, async args => ({ output: { success: true }, result: validateSubmission(contract, args) })],
+            ]);
+            return completeAgentLoop({
+                adapter,
+                history: [{ role: 'user', content: prompt }],
+                tools,
+            });
+        };
+        if (!onProgress) return run(false);
+        try {
+            return await run(true);
+        } catch (error) {
+            // Not every compatible endpoint streams tool calls. Progress is optional, the result is not
+            console.warn('[OpenAIProvider] Streaming the submission failed, retrying without it', error);
+            return run(false);
+        }
+    }
+
+    /** Turns the Responses stream into searches and a growing draft of the submission */
+    private submissionProgress(submissionName: string, onProgress?: (progress: AnalysisProgress) => void) {
+        const submissionItems = new Set<string>();
+        let args = '';
+        let lastDraftAt = 0;
+        const sendDraft = () => {
+            const data = parsePartialJson(args);
+            if (data && typeof data === 'object' && !Array.isArray(data)) onProgress?.({ type: 'draft', data: data as Record<string, unknown> });
+        };
+        return (event: any) => {
+            const item = event.item;
+            if (event.type === 'response.output_item.added' && item?.type === 'function_call' && item.name === submissionName) {
+                submissionItems.add(item.id);
+                args = '';
+            } else if (event.type === 'response.function_call_arguments.delta' && submissionItems.has(event.item_id)) {
+                args += event.delta;
+                const now = Date.now();
+                if (now - lastDraftAt > DRAFT_INTERVAL_MS) {
+                    lastDraftAt = now;
+                    sendDraft();
+                }
+            } else if (event.type === 'response.output_item.added' && item?.type === 'web_search_call') {
+                onProgress?.({ type: 'search_start', id: item.id, query: item.action?.query ?? '' });
+            } else if (event.type === 'response.output_item.done' && item?.type === 'web_search_call') {
+                const sources = (item.action?.sources ?? []).filter((source: any) => source?.url).map((source: any) => ({ title: source.url, url: source.url }));
+                onProgress?.({ type: 'search_result', id: item.id, query: item.action?.query, sources });
+            }
+        };
     }
 
     async generateProfileCandidates(role: string, scpDesignation: string, language: Language, legacyData?: LegacyData): Promise<EntityProfile[]> {
         return this.runSubmission(getProfileCandidatesPrompt(role, scpDesignation, language, legacyData), profileCandidatesSubmission);
     }
 
-    async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData> {
-        return this.runSubmission(getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData, profile), scpAnalysisSubmission);
+    async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData, profile?: EntityProfile, onProgress?: (progress: AnalysisProgress) => void): Promise<SCPData> {
+        return this.runSubmission(getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData, profile), scpAnalysisSubmission, onProgress);
     }
 
     async *initializeGameChatStream(scp: SCPData, role: string, language: Language = 'zh', legacyData?: LegacyData, difficulty: GameDifficulty = 'normal'): AsyncGenerator<string> {

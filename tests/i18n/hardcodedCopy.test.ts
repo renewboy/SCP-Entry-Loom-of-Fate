@@ -6,6 +6,9 @@ import { translations } from '../../utils/i18n/translations';
 
 const ROOT = path.resolve(__dirname, '../..');
 const SCREENS = [
+  'components/start',
+  'components/StartScreen.tsx',
+  'components/ParticleText.tsx',
   'components/entityProfile',
   'components/tactical',
   'components/editor',

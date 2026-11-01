@@ -14,7 +14,8 @@ export type SfxKey =
   | 'quickSweep'
   | 'gateOpen'
   | 'gateClose'
-  | 'stamp';
+  | 'stamp'
+  | 'tubeOn';
 
 export interface SfxOptions {
   gain?: number;
@@ -39,7 +40,8 @@ const sources: Record<SfxKey, string> = {
   quickSweep: stageAsset('audio/quicksweep.mp3'),
   gateOpen: stageAsset('audio/gate_open.mp3'),
   gateClose: stageAsset('audio/gate_close.mp3'),
-  stamp: stageAsset('audio/stamp.mp3')
+  stamp: stageAsset('audio/stamp.mp3'),
+  tubeOn: stageAsset('audio/tube_on.mp3')
 };
 
 const volumes: Record<SfxKey, number> = {
@@ -55,7 +57,8 @@ const volumes: Record<SfxKey, number> = {
   quickSweep: 0.35,
   gateOpen: 1,
   gateClose: 1,
-  stamp: 1
+  stamp: 1,
+  tubeOn: 1
 };
 
 const audioCache = new Map<SfxKey, HTMLAudioElement>();
@@ -175,6 +178,12 @@ export const playKeystroke = () => {
   playKeystrokeLayer(ctx, now, 'bandpass', 2500 + Math.random() * 500, 0.15 * sfxVolume, 0.005, 0.03, 2);
   playKeystrokeLayer(ctx, now, 'lowpass', 300 + Math.random() * 100, 0.3 * sfxVolume, 0.01, 0.05);
 };
+
+/** The press on the buttons that move the run forward (weave, upload, continue): the sound of pressing Weave Fate in the promo */
+export const playButtonPress = () => playSfx('doorUnlock');
+
+/** The same sample's second, shorter click, quieter, for every other button on those screens */
+export const playLightPress = () => playSfx('doorUnlock', { offset: 0.33, duration: 0.17, fade: 0.08, gain: 0.4 });
 
 export const setSfxVolume = (volume: number) => {
   sfxVolume = clamp01(volume);

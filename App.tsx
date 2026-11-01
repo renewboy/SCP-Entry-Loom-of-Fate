@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GameState, GameStatus } from './types';
-import StartScreen from './components/StartScreen';
+import StartScreen, { StartMode } from './components/StartScreen';
 import GameScreen from './components/GameScreen';
 import { LanguageProvider, useTranslation, languagePacks } from './utils/i18n';
 import { pauseBgm, playBgm, resumeBgm, stopBgm, setBgmVolume } from './services/bgmService';
@@ -9,6 +9,7 @@ import GlobalSettingsModal from './components/GlobalSettingsModal';
 import AuthorLinks from './components/AuthorLinks';
 import { loadGlobalSettings } from './services/indexedDBService';
 import { setSfxVolume } from './services/sfxService';
+import { setAmbienceVolume } from './services/ambienceService';
 import { unlockAudio } from './services/audioUnlock';
 
 import StoryEditor from './components/editor/StoryEditor';
@@ -124,6 +125,7 @@ const AppContent: React.FC = () => {
   });
    const [settingsModalOpen, setSettingsModalOpen] = useState(false);
    const [settingsAttention, setSettingsAttention] = useState(false);
+  const [startMode, setStartMode] = useState<StartMode>('boot');
 
   useEffect(() => {
     const unsubscribe = subscribeAIConfigMissing(() => {
@@ -136,6 +138,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     loadGlobalSettings().then((loaded) => {
       setBgmVolume(loaded.bgmVolume);
+      setAmbienceVolume(loaded.bgmVolume);
       setSfxVolume(loaded.sfxVolume);
     });
   }, []);
@@ -173,10 +176,15 @@ const AppContent: React.FC = () => {
   }, [gameState.status]);
 
   const isInGame = gameState.status === GameStatus.PLAYING || gameState.status === GameStatus.GAME_OVER;
+  const isStartScreen = gameState.status === GameStatus.IDLE || gameState.status === GameStatus.ANALYZING || gameState.status === GameStatus.ENTITY_PROFILE;
+  // These cover the corners where the language menu, footer and links usually sit
+  const waiting = isStartScreen && (startMode === 'wait' || startMode === 'drawer');
+  // The chamber has its own grain, so the old texture only stays where a screen still relies on it
+  const inChamber = isStartScreen && startMode !== 'boot' && startMode !== 'other';
 
   return (
     <div className="relative w-screen h-screen-safe flex flex-col items-center justify-center overflow-hidden bg-[#0a0a0a] text-scp-text" style={{ paddingTop: 'var(--safe-top)', paddingBottom: 'var(--safe-bottom)' }}>
-      {!isInGame && <LanguageToggle status={gameState.status} />}
+      {!isInGame && !waiting && <LanguageToggle status={gameState.status} />}
       <FeedbackOverlay gameState={gameState} />
       
       {/* Dynamic Background Layer - z-0 */}
@@ -201,7 +209,7 @@ const AppContent: React.FC = () => {
       {/* Main Content Container - z-10 */}
       <div className="relative z-10 w-full flex justify-center items-center p-2 sm:p-4 h-full">
         {(gameState.status === GameStatus.IDLE || gameState.status === GameStatus.ANALYZING || gameState.status === GameStatus.ENTITY_PROFILE) && (
-          <StartScreen gameState={gameState} setGameState={setGameState} legacyData={gameState.legacy} />
+          <StartScreen gameState={gameState} setGameState={setGameState} legacyData={gameState.legacy} onModeChange={setStartMode} />
         )}
         {gameState.status === GameStatus.TACTICAL_PREVIEW && (
           <TacticalPreview gameState={gameState} setGameState={setGameState} />
@@ -214,7 +222,7 @@ const AppContent: React.FC = () => {
         )}
       </div>
 
-      {gameState.status !== GameStatus.ENTITY_PROFILE && gameState.status !== GameStatus.TACTICAL_PREVIEW && gameState.status !== GameStatus.STORY_EDITOR && !isInGame && (
+      {gameState.status !== GameStatus.ENTITY_PROFILE && gameState.status !== GameStatus.TACTICAL_PREVIEW && gameState.status !== GameStatus.STORY_EDITOR && !isInGame && !waiting && (
         <>
           <AuthorLinks status={gameState.status} />
 
@@ -241,7 +249,7 @@ const AppContent: React.FC = () => {
       )}
 
       {/* Global CRT Scanline Overlay */}
-       {!isInGame && <div className="pointer-events-none absolute inset-0 z-[500] mix-blend-overlay opacity-10 bg-[url('https://www.transparenttextures.com/patterns/black-linen.png')]"></div>}
+       {!isInGame && !inChamber && <div className="pointer-events-none absolute inset-0 z-[500] mix-blend-overlay opacity-10 bg-[url('https://www.transparenttextures.com/patterns/black-linen.png')]"></div>}
 
       <GlobalSettingsModal 
         isOpen={settingsModalOpen} 

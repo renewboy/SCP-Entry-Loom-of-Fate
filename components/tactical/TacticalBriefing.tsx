@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } fro
 import { GameState, MapBlueprint, ObjectiveState, RuntimeMapState, RuntimeNPCState } from '../../types';
 import { useTranslation } from '../../utils/i18n';
 import { useNetworkView } from '../../hooks/useNetworkView';
+import { pressOnButtonClick } from '../common/buttonPress';
 import { playSfx, preloadSfx } from '../../services/sfxService';
 import { buildNetworkLayout, dangerColor, fitNetworkView } from '../../utils/siteNetwork';
 import { NpcDossier } from '../../utils/npcDossier';
@@ -240,7 +241,7 @@ const TacticalBriefing: React.FC<TacticalBriefingProps> = ({ gameState, ready, i
               </>
             )}
           </div>
-          <div className="tac-actions">
+          <div className="tac-actions" onClickCapture={pressOnButtonClick}>
             <GameButton variant="quiet" disabled={isStarting} onClick={onBack}>← {t('common.back')}</GameButton>
             <div className="grp">
               <span className="tac-status">{t('map_editor.status_ready')}<br />{t('map_editor.awaiting_command')}</span>

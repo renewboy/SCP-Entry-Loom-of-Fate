@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { EntityProfile } from '../../types';
 import { useCompactScreen } from '../../hooks/useCompactScreen';
+import { pressOnButtonClick } from '../common/buttonPress';
 import { playSfx, preloadSfx } from '../../services/sfxService';
 import { useTranslation } from '../../utils/i18n';
 import { stageAsset } from '../../utils/stageAssets';
@@ -84,12 +85,10 @@ const EntityProfileScreen: React.FC<EntityProfileScreenProps> = ({ role, scpDesi
   }, [candidates]);
 
   const generate = (mode: 'init' | 'reroll') => {
-    playSfx('sweepReverse', { gain: 0.5 });
     onGenerate(mode);
   };
 
   const select = (profile: EntityProfile) => {
-    playSfx('quickSweep');
     onSelect(profile);
     if (compact) setTab('details');
   };
@@ -101,7 +100,6 @@ const EntityProfileScreen: React.FC<EntityProfileScreenProps> = ({ role, scpDesi
       return;
     }
     setFiling(true);
-    playSfx('sweepUp', { gain: 0.7 });
     filingTimers.current = [
       setTimeout(() => {
         setStamped(true);
@@ -148,7 +146,7 @@ const EntityProfileScreen: React.FC<EntityProfileScreenProps> = ({ role, scpDesi
           <feDisplacementMap in="SourceGraphic" scale="2.2" />
         </filter>
       </svg>
-      <section className={`p3-view profile-view ${ready ? 'ready' : ''} ${viewState}`}>
+      <section className={`p3-view profile-view ${ready ? 'ready' : ''} ${viewState}`} onClickCapture={pressOnButtonClick}>
         <div className="ep-vault" aria-hidden="true">
           <div className="ep-plate" style={{ backgroundImage: `url(${stageAsset('archive_idle.jpg')})` }} />
           <div className="ep-plate lit" style={{ backgroundImage: `url(${stageAsset('archive_search.jpg')})` }} />

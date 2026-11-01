@@ -1,5 +1,5 @@
 import { Content } from "@google/genai";
-import { ContextPromptAnchors, ImageAspectRatio, ImageStyleKind } from "./ai/types";
+import { AnalysisProgress, ContextPromptAnchors, ImageAspectRatio, ImageStyleKind } from "./ai/types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../types";
 import { extractVisualPrompt, extractStability, extractEnding, extractLoc, extractMapUpdate, extractNarrativeMedia } from "./ai/utils";
 import { getEmbeddings } from "./ai/providers/embeddingProvider";
@@ -40,8 +40,8 @@ export const setProviderCallbacks = async (callbacks: { onTokenUpdate?: (count: 
     (await getNarrationProvider()).setCallbacks(callbacks);
 };
 
-export const analyzeSCPUrl = async (input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData> => {
-    return (await getAnalysisProvider()).analyzeSCPUrl(input, language, role, difficulty, legacyData, profile);
+export const analyzeSCPUrl = async (input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData, profile?: EntityProfile, onProgress?: (progress: AnalysisProgress) => void): Promise<SCPData> => {
+    return (await getAnalysisProvider()).analyzeSCPUrl(input, language, role, difficulty, legacyData, profile, onProgress);
 };
 
 export const generateProfileCandidates = async (role: string, scpDesignation: string, language: Language = 'zh', legacyData?: LegacyData): Promise<EntityProfile[]> => {

@@ -19,12 +19,13 @@ interface PlayerProps {
   paused?: boolean;
   autoAdvance?: boolean;
   replaying?: boolean;
+  fromStart?: boolean;
 }
 
 const setup = (initial: PlayerProps) => {
   const holdUntilRef = { current: 0 };
   return renderHook(
-    ({ content, settled, hasEnding = false, turnId = 't1', paused = false, autoAdvance = false, replaying = false }: PlayerProps) => useBeatPlayer({
+    ({ content, settled, hasEnding = false, turnId = 't1', paused = false, autoAdvance = false, replaying = false, fromStart = false }: PlayerProps) => useBeatPlayer({
       turnId,
       turn: parseTurn(content, { id: turnId, streaming: !settled }),
       settled,
@@ -32,7 +33,8 @@ const setup = (initial: PlayerProps) => {
       paused,
       autoAdvance,
       holdUntilRef,
-      replaying
+      replaying,
+      fromStart
     }),
     { initialProps: initial }
   );
@@ -183,5 +185,20 @@ describe('useBeatPlayer', () => {
     rerender({ content: TEXT, settled: true });
     act(() => result.current.skip());
     expect(result.current.phase).toBe('choosing');
+  });
+
+  it('新开一局的开场即使已经流完，也从第一段播放', () => {
+    const { result } = setup({ content: TEXT, settled: true, fromStart: true });
+    expect(result.current.phase).toBe('title');
+    expect(result.current.restored).toBe(false);
+    act(() => { vi.advanceTimersByTime(600); });
+    expect(result.current.phase).toBe('beats');
+    expect(result.current.index).toBe(0);
+  });
+
+  it('读档时已完成的回合仍然直接到选项', () => {
+    const { result } = setup({ content: TEXT, settled: true });
+    expect(result.current.phase).toBe('choosing');
+    expect(result.current.restored).toBe(true);
   });
 });

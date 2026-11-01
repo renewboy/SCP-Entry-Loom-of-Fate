@@ -22,8 +22,16 @@ export interface ImageReference {
     data: string;
 }
 
+/** What the analysis has found so far. The wait screen shows these while the model works */
+export type AnalysisProgress =
+    | { type: 'search_start'; id: string; query: string }
+    | { type: 'search_result'; id: string; query?: string; text?: string; sources: { title: string; url: string }[] }
+    | { type: 'search_failed'; id: string }
+    /** The submission as far as it has been written. Fields may be missing or cut short */
+    | { type: 'draft'; data: Record<string, unknown> };
+
 export interface AIService {
-    analyzeSCPUrl(input: string, language: Language, role: string, difficulty: GameDifficulty, legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData>;
+    analyzeSCPUrl(input: string, language: Language, role: string, difficulty: GameDifficulty, legacyData?: LegacyData, profile?: EntityProfile, onProgress?: (progress: AnalysisProgress) => void): Promise<SCPData>;
     generateProfileCandidates(role: string, scpDesignation: string, language: Language, legacyData?: LegacyData): Promise<EntityProfile[]>;
     generateImage(prompt: string, aspectRatio?: ImageAspectRatio, responseFormat?: "url" | "b64_json", referenceImages?: ImageReference[]): Promise<string | null>;
     initializeGameChatStream(scp: SCPData, role: string, language: Language, legacyData: LegacyData | undefined, difficulty: GameDifficulty): AsyncGenerator<string>;

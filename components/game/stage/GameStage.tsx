@@ -56,6 +56,8 @@ interface GameStageProps {
   onLoad: () => void;
   onTerminate: () => void;
   onViewArchive: () => void;
+  /** Entered through the door on a new run, so the opening plays even if it has already finished streaming */
+  freshRun?: boolean;
 }
 
 const noop = () => {};
@@ -65,7 +67,7 @@ const isIntro = (message: Message) => message.id === 'intro' || message.turnInde
 const objectiveSignature = (objectives: ObjectiveState[] = []) =>
   objectives.map(objective => `${objective.id}:${objective.status}:${Math.round(objective.progress)}`).join('|');
 
-const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSend, isMemoryEchoActive, isInputLocked, onSave, onLoad, onTerminate, onViewArchive }) => {
+const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSend, isMemoryEchoActive, isInputLocked, onSave, onLoad, onTerminate, onViewArchive, freshRun = false }) => {
   const { t, language, setLanguage } = useTranslation();
   const { prefs, updatePrefs } = useStagePrefs();
   const { messages, scpData, status, backgroundImage } = gameState;
@@ -176,7 +178,8 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
     paused: overlayOpen || isInputLocked,
     autoAdvance: prefs.autoAdvance,
     holdUntilRef,
-    replaying
+    replaying,
+    fromStart: freshRun
   });
   const { phase, index, beat } = player;
 

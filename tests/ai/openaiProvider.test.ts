@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const postJsonMock = vi.hoisted(() => vi.fn());
+const streamSseMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../../services/ai/providers/backendClient', () => ({
   postJson: postJsonMock,
-  streamSse: vi.fn(),
+  streamSse: streamSseMock,
 }));
 
 import { OpenAIProvider } from '../../services/ai/providers/openaiProvider';
@@ -12,6 +13,7 @@ import { OpenAIProvider } from '../../services/ai/providers/openaiProvider';
 describe('OpenAIProvider', () => {
   beforeEach(() => {
     postJsonMock.mockReset();
+    streamSseMock.mockReset();
   });
 
   it('forwards style reference pixels with the composed image prompt', async () => {
@@ -104,5 +106,61 @@ describe('OpenAIProvider', () => {
         name: 'submit_scp_analysis',
       }),
     ]));
+  });
+
+  describe('analysis progress', () => {
+    const analysis = {
+      designation: 'SCP-5035', name: 'Name', containmentClass: 'Keter', role: 'Agent',
+      visualDescription: 'v', entityDescription: 'e',
+      briefing: { disruptionClass: 'a', riskClass: 'b', containmentProcedures: 'c', description: 'd' },
+      storyDraft: { roleDetails: 'r', storyBackground: 's' },
+      mapBlueprint: { id: 'm', title: 't', startNodeId: 'n', nodes: [{ id: 'n', name: 'Node', danger: 1, discoverables: [], requires: [], blockedText: '' }], edges: [], npcs: [], objectives: [] },
+      npcVisuals: {},
+    };
+    const provider = () => new OpenAIProvider({ apiKey: 'local', baseUrl: 'http://127.0.0.1:8317/v1', chatModel: 'gpt-6.1-sol', imageModel: 'gpt-image-2.5-flare' });
+
+    it('reports searches and a growing draft from the stream', async () => {
+      const args = JSON.stringify(analysis);
+      const submitted = { type: 'function_call', id: 'item-1', call_id: 'submit', name: 'submit_scp_analysis', arguments: args };
+      const nowSpy = vi.spyOn(Date, 'now');
+      let clock = 0;
+      nowSpy.mockImplementation(() => (clock += 1000));
+      streamSseMock
+        .mockImplementationOnce(async function* () {
+          yield { type: 'response.output_item.added', item: { type: 'web_search_call', id: 'ws-1' } };
+          yield { type: 'response.output_item.done', item: { type: 'web_search_call', id: 'ws-1', action: { query: 'SCP-5035', sources: [{ url: 'https://scp-wiki.wikidot.com/scp-5035' }] } } };
+          yield { type: 'response.output_item.added', item: { type: 'function_call', id: 'item-1', name: 'submit_scp_analysis' } };
+          yield { type: 'response.function_call_arguments.delta', item_id: 'item-1', delta: args.slice(0, 40) };
+          yield { type: 'response.function_call_arguments.delta', item_id: 'item-1', delta: args.slice(40) };
+          yield { type: 'response.completed', response: { status: 'completed', output: [submitted] } };
+        })
+        .mockImplementationOnce(async function* () {
+          yield { type: 'response.completed', response: { status: 'completed', output: [], output_text: 'Done.' } };
+        });
+      const progress: any[] = [];
+
+      await expect(provider().analyzeSCPUrl('SCP-5035', 'en', 'Researcher', 'normal', undefined, undefined, item => progress.push(item))).resolves.toMatchObject({ designation: 'SCP-5035' });
+
+      nowSpy.mockRestore();
+      expect(streamSseMock.mock.calls[0][0]).toBe('/api/ai/openai/response-stream');
+      expect(postJsonMock).not.toHaveBeenCalled();
+      expect(progress[0]).toEqual({ type: 'search_start', id: 'ws-1', query: '' });
+      expect(progress[1]).toEqual({ type: 'search_result', id: 'ws-1', query: 'SCP-5035', sources: [{ title: 'https://scp-wiki.wikidot.com/scp-5035', url: 'https://scp-wiki.wikidot.com/scp-5035' }] });
+      const drafts = progress.filter(item => item.type === 'draft');
+      expect(drafts[0].data.designation).toBe('SCP-5035');
+      expect(drafts[drafts.length - 1].data).toEqual(analysis);
+    });
+
+    it('falls back to a plain request when the endpoint cannot stream it', async () => {
+      streamSseMock.mockImplementationOnce(async function* () {
+        yield { type: 'response.output_text.delta', delta: 'x' };
+      });
+      postJsonMock.mockResolvedValueOnce({
+        output: [{ type: 'function_call', call_id: 'submit', name: 'submit_scp_analysis', arguments: JSON.stringify(analysis) }],
+      }).mockResolvedValueOnce({ status: 'completed', output: [], output_text: 'Done.' });
+
+      await expect(provider().analyzeSCPUrl('SCP-5035', 'en', 'Researcher', 'normal', undefined, undefined, () => null)).resolves.toMatchObject({ designation: 'SCP-5035' });
+      expect(postJsonMock.mock.calls[0][0]).toBe('/api/ai/openai/response');
+    });
   });
 });

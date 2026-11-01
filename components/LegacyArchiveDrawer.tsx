@@ -13,7 +13,7 @@ import '../styles/legacy.css';
 const DEFAULT_WIDTH = 340;
 
 /** What carried over from earlier runs, on the start screen. The latest echo is on top and the thread flows up to it */
-const LegacyArchiveDrawer: React.FC<{ legacyData: LegacyData }> = ({ legacyData }) => {
+const LegacyArchiveDrawer: React.FC<{ legacyData: LegacyData; onWidthChange?: (width: number) => void }> = ({ legacyData, onWidthChange }) => {
   const { t } = useTranslation();
   const compact = useCompactScreen();
   const [open, setOpen] = useState(!compact);
@@ -24,6 +24,12 @@ const LegacyArchiveDrawer: React.FC<{ legacyData: LegacyData }> = ({ legacyData 
   const [tabAt, setTabAt] = useState(DEFAULT_WIDTH);
 
   useEffect(() => setOpen(!compact), [compact]);
+
+  // On a wide screen the start menu moves aside for the drawer
+  useEffect(() => {
+    onWidthChange?.(open && !compact ? width : 0);
+    return () => onWidthChange?.(0);
+  }, [open, compact, width, onWidthChange]);
 
   useEffect(() => {
     if (!compact || !open) return;

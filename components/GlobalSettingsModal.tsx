@@ -6,8 +6,11 @@ import { AIModelRouteName, AIProvider, GlobalSettings, AISettings } from '../typ
 import { getDefaultAISettings, validateAISettings, clearAISettingsCache } from '../services/aiConfigService';
 import { testAIConnectivity } from '../services/aiConnectivityService';
 import { resetProvider } from '../services/aiService';
-import CrtSurface from './common/CrtSurface';
+import GameButton from './common/GameButton';
+import '../styles/stage.css';
+import '../styles/startScreen.css';
 import { setBgmVolume } from '../services/bgmService';
+import { setAmbienceVolume } from '../services/ambienceService';
 import { setSfxVolume } from '../services/sfxService';
 import SettingsRange from './common/SettingsRange';
 import CustomSelect from './common/CustomSelect';
@@ -178,6 +181,7 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
             loadGlobalSettings().then(loaded => {
                 setSettings(loaded);
                 setBgmVolume(loaded.bgmVolume);
+                setAmbienceVolume(loaded.bgmVolume);
                 setSfxVolume(loaded.sfxVolume);
                 const defaults = getDefaultAISettings();
                 const merged = {
@@ -241,6 +245,7 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
         saveGlobalSettings(newSettings);
         if (key === 'bgmVolume') {
             setBgmVolume(newSettings.bgmVolume);
+            setAmbienceVolume(newSettings.bgmVolume);
             return;
         }
         setSfxVolume(newSettings.sfxVolume);
@@ -354,153 +359,76 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
     );
 
     const content = (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-mono scp-ui">
-            <CrtSurface className={`scp-window border w-full max-w-lg shadow-2xl flex flex-col relative overflow-hidden z-10 ${
-                highlightActive ? 'border-scp-text shadow-[0_0_25px_rgba(224,224,224,0.35)] animate-pulse' : 'border-scp-accent/50'
-            }`}>
-                
-                <div className="bg-black h-14 w-full flex items-center justify-between px-6 border-b border-scp-gray relative z-20 shrink-0 scp-window-header">
-                    <div className="flex items-center gap-3">
-                        <div className="w-3 h-3 bg-scp-accent rounded-full animate-pulse"></div>
-                        <span className="font-report text-xl tracking-widest text-scp-text uppercase shadow-black drop-shadow-md text-shadow-sm">
-                            {t('settings.title')}
-                        </span>
-                    </div>
-                    <button 
-                        onClick={onClose} 
-                        className="text-gray-400 hover:text-white transition-colors text-2xl border border-gray-600/50 hover:border-white rounded-sm w-8 h-8 flex items-center justify-center"
-                    >
-                        ×
-                    </button>
+        <div className="stage-root settings-root" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+            <aside className={`st ${highlightActive ? 'attn' : ''}`} role="dialog" aria-label={t('settings.title')}>
+                <div className="st-head">
+                    <h2>{t('settings.title')}</h2>
+                    <GameButton variant="icon" aria-label={t('common.back')} onClick={onClose}>×</GameButton>
                 </div>
 
-                <div className="flex border-b border-scp-gray/30">
-                    <button
-                        onClick={() => setActiveTab('game')}
-                        className={`flex-1 py-3 text-sm font-mono uppercase tracking-wider transition-colors ${
-                            activeTab === 'game'
-                                ? 'bg-scp-text text-black border-b-2 border-scp-text'
-                                : 'text-gray-400 hover:text-gray-200'
-                        }`}
-                    >
-                        {t('settings.tab_game')}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('ai')}
-                        className={`flex-1 py-3 text-sm font-mono uppercase tracking-wider transition-colors ${
-                            activeTab === 'ai'
-                                ? 'bg-scp-text text-black border-b-2 border-scp-text'
-                                : 'text-gray-400 hover:text-gray-200'
-                        }`}
-                    >
-                        {t('settings.tab_ai')}
-                    </button>
+                <div className="st-tabs">
+                    <button type="button" className={activeTab === 'game' ? 'on' : ''} onClick={() => setActiveTab('game')}>{t('settings.tab_game')}</button>
+                    <button type="button" className={activeTab === 'ai' ? 'on' : ''} onClick={() => setActiveTab('ai')}>{t('settings.tab_ai')}</button>
                 </div>
 
-                <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                <div className="st-body">
                     {activeTab === 'game' && (
-                        <div className="space-y-4">
-                            <div className="p-4 border border-scp-gray/30 bg-scp-gray/10">
-                                <div className="text-xs text-gray-400 font-mono uppercase tracking-wider mb-3">
-                                    {t('settings.difficulty')}
-                                </div>
-                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <>
+                            <section className="st-sec">
+                                <h3>{t('settings.difficulty')}</h3>
+                                <div className="st-seg">
                                     {(['easy', 'normal', 'hard', 'insane'] as const).map(level => (
-                                        <button
-                                            key={level}
-                                            onClick={() => handleDifficultyChange(level)}
-                                            className={`h-9 px-3 text-xs font-mono border transition-all text-center whitespace-nowrap ${
-                                                settings.difficulty === level
-                                                    ? 'bg-scp-text text-black border-scp-text shadow-[0_0_10px_rgba(224,224,224,0.3)]'
-                                                    : 'bg-transparent text-gray-400 border-scp-gray/30 hover:border-scp-gray hover:text-gray-200'
-                                            }`}
-                                        >
+                                        <button key={level} type="button" className={settings.difficulty === level ? 'on' : ''} onClick={() => handleDifficultyChange(level)}>
                                             {t(`settings.difficulty_${level}`)}
                                         </button>
                                     ))}
                                 </div>
-                            </div>
-                            <section className="p-4 border border-scp-gray/30 bg-scp-gray/10" aria-labelledby="visual-settings-heading">
-                                <h3 id="visual-settings-heading" className="text-xs text-gray-400 font-mono uppercase tracking-wider">
-                                    {t('settings.section_images')}
-                                </h3>
-                                <div className="mt-4 mb-4 px-3 py-3 border-b border-scp-gray/20">
-                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                                        <span className="text-[13px] text-scp-text font-mono tracking-wider shrink-0">
-                                            {t('settings.image_style')}
-                                        </span>
-                                        <div className="w-full sm:w-56">
-                                            <CustomSelect
-                                                value={settings.imageStyle}
-                                                options={IMAGE_DRAWING_STYLE_OPTIONS.map(({ value, labelKey }) => ({ value, label: t(labelKey) }))}
-                                                variant="settings"
-                                                onChange={value => handleImageStyleChange(value as GlobalSettings['imageStyle'])}
-                                            />
-                                        </div>
-                                    </div>
-                                    <p className="mt-3 text-xs text-gray-500 leading-6">
-                                        {t('settings.image_style_help')}
-                                    </p>
-                                </div>
-                                <div className="space-y-3">
-                                    {(['enableSceneImages', 'enableBackgroundImages', 'enableEntityImages', 'enableNpcImages'] as const).map((key) => (
-                                        <div key={key} className="flex items-center justify-between px-3 py-2 border border-transparent hover:border-scp-accent/30 transition-colors">
-                                            <span className="text-[13px] text-scp-text font-mono tracking-wider">
-                                                {getLabel(key)}
-                                            </span>
-                                            <SettingsToggle checked={!!settings[key]} onChange={() => handleToggle(key)} />
-                                        </div>
-                                    ))}
-                                </div>
                             </section>
-                            <div className="p-4 border border-scp-gray/30 bg-scp-gray/10 space-y-3">
-                                <div className="text-xs text-gray-400 font-mono uppercase tracking-wider">
-                                    {t('settings.section_gameplay')}
+                            <section className="st-sec" aria-labelledby="visual-settings-heading">
+                                <h3 id="visual-settings-heading">{t('settings.section_images')}</h3>
+                                <div className="st-row">
+                                    <span>{t('settings.image_style')}</span>
+                                    <div className="st-select">
+                                        <CustomSelect
+                                            value={settings.imageStyle}
+                                            options={IMAGE_DRAWING_STYLE_OPTIONS.map(({ value, labelKey }) => ({ value, label: t(labelKey) }))}
+                                            variant="settings"
+                                            onChange={value => handleImageStyleChange(value as GlobalSettings['imageStyle'])}
+                                        />
+                                    </div>
                                 </div>
-                                <div className="flex items-center justify-between px-3 py-2 border border-transparent hover:border-scp-accent/30 transition-colors">
-                                    <span className="text-[13px] text-scp-text font-mono tracking-wider">
-                                        {getLabel('skipBootSequence')}
-                                    </span>
+                                <p className="st-help">{t('settings.image_style_help')}</p>
+                                {(['enableSceneImages', 'enableBackgroundImages', 'enableEntityImages', 'enableNpcImages'] as const).map((key) => (
+                                    <div key={key} className="st-row">
+                                        <span>{getLabel(key)}</span>
+                                        <SettingsToggle checked={!!settings[key]} onChange={() => handleToggle(key)} />
+                                    </div>
+                                ))}
+                            </section>
+                            <section className="st-sec">
+                                <h3>{t('settings.section_gameplay')}</h3>
+                                <div className="st-row">
+                                    <span>{getLabel('skipBootSequence')}</span>
                                     <SettingsToggle checked={!!settings.skipBootSequence} onChange={() => handleToggle('skipBootSequence')} />
                                 </div>
-                            </div>
-                            <div className="p-4 border border-scp-gray/30 bg-scp-gray/10 space-y-4">
-                                <div className="text-xs text-gray-400 font-mono uppercase tracking-wider">
-                                    {t('settings.section_audio')}
+                            </section>
+                            <section className="st-sec">
+                                <h3>{t('settings.section_audio')}</h3>
+                                <div className="st-ranges">
+                                    <SettingsRange label={t('settings.bgm_volume')} value={settings.bgmVolume} onChange={(value) => handleVolumeChange('bgmVolume', value)} />
+                                    <SettingsRange label={t('settings.sfx_volume')} value={settings.sfxVolume} onChange={(value) => handleVolumeChange('sfxVolume', value)} />
                                 </div>
-                                <SettingsRange
-                                    label={t('settings.bgm_volume')}
-                                    value={settings.bgmVolume}
-                                    onChange={(value) => handleVolumeChange('bgmVolume', value)}
-                                />
-                                <SettingsRange
-                                    label={t('settings.sfx_volume')}
-                                    value={settings.sfxVolume}
-                                    onChange={(value) => handleVolumeChange('sfxVolume', value)}
-                                />
-                            </div>
-                        </div>
+                            </section>
+                        </>
                     )}
 
                     {activeTab === 'ai' && (
-                        <div className="space-y-4">
-                            {attentionActive && (
-                                <div className="p-3 border border-scp-text/50 bg-black/20 text-gray-400 text-sm font-mono shadow-[0_0_12px_rgba(224,224,224,0.12)]">
-                                    {t('settings.ai_attention')}
-                                </div>
-                            )}
-                            <div className="p-3 border border-scp-gray/30 bg-black/20 text-gray-500 text-sm font-mono">
-                                {t('settings.ai_recommendation')}
-                            </div>
-                            <div className="space-y-3">
-                                <div>
-                                    <div className="text-xs text-gray-400 font-mono uppercase tracking-wider">
-                                        {t('settings.ai_section_connections')}
-                                    </div>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                        {t('settings.ai_provider_connection_help')}
-                                    </div>
-                                </div>
+                        <>
+                            {attentionActive && <p className="st-note attn">{t('settings.ai_attention')}</p>}
+                            <p className="st-note">{t('settings.ai_recommendation')}</p>
+                            <section className="st-sec">
+                                <h3>{t('settings.ai_section_connections')}</h3>
+                                <p className="st-help">{t('settings.ai_provider_connection_help')}</p>
                                 <ProviderConnectionCard
                                     provider={selectedConnectionProvider}
                                     settings={aiSettings}
@@ -509,72 +437,30 @@ const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({ isOpen, onClo
                                     onProviderChange={setSelectedConnectionProvider}
                                     onChange={handleProviderCredentialChange}
                                 />
+                            </section>
+                            <section className="st-sec">
+                                <h3>{t('settings.ai_section_usage_models')}</h3>
+                                <p className="st-help">{t('settings.ai_model_usage_help')}</p>
+                                <div className="space-y-3">
+                                    {AI_ROUTE_ORDER.map((route) => (
+                                        <AIRouteField key={route} route={route} settings={aiSettings} t={t} onChange={handleRouteChange} />
+                                    ))}
+                                </div>
+                            </section>
+
+                            {validationError && <p className="st-note bad">{validationError}</p>}
+                            {connectivityError && <p className="st-note bad">{connectivityError}</p>}
+                            {saveSuccess && <p className="st-note good">{t('settings.ai_save_success')}</p>}
+                            {isTestingConnectivity && <p className="st-note">{t('settings.ai_connectivity_testing')}</p>}
+
+                            <div className="st-actions">
+                                <GameButton disabled={isTestingConnectivity} onClick={handleClearAI}>{t('settings.ai_clear')}</GameButton>
+                                <GameButton variant="primary" disabled={isTestingConnectivity} onClick={handleSaveAI}>{t('settings.ai_save')}</GameButton>
                             </div>
-
-                            <div className="space-y-3">
-                                <div>
-                                    <div className="text-xs text-gray-400 font-mono uppercase tracking-wider">
-                                        {t('settings.ai_section_usage_models')}
-                                    </div>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                        {t('settings.ai_model_usage_help')}
-                                    </div>
-                                </div>
-                                {AI_ROUTE_ORDER.map((route) => (
-                                    <AIRouteField
-                                        key={route}
-                                        route={route}
-                                        settings={aiSettings}
-                                        t={t}
-                                        onChange={handleRouteChange}
-                                    />
-                                ))}
-                            </div>
-
-                            {validationError && (
-                                <div className="p-3 border border-red-500/50 bg-red-500/10 text-red-400 text-sm font-mono">
-                                    {validationError}
-                                </div>
-                            )}
-
-                            {connectivityError && (
-                                <div className="p-3 border border-red-500/50 bg-red-500/10 text-red-400 text-sm font-mono">
-                                    {connectivityError}
-                                </div>
-                            )}
-
-                            {saveSuccess && (
-                                <div className="p-3 border border-green-500/50 bg-green-500/10 text-green-400 text-sm font-mono">
-                                    {t('settings.ai_save_success')}
-                                </div>
-                            )}
-
-                            {isTestingConnectivity && (
-                                <div className="p-3 border border-scp-gray/30 bg-black/20 text-gray-500 text-sm font-mono">
-                                    {t('settings.ai_connectivity_testing')}
-                                </div>
-                            )}
-
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={handleClearAI}
-                                    disabled={isTestingConnectivity}
-                                    className="flex-1 py-3 bg-scp-gray/20 hover:bg-scp-gray/40 text-gray-300 hover:text-white font-mono text-sm border border-scp-gray hover:border-gray-400 transition-all tracking-widest uppercase backdrop-blur-sm"
-                                >
-                                    {t('settings.ai_clear')}
-                                </button>
-                                <button
-                                    onClick={handleSaveAI}
-                                    disabled={isTestingConnectivity}
-                                    className="flex-1 py-3 bg-scp-text text-black font-mono uppercase tracking-wider text-sm hover:bg-scp-text/80 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                                >
-                                    {t('settings.ai_save')}
-                                </button>
-                            </div>
-                        </div>
+                        </>
                     )}
                 </div>
-            </CrtSurface>
+            </aside>
         </div>
     );
 

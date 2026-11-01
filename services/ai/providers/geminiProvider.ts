@@ -1,5 +1,5 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { AIProviderConfig, AIService, ContextPromptAnchors, ImageAspectRatio, ImageReference } from "../types";
+import { AIProviderConfig, AIService, AnalysisProgress, ContextPromptAnchors, ImageAspectRatio, ImageReference } from "../types";
 import { SCPData, EndingType, Language, Message, GameReviewData, AudioDramaScript, LegacyData, LegacyGenerationResult, GameDifficulty, EntityProfile } from "../../../types";
 import { aiConfig } from "../../../config/aiConfig";
 import { getSystemInstruction, getAnalyzeSCPPrompt, getStartGamePrompt, getContextPrompt, getAudioDramaPrompt, getGameReviewPrompt, getQAPrompt, getLegacyGenerationPrompt, getProfileCandidatesPrompt, getCompressionPrompt } from "../prompts";
@@ -17,7 +17,7 @@ import {
 import { completeAgentLoop, createToolRegistry, runAgentLoop } from "../agentLoop";
 import type { AgentToolHandler } from "../agentLoop";
 import { GeminiAgentAdapter } from "../agentAdapters";
-import { runWebSearch } from "../searchService";
+import { formatWebSearch, searchWeb } from "../searchService";
 import { postJson, streamSse } from "./backendClient";
 import { translate } from "../../../utils/i18n";
 import { AgentStreamEvent } from "../streamProtocol";
@@ -98,7 +98,7 @@ export class GeminiProvider implements AIService {
         }
     }
 
-    private async runSubmission<T>(prompt: string, contract: SubmissionContract<T>): Promise<T> {
+    private async runSubmission<T>(prompt: string, contract: SubmissionContract<T>, onProgress?: (progress: AnalysisProgress) => void): Promise<T> {
         const config = await this.getConfig();
         const adapter = new GeminiAgentAdapter({
             path: '/api/ai/gemini/generate-content',
@@ -112,12 +112,22 @@ export class GeminiProvider implements AIService {
                 },
             }),
         });
+        let searchCount = 0;
         const tools = new Map<string, AgentToolHandler<T>>([
-            [webSearchFunction.name, async (args, signal) => ({
-                output: await runWebSearch(args.query, {
-                    provider: 'gemini', apiKey: config.apiKey, baseUrl: config.baseUrl, model: config.chatModel,
-                }, signal),
-            })],
+            [webSearchFunction.name, async (args, signal) => {
+                const id = `search_${searchCount += 1}`;
+                onProgress?.({ type: 'search_start', id, query: String(args.query ?? '') });
+                try {
+                    const found = await searchWeb(args.query, {
+                        provider: 'gemini', apiKey: config.apiKey, baseUrl: config.baseUrl, model: config.chatModel,
+                    }, signal);
+                    onProgress?.({ type: 'search_result', id, text: found.text, sources: found.sources });
+                    return { output: formatWebSearch(found) };
+                } catch (error) {
+                    onProgress?.({ type: 'search_failed', id });
+                    throw error;
+                }
+            }],
             [contract.name, async args => ({ output: { success: true }, result: validateSubmission(contract, args) })],
         ]);
         return completeAgentLoop({
@@ -127,9 +137,9 @@ export class GeminiProvider implements AIService {
         });
     }
 
-    async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData, profile?: EntityProfile): Promise<SCPData> {
+    async analyzeSCPUrl(input: string, language: Language = 'zh', role: string, difficulty: GameDifficulty = 'normal', legacyData?: LegacyData, profile?: EntityProfile, onProgress?: (progress: AnalysisProgress) => void): Promise<SCPData> {
         console.log(`[GeminiProvider] Analyzing SCP: ${input}`);
-        return this.runSubmission(getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData, profile), scpAnalysisSubmission);
+        return this.runSubmission(getAnalyzeSCPPrompt(input, language, role, difficulty, legacyData, profile), scpAnalysisSubmission, onProgress);
     }
 
     async generateProfileCandidates(role: string, scpDesignation: string, language: Language, legacyData?: LegacyData): Promise<EntityProfile[]> {

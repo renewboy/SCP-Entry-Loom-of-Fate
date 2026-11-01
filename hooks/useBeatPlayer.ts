@@ -20,6 +20,8 @@ interface UseBeatPlayerOptions {
   holdUntilRef: React.MutableRefObject<number>;
   /** Watching a finished turn again: it plays from the start instead of opening on its end */
   replaying?: boolean;
+  /** The opening of a new run. It can finish streaming behind the door, and still has to be read from the start */
+  fromStart?: boolean;
 }
 
 export interface BeatPlayer {
@@ -51,13 +53,13 @@ export interface BeatPlayer {
  * player only tracks where the reader is and never touches the message itself.
  */
 export function useBeatPlayer(options: UseBeatPlayerOptions): BeatPlayer {
-  const { turnId, turn, settled, hasEnding, paused, autoAdvance, holdUntilRef, replaying = false } = options;
+  const { turnId, turn, settled, hasEnding, paused, autoAdvance, holdUntilRef, replaying = false, fromStart = false } = options;
   const { beats } = turn;
 
   const endPhase = (ending: boolean): StagePhase => (ending ? 'ending' : 'choosing');
   const [activeTurn, setActiveTurn] = useState(turnId);
-  const [phase, setPhase] = useState<StagePhase>(() => (settled ? endPhase(hasEnding) : 'waiting'));
-  const [restored, setRestored] = useState(settled);
+  const [phase, setPhase] = useState<StagePhase>(() => (settled && !fromStart ? endPhase(hasEnding) : 'waiting'));
+  const [restored, setRestored] = useState(settled && !fromStart);
   const [index, setIndex] = useState(-1);
   const [instant, setInstant] = useState(false);
   const [revealed, setRevealed] = useState(false);

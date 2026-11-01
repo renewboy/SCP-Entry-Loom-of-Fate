@@ -2,8 +2,15 @@ import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import EntityProfileScreen from '../../components/entityProfile/EntityProfileScreen';
+import { playButtonPress, playLightPress } from '../../services/sfxService';
 import { LanguageProvider } from '../../utils/i18n';
 import type { EntityProfile } from '../../types';
+
+vi.mock('../../services/sfxService', async importOriginal => ({
+  ...await importOriginal<typeof import('../../services/sfxService')>(),
+  playButtonPress: vi.fn(),
+  playLightPress: vi.fn(),
+}));
 
 const candidate: EntityProfile = { name: '瓦莱里克', age: '41', abilities: ['甲', '乙', '丙', '丁'], background: '幸存指挥官', keywords: ['失眠'] };
 
@@ -101,6 +108,20 @@ describe('EntityProfileScreen', () => {
     act(() => { vi.advanceTimersByTime(1000); });
     expect(props.onConfirm).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
+  });
+
+  it('只有上传是完整按键音，其他按钮都是轻版', () => {
+    vi.mocked(playButtonPress).mockClear();
+    vi.mocked(playLightPress).mockClear();
+    setup({ candidates: [candidate], selectedProfile: candidate });
+    fireEvent.click(document.querySelector('.ep-card') as Element);
+    fireEvent.click(document.querySelector('.ep-exec') as Element);
+    fireEvent.click(document.querySelector('.ep-back') as Element);
+    expect(playLightPress).toHaveBeenCalledTimes(3);
+    expect(playButtonPress).not.toHaveBeenCalled();
+    fireEvent.click(document.querySelector('.weave-btn') as Element);
+    expect(playButtonPress).toHaveBeenCalledTimes(1);
+    expect(playLightPress).toHaveBeenCalledTimes(3);
   });
 
   it('生成失败时显示错误，并保留手动添加', () => {
