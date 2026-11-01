@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import GameButton from '../common/GameButton';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -10,7 +11,6 @@ import { loadSetting, saveSetting, loadGlobalSettings } from '../../services/ind
 import { streamEditorAssistant } from '../../services/aiService';
 import { runAssistantWebSearch } from '../../services/ai/searchService';
 import { applyLayoutToBlueprint } from '../../utils/mapLayout';
-import { editorPanelHeader, editorPanelTitle, panelContainerBase } from './editorStyles';
 
 interface EditorAssistantPanelProps {
     blueprint: any;
@@ -112,55 +112,33 @@ const ToolCard = ({ data }: { data: ToolCallCardData }) => {
     const { t } = useTranslation();
     const [expanded, setExpanded] = useState(false);
     const duration = data.endTime ? data.endTime - data.startTime : 0;
-    
+
     return (
-        <div className="my-2 border border-[var(--scp-border)] rounded bg-black/30 overflow-hidden text-xs font-mono">
-            <button
-                type="button"
-                className="w-full flex items-center justify-between px-2 py-1.5 bg-black/40 hover:bg-black/60 transition-colors"
-                onClick={() => setExpanded(!expanded)}
-            >
-                <div className="flex items-center gap-2 min-w-0">
-                    <span
-                        className={`inline-block w-2 h-2 rounded-sm flex-shrink-0 ${
-                            data.state === 'error'
-                                ? 'bg-red-500'
-                                : data.state === 'running'
-                                  ? 'bg-scp-accent'
-                                  : 'bg-green-500'
-                        }`}
-                    />
-                    <span className="text-[10px] tracking-widest uppercase text-gray-500 flex-shrink-0">{t('editor_assistant.tool_called')}</span>
-                    <span className="font-semibold tracking-wider uppercase text-scp-text truncate">{data.name}</span>
-                </div>
-                <div className="flex items-center gap-2 text-[10px] text-gray-500 flex-shrink-0">
-                    {data.state !== 'running' && <span>{duration}ms</span>}
-                    <span className="text-gray-600">{expanded ? '▾' : '▸'}</span>
-                </div>
+        <div className={`ai-tool-card ${data.state === 'error' ? 'error' : data.state === 'running' ? '' : 'done'}`}>
+            <button type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+                <span className="ai-tool-name">
+                    <i />
+                    <small>{t(data.state === 'running' ? 'editor_assistant.tool_executing' : 'editor_assistant.tool_called')}</small>
+                    <b>{data.name}</b>
+                </span>
+                <small>{data.state !== 'running' && `${duration}ms `}{expanded ? '▾' : '▸'}</small>
             </button>
-            
             {expanded && (
-                <div className="p-2 border-t border-[var(--scp-border)] bg-black/40 space-y-2">
+                <div className="ai-tool-body">
                     <div>
-                        <div className="text-[10px] text-gray-500 mb-0.5">ARGS</div>
-                        <pre className="overflow-x-auto text-gray-300 p-2 bg-black/50 border border-gray-800 rounded">
-                            {JSON.stringify(data.args, null, 2)}
-                        </pre>
+                        <span>ARGS</span>
+                        <pre>{JSON.stringify(data.args, null, 2)}</pre>
                     </div>
                     {data.result && (
                         <div>
-                            <div className="text-[10px] text-gray-500 mb-0.5">RESULT</div>
-                            <pre className="overflow-x-auto text-gray-300 p-2 bg-black/50 border border-gray-800 rounded">
-                                {JSON.stringify(data.result, null, 2)}
-                            </pre>
+                            <span>RESULT</span>
+                            <pre>{JSON.stringify(data.result, null, 2)}</pre>
                         </div>
                     )}
                     {data.error && (
                         <div>
-                            <div className="text-[10px] text-red-500 mb-0.5">ERROR</div>
-                            <pre className="overflow-x-auto text-red-400 p-2 bg-black/50 border border-gray-800 rounded whitespace-pre-wrap">
-                                {data.error}
-                            </pre>
+                            <span className="err">ERROR</span>
+                            <pre>{data.error}</pre>
                         </div>
                     )}
                 </div>
@@ -188,7 +166,7 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        messagesEndRef.current?.parentElement?.scrollTo({ top: messagesEndRef.current.parentElement.scrollHeight, behavior: 'smooth' });
     };
 
     useEffect(() => {
@@ -660,115 +638,57 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
         setCurrentBlocks([]);
     };
 
+    const blocks = (items: AssistantBlock[], prefix: string) => items.map((b, i) => (
+        b.kind === 'text'
+            ? <Markdown key={`${prefix}-${i}`} content={b.content} />
+            : <ToolCard key={b.data.callId} data={b.data} />
+    ));
+
     return (
-        <div
-            className={isMobile 
-                ? `fixed inset-x-0 top-0 bottom-14 z-[300] flex flex-col bg-[var(--scp-bg)] ${isOpen ? 'pointer-events-auto' : 'pointer-events-none hidden'}`
-                : `absolute top-0 bottom-0 right-80 w-96 ${panelContainerBase} flex flex-col border-l border-[var(--scp-border)] z-20 shadow-2xl transition-transform transition-opacity duration-300 ease-out ${isOpen ? 'translate-x-0 opacity-100 pointer-events-auto' : 'translate-x-[calc(100%+20rem)] opacity-0 pointer-events-none'}`
-            }
-        >
-            {/* Header */}
-            <div className={editorPanelHeader}>
-                <div className="flex justify-between items-center">
-                    <div className={editorPanelTitle}>
-                        <span className="animate-pulse mr-2">●</span>
-                        {t('editor_assistant.title')}
-                    </div>
-                    <div className="flex gap-2">
-                         <button onClick={handleClear} className={`text-[10px] text-gray-500 hover:text-scp-accent uppercase border border-transparent hover:border-scp-accent/30 px-1 rounded ${isMobile ? 'min-h-[44px] min-w-[44px]' : ''}`}>
-                            {t('editor_assistant.clear_chat')}
-                        </button>
-                        <button onClick={onClose} className={`text-gray-500 hover:text-white ${isMobile ? 'min-h-[44px] min-w-[44px] text-xl' : ''}`}>×</button>
-                    </div>
+        <div className="ai-inner">
+            <div className="ai-head">
+                <span><i className="animate-pulse">●</i><b>{t('editor_assistant.title')}</b></span>
+                <div>
+                    <GameButton variant="quiet" size="sm" onClick={handleClear}>{t('editor_assistant.clear_chat')}</GameButton>
+                    <GameButton variant="quiet" size="sm" aria-label={t('map_editor.btn_close')} onClick={onClose}>✕</GameButton>
                 </div>
             </div>
 
-            {/* Chat Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono text-sm custom-scrollbar bg-black/40">
+            <div className="ai-log">
                 {messages.length === 0 && !isLoading && (
-                    <div className="flex flex-col items-start">
-                        <div className="max-w-[90%] p-2 rounded text-xs break-words bg-[#1a1a1a] text-scp-text border border-gray-800">
-                            <Markdown content={welcomeStreamingContent} />
-                            {welcomeStreamingContent.length < (t('editor_assistant.welcome') || '').length && (
-                                <span className="inline-block w-2 h-4 ml-1 bg-scp-accent animate-blink align-middle"></span>
-                            )}
-                        </div>
-                    </div>
+                    <div className={`ai-msg sys ${welcomeStreamingContent.length < (t('editor_assistant.welcome') || '').length ? 'ai-caret' : ''}`}>{welcomeStreamingContent}</div>
                 )}
 
                 {messages.map((msg, idx) => (
-                    <div key={idx} className={`flex flex-col ${msg.kind === 'user' ? 'items-end' : 'items-start'}`}>
-                        <div 
-                            className={`max-w-[90%] p-2 rounded text-xs break-words ${
-                                msg.kind === 'user' 
-                                    ? 'bg-scp-accent/20 text-white border border-scp-accent/40' 
-                                    : 'bg-[#1a1a1a] text-scp-text border border-gray-800'
-                            }`}
-                        >
-                            {msg.kind === 'user' ? (
-                                <div className="whitespace-pre-wrap">{msg.content}</div>
-                            ) : (
-                                <div className="space-y-2">
-                                    {msg.blocks.map((b, i) => (
-                                        b.kind === 'text'
-                                            ? <Markdown key={`t-${i}`} content={b.content} />
-                                            : <ToolCard key={b.data.callId} data={b.data} />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                    msg.kind === 'user'
+                        ? <div key={idx} className="ai-msg me">{msg.content}</div>
+                        : <div key={idx} className="ai-msg tools">{blocks(msg.blocks, `t${idx}`)}</div>
                 ))}
 
-                {/* Streaming Content */}
                 {isLoading && (
-                    <div className="flex flex-col items-start">
-                        <div className="max-w-[90%] p-2 rounded text-xs break-words bg-[#1a1a1a] text-scp-text border border-gray-800 animate-pulse">
-                            {currentBlocks.length > 0 ? (
-                                <div className="space-y-2">
-                                    {currentBlocks.map((b, i) => (
-                                        b.kind === 'text'
-                                            ? <Markdown key={`ct-${i}`} content={b.content} />
-                                            : <ToolCard key={b.data.callId} data={b.data} />
-                                    ))}
-                                </div>
-                            ) : (
-                                t('editor_assistant.thinking')
-                            )}
-                            
-                            <span className="inline-block w-2 h-4 ml-1 bg-scp-accent animate-blink align-middle"></span>
-                        </div>
-                    </div>
+                    currentBlocks.length > 0
+                        ? <div className="ai-msg tools ai-caret">{blocks(currentBlocks, 'current')}</div>
+                        : <div className="ai-msg ai-caret" style={{ color: 'var(--dim)' }}>{t('editor_assistant.thinking')}</div>
                 )}
-                
+
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Area */}
-            <div className="p-3 border-t border-[var(--scp-border)] bg-[#0a0a0a]">
-                <form onSubmit={handleSubmit} className="relative">
-                    <textarea
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSubmit();
-                            }
-                        }}
-                        placeholder={t('editor_assistant.placeholder')}
-                        className={`w-full bg-[#111] border border-gray-700 p-2 pr-10 ${isMobile ? 'text-base min-h-[80px]' : 'text-xs min-h-[72px]'} text-white focus:border-scp-accent outline-none font-mono resize-none`}
-                        disabled={isLoading}
-                    />
-                    <button 
-                        type="submit" 
-                        disabled={isLoading || !input.trim()}
-                        className={`absolute right-1 top-1 px-2 text-scp-accent hover:text-white disabled:opacity-30 transition-colors ${isMobile ? 'min-h-[44px] min-w-[44px]' : ''}`}
-                    >
-                        ➤
-                    </button>
-                </form>
-            </div>
+            <form className="ai-input" onSubmit={handleSubmit}>
+                <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSubmit();
+                        }
+                    }}
+                    placeholder={t('editor_assistant.placeholder')}
+                    disabled={isLoading}
+                />
+                <GameButton type="submit" size="sm" disabled={isLoading || !input.trim()}>{t('editor_assistant.send')}</GameButton>
+            </form>
         </div>
     );
 };

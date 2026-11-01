@@ -107,7 +107,7 @@ flowchart TB
 - **应用壳与状态机**：GameStatus 驱动页面切换。[App.tsx](App.tsx)  
 - **开局界面**：角色选择、输入、随机 SCP、设置与读档入口。[StartScreen.tsx](components/StartScreen.tsx)  
 - **档案增强阶段**：角色画像候选与补全流程。[EntityProfileAugmentation.tsx](components/EntityProfileAugmentation.tsx)  
-- **战术预览**：开局前预览/编辑参数。[TacticalPreview.tsx](components/TacticalPreview.tsx)  
+- **战术预览**：开局前预览/编辑参数。[TacticalPreview.tsx](components/TacticalPreview.tsx)、[TacticalBriefing.tsx](components/tactical/TacticalBriefing.tsx)  
 - **故事编辑器**：编辑 SCPData 与地图蓝图。[StoryEditor.tsx](components/editor/StoryEditor.tsx)  
 - **游戏主屏**：回合循环、消息流、稳定性、图像生成控制、存档入口。[GameScreen.tsx](components/GameScreen.tsx)  
 - **结算入口**：GAME_OVER 后将运行态切换到结算报告域。[WorldLineTree.tsx](components/WorldLineTree.tsx)  

@@ -1,714 +1,373 @@
-import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
-import { MapBlueprint, MapBlueprintNode } from '../../types';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { MapBlueprint } from '../../types';
+import { useNetworkView } from '../../hooks/useNetworkView';
 import { useTranslation } from '../../utils/i18n';
-import { ZoomIn, ZoomOut, Plus, Users, Target } from 'lucide-react';
-import GameLogo from '../GameLogo';
-import {
-    canvasAddButton,
-    canvasOverlay,
-    canvasOverlayHeader,
-    canvasOverlayList,
-    canvasOverlayAccent,
-    canvasOverlayDot,
-    canvasOverlayStat,
-    canvasOverlayConnecting,
-    canvasWatermark,
-    canvasWatermarkLogo,
-    canvasRoot,
-    canvasSvg
-} from './editorStyles';
+import { buildNetworkLayout, fitNetworkView, NETWORK_GEOMETRY, NetworkPoint, networkCurve } from '../../utils/siteNetwork';
+import GameButton from '../common/GameButton';
+import NetworkBackdrop from '../game/stage/NetworkBackdrop';
+import NetworkLegend from '../game/stage/NetworkLegend';
+import NetworkNode from '../game/stage/NetworkNode';
+import { EDGE_ID_SEPARATOR, EditorSelection } from './PropertyInspector';
+
+const GEOMETRY = NETWORK_GEOMETRY.wide;
+const HANDLE_OFFSET = 46;
+const DRAG_THRESHOLD = 3;
+const LONG_PRESS_MS = 500;
 
 export interface EditorCanvasRef {
-    zoomIn: () => void;
-    zoomOut: () => void;
+    /** The world position at the middle of the view, where a new node appears */
+    centerPoint: () => NetworkPoint | null;
 }
 
 interface EditorCanvasProps {
     blueprint: MapBlueprint;
-    selection: { type: 'node' | 'edge' | 'npc' | 'objective', id: string } | null;
-    setSelection: (sel: { type: 'node' | 'edge' | 'npc' | 'objective', id: string } | null) => void;
-    updateNode: (id: string, updates: Partial<MapBlueprintNode>) => void;
-    addNode?: () => void;
+    selection: EditorSelection;
+    setSelection: (sel: EditorSelection) => void;
+    moveNode: (id: string, point: NetworkPoint) => void;
+    addNode: () => void;
     addEdge: (from: string, to: string) => void;
-    commitBlueprint?: () => void;
+    restoreAutoLayout: () => void;
     onDeleteSelection: () => void;
-    isMobile?: boolean;
-    onAddNPC?: () => void;
-    onAddObjective?: () => void;
-    showMobileControls?: boolean;
+    npcImages?: Record<string, string>;
 }
 
-type GestureType = 'none' | 'drag-node' | 'pan-canvas' | 'pinch-zoom';
+type Gesture =
+    | { type: 'pan'; px: number; py: number; x: number; y: number; moved: boolean }
+    | { type: 'node'; id: string; dx: number; dy: number; px: number; py: number; moved: boolean; timer?: ReturnType<typeof setTimeout> }
+    | { type: 'connect' }
+    | { type: 'pinch'; distance: number; k: number; cx: number; cy: number; x: number; y: number };
 
-interface GestureState {
-    type: GestureType;
-    pointerId?: number;
-    startNodeLayout?: { x: number; y: number };
-    initialDistance?: number;
-    initialScale?: number;
-    initialCenter?: { x: number; y: number };
-    longPressTimer?: ReturnType<typeof setTimeout>;
-    longPressTriggered?: boolean;
-}
-
-const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(({
-    blueprint,
-    selection,
-    setSelection,
-    updateNode,
-    addNode,
-    addEdge,
-    commitBlueprint,
-    onDeleteSelection,
-    isMobile = false,
-    onAddNPC,
-    onAddObjective,
-    showMobileControls = true
-}, ref) => {
+const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(({ blueprint, selection, setSelection, moveNode, addNode, addEdge, restoreAutoLayout, onDeleteSelection, npcImages }, ref) => {
     const { t } = useTranslation();
-    const svgRef = useRef<SVGSVGElement>(null);
-    const initialScale = isMobile ? 1.4 : 2.0;
-    const [viewTransform, setViewTransform] = useState({ scale: initialScale, x: 0, y: 0 });
-    const [isPanning, setIsPanning] = useState(false);
-    const [panStart, setPanStart] = useState<{ x: number, y: number } | null>(null);
-    const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
-    const [dragPosition, setDragPosition] = useState<{ x: number, y: number } | null>(null);
-    const viewTransformRef = useRef(viewTransform);
-    
-    const gestureRef = useRef<GestureState>({ type: 'none' });
-    const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+    const [dragged, setDragged] = useState<{ id: string; point: NetworkPoint } | null>(null);
+    const [connect, setConnect] = useState<{ from: string; point: NetworkPoint; over: string | null } | null>(null);
+    const [helpOpen, setHelpOpen] = useState(false);
+    const gesture = useRef<Gesture | null>(null);
+    const pointers = useRef(new Map<number, { x: number; y: number }>());
+    const userMoved = useRef(false);
+    const seenNodes = useRef(new Set(blueprint.nodes.map(node => node.id)));
+
+    const laidOut = useMemo(() => buildNetworkLayout(blueprint, false), [blueprint]);
+    const positions = useMemo(() => (dragged ? { ...laidOut, [dragged.id]: dragged.point } : laidOut), [dragged, laidOut]);
+    const network = useNetworkView({ positions, currentId: '', minZoom: 0.25, maxZoom: 2.6, wheel: 'pan' });
+
+    const fit = useCallback(() => {
+        const box = network.svgRef.current?.getBoundingClientRect();
+        if (!box?.width || !box.height) return;
+        const view = fitNetworkView(laidOut, box.width, box.height, { top: 130, bottom: 130 });
+        if (view) network.setView(view);
+    }, [laidOut, network.setView, network.svgRef]);
+
+    useLayoutEffect(() => {
+        if (!userMoved.current) fit();
+    }, [fit]);
+
+    useEffect(() => {
+        const svg = network.svgRef.current;
+        if (!svg || typeof ResizeObserver === 'undefined') return;
+        const observer = new ResizeObserver(() => {
+            if (!userMoved.current) fit();
+        });
+        observer.observe(svg);
+        return () => observer.disconnect();
+    }, [fit, network.svgRef]);
+
+    useEffect(() => {
+        seenNodes.current = new Set(blueprint.nodes.map(node => node.id));
+    }, [blueprint.nodes]);
+
+    const toWorld = useCallback((clientX: number, clientY: number): NetworkPoint => {
+        const box = network.svgRef.current?.getBoundingClientRect();
+        const { x, y, k } = network.viewRef.current;
+        return { x: (clientX - (box?.left ?? 0) - x) / k, y: (clientY - (box?.top ?? 0) - y) / k };
+    }, [network.svgRef, network.viewRef]);
 
     useImperativeHandle(ref, () => ({
-        zoomIn: () => {
-            setViewTransform(prev => ({ ...prev, scale: Math.min(prev.scale + 0.2, 5) }));
-        },
-        zoomOut: () => {
-            setViewTransform(prev => ({ ...prev, scale: Math.max(prev.scale - 0.2, 0.1) }));
+        centerPoint: () => {
+            const box = network.svgRef.current?.getBoundingClientRect();
+            return box?.width ? toWorld(box.left + box.width / 2, box.top + box.height / 2) : null;
         }
-    }));
-
-    const [isConnecting, setIsConnecting] = useState(false);
-    const [connectionStartId, setConnectionStartId] = useState<string | null>(null);
-    const [connectionEndPos, setConnectionEndPos] = useState<{ x: number, y: number } | null>(null);
-    const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-
-    useEffect(() => {
-        viewTransformRef.current = viewTransform;
-    }, [viewTransform]);
-
-    useEffect(() => {
-        const node = svgRef.current;
-        if (!node) return;
-        const handleWheel = (e: WheelEvent) => {
-            e.preventDefault();
-            if (e.ctrlKey || e.metaKey) {
-                const scaleChange = e.deltaY * -0.001;
-                const nextScale = Math.min(Math.max(0.1, viewTransformRef.current.scale + scaleChange), 5);
-                setViewTransform(prev => ({ ...prev, scale: nextScale }));
-            } else {
-                const dx = -e.deltaX;
-                const dy = -e.deltaY;
-                setViewTransform(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
-            }
-        };
-        node.addEventListener('wheel', handleWheel, { passive: false });
-        return () => {
-            node.removeEventListener('wheel', handleWheel);
-        };
-    }, []);
-
-    const getSVGPoint = (clientX: number, clientY: number) => {
-        if (!svgRef.current) return { x: 0, y: 0 };
-        const pt = svgRef.current.createSVGPoint();
-        pt.x = clientX;
-        pt.y = clientY;
-        const ctm = svgRef.current.getScreenCTM();
-        if (!ctm) return { x: 0, y: 0 };
-        return pt.matrixTransform(ctm.inverse());
-    };
-
-    const getWorldPoint = (clientX: number, clientY: number) => {
-        const pt = getSVGPoint(clientX, clientY);
-        return {
-            x: (pt.x - viewTransform.x) / viewTransform.scale,
-            y: (pt.y - viewTransform.y) / viewTransform.scale
-        };
-    };
-
-    const findNodeAtPosition = useCallback((worldX: number, worldY: number): MapBlueprintNode | null => {
-        const hitRadius = isMobile ? 24 : 10;
-        for (const node of blueprint.nodes) {
-            const nx = node.layout?.x ?? 0;
-            const ny = node.layout?.y ?? 0;
-            const dist = Math.hypot(worldX - nx, worldY - ny);
-            if (dist <= hitRadius) {
-                return node;
-            }
-        }
-        return null;
-    }, [blueprint.nodes, isMobile]);
-
-    const handleMouseDown = (e: React.MouseEvent) => {
-        if (e.button === 0) {
-            setIsPanning(true);
-            setPanStart({ x: e.clientX, y: e.clientY });
-            setSelection(null);
-            setIsConnecting(false);
-            setConnectionStartId(null);
-        }
-    };
-
-    const handleMouseMove = (e: React.MouseEvent) => {
-        if (isPanning && panStart) {
-            const dx = e.clientX - panStart.x;
-            const dy = e.clientY - panStart.y;
-            setViewTransform(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
-            setPanStart({ x: e.clientX, y: e.clientY });
-        }
-
-        if (draggingNodeId) {
-            const worldPos = getWorldPoint(e.clientX, e.clientY);
-            setDragPosition(worldPos);
-        }
-
-        if (isConnecting) {
-            const worldPos = getWorldPoint(e.clientX, e.clientY);
-            setConnectionEndPos(worldPos);
-        }
-    };
-
-    const handleMouseUp = () => {
-        if (draggingNodeId && dragPosition) {
-            updateNode(draggingNodeId, { layout: dragPosition });
-            commitBlueprint?.();
-        }
-        
-        if (isConnecting && connectionStartId && hoveredNodeId && connectionStartId !== hoveredNodeId) {
-            addEdge(connectionStartId, hoveredNodeId);
-        }
-
-        setIsPanning(false);
-        setDraggingNodeId(null);
-        setDragPosition(null);
-        setPanStart(null);
-        setIsConnecting(false);
-        setConnectionStartId(null);
-        setConnectionEndPos(null);
-    };
-
-    const handlePointerDown = (e: React.PointerEvent) => {
-        if (!isMobile) return;
-        
-        activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        
-        const pointerCount = activePointersRef.current.size;
-        
-        if (pointerCount === 1) {
-            const worldPos = getWorldPoint(e.clientX, e.clientY);
-            const hitNode = findNodeAtPosition(worldPos.x, worldPos.y);
-            
-            if (hitNode) {
-                gestureRef.current = {
-                    type: 'drag-node',
-                    pointerId: e.pointerId,
-                    startNodeLayout: hitNode.layout,
-                    longPressTimer: setTimeout(() => {
-                        if (gestureRef.current.type === 'drag-node') {
-                            gestureRef.current.longPressTriggered = true;
-                        }
-                    }, 500)
-                };
-                setDraggingNodeId(hitNode.id);
-                setDragPosition(hitNode.layout);
-                setSelection({ type: 'node', id: hitNode.id });
-            } else {
-                gestureRef.current = {
-                    type: 'pan-canvas',
-                    pointerId: e.pointerId,
-                    longPressTimer: setTimeout(() => {
-                        if (gestureRef.current.type === 'pan-canvas') {
-                            gestureRef.current.longPressTriggered = true;
-                        }
-                    }, 600)
-                };
-                setIsPanning(true);
-                setPanStart({ x: e.clientX, y: e.clientY });
-                setSelection(null);
-            }
-        } else if (pointerCount === 2) {
-            clearTimeout(gestureRef.current.longPressTimer);
-            
-            const pointers = Array.from(activePointersRef.current.values());
-            const p1 = pointers[0];
-            const p2 = pointers[1];
-            const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-            const center = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
-            
-            gestureRef.current = {
-                type: 'pinch-zoom',
-                initialDistance: distance,
-                initialScale: viewTransform.scale,
-                initialCenter: center
-            };
-            
-            setIsPanning(false);
-            setDraggingNodeId(null);
-        }
-    };
-
-    const handlePointerMove = (e: React.PointerEvent) => {
-        if (!isMobile) return;
-        
-        activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        
-        const gesture = gestureRef.current;
-        
-        if (gesture.type === 'drag-node' && gesture.pointerId === e.pointerId) {
-            clearTimeout(gesture.longPressTimer);
-            
-            const worldPos = getWorldPoint(e.clientX, e.clientY);
-            setDragPosition(worldPos);
-        } 
-        else if (gesture.type === 'pan-canvas' && gesture.pointerId === e.pointerId) {
-            const start = activePointersRef.current.get(e.pointerId);
-            if (start) {
-                const dx = e.clientX - start.x;
-                const dy = e.clientY - start.y;
-                if (Math.hypot(dx, dy) > 10) {
-                    clearTimeout(gesture.longPressTimer);
-                }
-            }
-            
-            if (panStart) {
-                const dx = e.clientX - panStart.x;
-                const dy = e.clientY - panStart.y;
-                setViewTransform(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
-                setPanStart({ x: e.clientX, y: e.clientY });
-            }
-        }
-        else if (gesture.type === 'pinch-zoom') {
-            const pointers = Array.from(activePointersRef.current.values());
-            if (pointers.length >= 2) {
-                const p1 = pointers[0];
-                const p2 = pointers[1];
-                const currentDistance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-                
-                const scaleDelta = currentDistance / (gesture.initialDistance || 1);
-                const newScale = Math.min(Math.max(gesture.initialScale! * scaleDelta, 0.1), 5);
-                
-                const currentCenter = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
-                
-                setViewTransform(prev => {
-                    const dx = currentCenter.x - (gesture.initialCenter?.x || 0);
-                    const dy = currentCenter.y - (gesture.initialCenter?.y || 0);
-                    
-                    return {
-                        scale: newScale,
-                        x: prev.x + dx,
-                        y: prev.y + dy
-                    };
-                });
-            }
-        }
-        else if (isConnecting) {
-            const worldPos = getWorldPoint(e.clientX, e.clientY);
-            setConnectionEndPos(worldPos);
-        }
-    };
-
-    const handlePointerUp = (e: React.PointerEvent) => {
-        if (!isMobile) return;
-        
-        const gesture = gestureRef.current;
-        
-        clearTimeout(gesture.longPressTimer);
-        
-        if (gesture.type === 'drag-node' && draggingNodeId && dragPosition) {
-            updateNode(draggingNodeId, { layout: dragPosition });
-            commitBlueprint?.();
-        }
-        
-        if (isConnecting && connectionStartId && hoveredNodeId) {
-            addEdge(connectionStartId, hoveredNodeId);
-        }
-        
-        activePointersRef.current.delete(e.pointerId);
-        
-        if (activePointersRef.current.size === 0) {
-            gestureRef.current = { type: 'none' };
-            setIsPanning(false);
-            setDraggingNodeId(null);
-            setDragPosition(null);
-            setPanStart(null);
-            setIsConnecting(false);
-            setConnectionStartId(null);
-            setConnectionEndPos(null);
-        } else if (activePointersRef.current.size === 1) {
-            gestureRef.current = { type: 'pan-canvas' };
-        }
-    };
+    }), [network.svgRef, toWorld]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (!selection) return;
-            
-            if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
-
+            const active = document.activeElement?.tagName;
+            if (active === 'INPUT' || active === 'TEXTAREA') return;
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 e.preventDefault();
                 onDeleteSelection();
             }
         };
-
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [selection, onDeleteSelection]);
 
-    const onNodeMouseDown = (e: React.MouseEvent, nodeId: string, currentLayout: { x: number, y: number }) => {
-        e.stopPropagation();
-        
-        if (e.shiftKey) {
-            if (selection?.type === 'node' && selection.id !== nodeId) {
+    const nodeNear = (point: NetworkPoint, except: string) => Object.entries(positions).find(([id, at]) => id !== except && Math.hypot(at.x - point.x, at.y - point.y) < GEOMETRY.hit)?.[0] ?? null;
+    const cancelLongPress = () => {
+        if (gesture.current?.type === 'node') clearTimeout(gesture.current.timer);
+    };
+
+    const handlePointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
+        if (event.button) return;
+        const svg = event.currentTarget;
+        const box = svg.getBoundingClientRect();
+        pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+        if (pointers.current.size === 2) {
+            cancelLongPress();
+            setDragged(null);
+            setConnect(null);
+            const [a, b] = Array.from(pointers.current.values());
+            const { x, y, k } = network.viewRef.current;
+            gesture.current = { type: 'pinch', distance: Math.hypot(b.x - a.x, b.y - a.y) || 1, k, cx: (a.x + b.x) / 2 - box.left, cy: (a.y + b.y) / 2 - box.top, x, y };
+            userMoved.current = true;
+            return;
+        }
+        if (pointers.current.size > 2) return;
+
+        const target = event.target as Element;
+        svg.setPointerCapture(event.pointerId);
+
+        const handle = target.closest('[data-handle]')?.getAttribute('data-handle');
+        if (handle) {
+            setConnect({ from: handle, point: toWorld(event.clientX, event.clientY), over: null });
+            gesture.current = { type: 'connect' };
+            return;
+        }
+        const npc = target.closest('[data-npc]')?.getAttribute('data-npc');
+        if (npc) {
+            setSelection({ type: 'npc', id: npc });
+            return;
+        }
+        const objective = target.closest('[data-objective]')?.getAttribute('data-objective');
+        if (objective) {
+            setSelection({ type: 'objective', id: objective });
+            return;
+        }
+        const nodeId = target.closest('[data-id]')?.getAttribute('data-id');
+        if (nodeId) {
+            if (event.shiftKey && selection?.type === 'node' && selection.id !== nodeId) {
                 addEdge(selection.id, nodeId);
                 setSelection({ type: 'node', id: nodeId });
-            } else {
-                setSelection({ type: 'node', id: nodeId });
+                return;
+            }
+            setSelection({ type: 'node', id: nodeId });
+            const at = positions[nodeId];
+            const point = toWorld(event.clientX, event.clientY);
+            gesture.current = {
+                type: 'node',
+                id: nodeId,
+                dx: at.x - point.x,
+                dy: at.y - point.y,
+                px: event.clientX,
+                py: event.clientY,
+                moved: false,
+                // A finger has no room for the handle while it covers the node, so a long press starts a connection too
+                timer: event.pointerType === 'touch' ? setTimeout(() => {
+                    setDragged(null);
+                    setConnect({ from: nodeId, point: at, over: null });
+                    gesture.current = { type: 'connect' };
+                }, LONG_PRESS_MS) : undefined,
+            };
+            return;
+        }
+        const edge = target.closest('[data-edge]')?.getAttribute('data-edge');
+        if (edge) {
+            setSelection({ type: 'edge', id: edge });
+            return;
+        }
+        const { x, y } = network.viewRef.current;
+        gesture.current = { type: 'pan', px: event.clientX, py: event.clientY, x, y, moved: false };
+    };
+
+    const handlePointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
+        if (pointers.current.has(event.pointerId)) pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        const current = gesture.current;
+        if (!current) return;
+        if (current.type === 'pinch') {
+            const [a, b] = Array.from(pointers.current.values());
+            if (!a || !b) return;
+            const box = event.currentTarget.getBoundingClientRect();
+            const scale = Math.max(0.25 / current.k, Math.min(2.6 / current.k, Math.hypot(b.x - a.x, b.y - a.y) / current.distance));
+            const k = current.k * scale;
+            const cx = (a.x + b.x) / 2 - box.left;
+            const cy = (a.y + b.y) / 2 - box.top;
+            network.setView({ k, x: cx - (current.cx - current.x) * scale, y: cy - (current.cy - current.y) * scale });
+        } else if (current.type === 'pan') {
+            const dx = event.clientX - current.px;
+            const dy = event.clientY - current.py;
+            if (!current.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+            current.moved = true;
+            userMoved.current = true;
+            event.currentTarget.classList.add('grabbing');
+            network.setView({ ...network.viewRef.current, x: current.x + dx, y: current.y + dy });
+        } else if (current.type === 'node') {
+            if (!current.moved && Math.hypot(event.clientX - current.px, event.clientY - current.py) < DRAG_THRESHOLD) return;
+            clearTimeout(current.timer);
+            current.moved = true;
+            const point = toWorld(event.clientX, event.clientY);
+            setDragged({ id: current.id, point: { x: point.x + current.dx, y: point.y + current.dy } });
+        } else {
+            const point = toWorld(event.clientX, event.clientY);
+            setConnect(prev => (prev ? { ...prev, point, over: nodeNear(point, prev.from) } : prev));
+        }
+    };
+
+    const handlePointerEnd = (event: React.PointerEvent<SVGSVGElement>) => {
+        pointers.current.delete(event.pointerId);
+        const current = gesture.current;
+        if (pointers.current.size) {
+            if (current?.type === 'pinch') {
+                const [rest] = Array.from(pointers.current.values());
+                const { x, y } = network.viewRef.current;
+                gesture.current = { type: 'pan', px: rest.x, py: rest.y, x, y, moved: true };
             }
             return;
         }
-
-        if (e.button === 0) {
-            setSelection({ type: 'node', id: nodeId });
-            setDraggingNodeId(nodeId);
-            setDragPosition(currentLayout); 
+        gesture.current = null;
+        event.currentTarget.classList.remove('grabbing');
+        if (!current) return;
+        if (current.type === 'pan' && !current.moved) setSelection(null);
+        if (current.type === 'node') {
+            clearTimeout(current.timer);
+            if (current.moved && dragged) {
+                userMoved.current = true;
+                moveNode(dragged.id, dragged.point);
+            }
+            setDragged(null);
+        }
+        if (current.type === 'connect') {
+            if (connect?.over) addEdge(connect.from, connect.over);
+            setConnect(null);
         }
     };
 
-    const onConnectionHandleMouseDown = (e: React.MouseEvent, nodeId: string) => {
-        e.stopPropagation();
-        e.preventDefault();
-        setIsConnecting(true);
-        setConnectionStartId(nodeId);
-        const node = blueprint.nodes.find(n => n.id === nodeId);
-        if (node && node.layout) {
-            setConnectionEndPos(node.layout);
-        }
-    };
-
-    const radarColors = {
-        low: '#33ff00',
-        medium: '#f59e0b',
-        high: '#ef4444'
-    };
-
-    const dangerColor = (danger: number) => {
-        if (danger > 70) return radarColors.high;
-        if (danger > 30) return radarColors.medium;
-        return radarColors.low;
-    };
-
-    const getEdgeLine = (x1: number, y1: number, x2: number, y2: number, gap: number = 6) => {
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        if (dist === 0) return { x1, y1, x2, y2 };
-
-        const t = (dist - gap) / dist;
-        return {
-            x1, 
-            y1,
-            x2: x1 + dx * t,
-            y2: y1 + dy * t
-        };
-    };
-
-    const nodeRadius = isMobile ? 10 : 6;
-    const nodeHitRadius = isMobile ? 24 : 8;
-
-    if (!blueprint) return null;
+    const pickedEdge = selection?.type === 'edge' ? selection.id : null;
 
     return (
-        <div className={canvasRoot}
-             onContextMenu={(e) => e.preventDefault()}>
-            <svg 
-                ref={svgRef}
-                className={canvasSvg}
-                style={isMobile ? { touchAction: 'none' } : undefined}
-                onMouseDown={!isMobile ? handleMouseDown : undefined}
-                onMouseMove={!isMobile ? handleMouseMove : undefined}
-                onMouseUp={!isMobile ? handleMouseUp : undefined}
-                onMouseLeave={!isMobile ? handleMouseUp : undefined}
-                onPointerDown={isMobile ? handlePointerDown : undefined}
-                onPointerMove={isMobile ? handlePointerMove : undefined}
-                onPointerUp={isMobile ? handlePointerUp : undefined}
-                onPointerCancel={isMobile ? handlePointerUp : undefined}
+        <>
+            <NetworkBackdrop />
+            <svg
+                ref={network.svgRef}
+                className="net-svg"
+                role="img"
+                aria-label={blueprint.title}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerEnd}
+                onPointerCancel={handlePointerEnd}
+                onWheel={() => { userMoved.current = true; }}
             >
                 <defs>
-                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255, 255, 255, 0.15)" strokeWidth="0.5"/>
-                    </pattern>
-                    <marker id="arrowhead" markerWidth="10" markerHeight="7" 
-                        refX="9" refY="3.5" orient="auto">
-                        <polygon points="0 0, 10 3.5, 0 7" fill="rgba(148, 163, 184, 0.5)" />
-                    </marker>
-                    <marker id="arrowhead-selected" markerWidth="10" markerHeight="7" 
-                        refX="9" refY="3.5" orient="auto">
-                        <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b" />
-                    </marker>
+                    <marker id="ed-arrow" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><polygon points="0 0, 11 4, 0 8" fill="rgba(51,255,0,.8)" /></marker>
+                    <marker id="ed-arrow-pick" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><polygon points="0 0, 11 4, 0 8" fill="#f59e0b" /></marker>
                 </defs>
-                <rect width="100%" height="100%" fill="url(#grid)" />
-
-                <g transform={`translate(${viewTransform.x} ${viewTransform.y}) scale(${viewTransform.scale})`}>
-                    {blueprint.edges.map((edge, idx) => {
-                        const fromNode = blueprint.nodes.find(n => n.id === edge.from);
-                        const toNode = blueprint.nodes.find(n => n.id === edge.to);
-                        if (!fromNode || !toNode) return null;
-
-                        const fromX = (draggingNodeId === fromNode.id && dragPosition) ? dragPosition.x : (fromNode.layout?.x ?? 0);
-                        const fromY = (draggingNodeId === fromNode.id && dragPosition) ? dragPosition.y : (fromNode.layout?.y ?? 0);
-                        const toX = (draggingNodeId === toNode.id && dragPosition) ? dragPosition.x : (toNode.layout?.x ?? 0);
-                        const toY = (draggingNodeId === toNode.id && dragPosition) ? dragPosition.y : (toNode.layout?.y ?? 0);
-
-                        const isSelected = selection?.type === 'edge' && selection.id === `${edge.from}-${edge.to}`;
-
-                        const lineCoords = edge.bidirectional 
-                            ? { x1: fromX, y1: fromY, x2: toX, y2: toY }
-                            : getEdgeLine(fromX, fromY, toX, toY, 6);
-
+                <g ref={network.worldRef}>
+                    {blueprint.edges.map(edge => {
+                        const a = positions[edge.from];
+                        const b = positions[edge.to];
+                        if (!a || !b) return null;
+                        const id = `${edge.from}${EDGE_ID_SEPARATOR}${edge.to}`;
+                        const picked = pickedEdge === id;
+                        const full = `M ${a.x} ${a.y} ${networkCurve(a, b)}`;
+                        let line = full;
+                        if (!edge.bidirectional) {
+                            // Stop the arrow at the node's ring instead of its centre
+                            const distance = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+                            const tip = { x: b.x - ((b.x - a.x) / distance) * (GEOMETRY.ring + 3), y: b.y - ((b.y - a.y) / distance) * (GEOMETRY.ring + 3) };
+                            line = `M ${a.x} ${a.y} ${networkCurve(a, tip)}`;
+                        }
                         return (
-                            <line
-                                key={`${edge.from}-${edge.to}`}
-                                x1={lineCoords.x1} y1={lineCoords.y1} x2={lineCoords.x2} y2={lineCoords.y2}
-                                stroke={isSelected ? '#f59e0b' : 'rgba(148, 163, 184, 0.4)'}
-                                strokeWidth={isSelected ? 2 : 1}
-                                markerEnd={edge.bidirectional ? undefined : (isSelected ? "url(#arrowhead-selected)" : "url(#arrowhead)")}
-                                className="cursor-pointer hover:stroke-scp-amber transition-colors"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelection({ type: 'edge', id: `${edge.from}-${edge.to}` });
-                                }}
-                            />
+                            <React.Fragment key={id}>
+                                <path className="e-hit" data-edge={id} d={full} />
+                                <path className={`net-edge ${picked ? 'pick' : ''}`} d={line} markerEnd={edge.bidirectional ? undefined : `url(#${picked ? 'ed-arrow-pick' : 'ed-arrow'})`} />
+                            </React.Fragment>
                         );
                     })}
-
-                    {isConnecting && connectionStartId && connectionEndPos && (
-                        <line 
-                            x1={blueprint.nodes.find(n => n.id === connectionStartId)?.layout?.x || 0}
-                            y1={blueprint.nodes.find(n => n.id === connectionStartId)?.layout?.y || 0}
-                            x2={connectionEndPos.x}
-                            y2={connectionEndPos.y}
-                            stroke="#f59e0b"
-                            strokeWidth="2"
-                            strokeDasharray="4"
-                            markerEnd="url(#arrowhead-selected)"
-                            pointerEvents="none"
-                        />
-                    )}
-
+                    {connect && positions[connect.from] && <path className="c-line" d={`M ${positions[connect.from].x} ${positions[connect.from].y} L ${connect.point.x} ${connect.point.y}`} />}
                     {blueprint.nodes.map(node => {
-                        const x = (draggingNodeId === node.id && dragPosition) ? dragPosition.x : (node.layout?.x ?? 0);
-                        const y = (draggingNodeId === node.id && dragPosition) ? dragPosition.y : (node.layout?.y ?? 0);
-                        
+                        const point = positions[node.id];
+                        if (!point) return null;
                         const isSelected = selection?.type === 'node' && selection.id === node.id;
-                        const color = dangerColor(node.danger);
-                        const isHovered = hoveredNodeId === node.id;
-
-                        const nodeNpcs = blueprint.npcs.filter(n => n.initialNodeId === node.id);
-                        const nodeObjs = blueprint.objectives.filter(o => o.nodeId === node.id);
-
                         return (
-                            <g 
-                                key={node.id} 
-                                transform={`translate(${x}, ${y})`}
-                                onMouseDown={!isMobile ? (e) => onNodeMouseDown(e, node.id, { x, y }) : undefined}
-                                onMouseEnter={!isMobile ? () => setHoveredNodeId(node.id) : undefined}
-                                onMouseLeave={!isMobile ? () => setHoveredNodeId(null) : undefined}
-                                className={!isMobile ? "cursor-move group" : undefined}
+                            <NetworkNode
+                                key={node.id}
+                                node={node}
+                                point={point}
+                                compact={false}
+                                known
+                                selected={isSelected}
+                                reticleOnSelected
+                                isStart={node.id === blueprint.startNodeId}
+                                marks={blueprint.objectives.filter(objective => objective.nodeId === node.id).map(objective => ({ id: objective.id, type: objective.type, picked: selection?.type === 'objective' && selection.id === objective.id }))}
+                                faces={blueprint.npcs.filter(npc => npc.initialNodeId === node.id).map(npc => ({ id: npc.id, image: npcImages?.[npc.id], picked: selection?.type === 'npc' && selection.id === npc.id }))}
+                                gate={(node.requires ?? []).length ? 'locked' : null}
+                                gateLabels={{ locked: t('stage.network.legend_gate'), authorized: '' }}
+                                idPrefix="ed"
+                                focusable
+                                className={`${connect?.over === node.id ? 'c-target' : ''} ${seenNodes.current.has(node.id) ? '' : 'fresh'}`}
                             >
-                                {isConnecting && isHovered && connectionStartId !== node.id && (
-                                    <circle r={nodeRadius + 2} fill="none" stroke="#f59e0b" strokeWidth="1" strokeDasharray="2" className="animate-pulse" />
-                                )}
-
                                 {isSelected && (
-                                    <circle r={nodeRadius + 2} fill="none" stroke="#f59e0b" strokeWidth="1" strokeOpacity="0.5" />
-                                )}
-
-                                <circle 
-                                    r={isSelected ? nodeRadius + 2 : nodeRadius} 
-                                    fill="#0f172a"
-                                    stroke={isSelected ? '#f59e0b' : color}
-                                    strokeWidth={isSelected ? 2 : 1.5}
-                                    fillOpacity={1}
-                                />
-
-                                <circle r={isMobile ? 3 : 1.5} fill={color} />
-
-                                {isMobile && (
-                                    <circle r={nodeHitRadius} fill="transparent" />
-                                )}
-
-                                <text 
-                                    y={isMobile ? -14 : -10} 
-                                    textAnchor="middle" 
-                                    fill={isSelected ? '#f59e0b' : '#94a3b8'} 
-                                    fontSize={isMobile ? "8" : "6"} 
-                                    fontFamily="monospace"
-                                    className="select-none pointer-events-none"
-                                >
-                                    {node.name}
-                                </text>
-                                {node.id === blueprint.startNodeId && (
-                                    <text y={isMobile ? 3 : 2} textAnchor="middle" fontSize={isMobile ? "5" : "4"} fill="#fff" fontWeight="bold" pointerEvents="none">S</text>
-                                )}
-
-                                {isSelected && !draggingNodeId && !isMobile && (
-                                    <g 
-                                        transform="translate(10, 0)" 
-                                        onMouseDown={(e) => onConnectionHandleMouseDown(e, node.id)}
-                                        className="cursor-crosshair group"
-                                    >
-                                        <circle r="6" fill="transparent" />
-                                        <g className="transition-transform group-hover:scale-125">
-                                            <circle r="2.5" fill="#f59e0b" stroke="#000" strokeWidth="0.5" />
-                                            <path d="M -1 0 L 1 0 M 0 -1 L 0 1" stroke="#000" strokeWidth="0.5" />
-                                        </g>
+                                    <g className="n-handle" data-handle={node.id}>
+                                        <circle cx={point.x + HANDLE_OFFSET} cy={point.y + 2} r={15} />
+                                        <circle cx={point.x + HANDLE_OFFSET} cy={point.y + 2} r={7} />
+                                        <path d={`M ${point.x + HANDLE_OFFSET - 3.5} ${point.y + 2} H ${point.x + HANDLE_OFFSET + 3.5} M ${point.x + HANDLE_OFFSET} ${point.y - 1.5} V ${point.y + 5.5}`} />
                                     </g>
                                 )}
-
-                                {nodeNpcs.map((npc, idx) => {
-                                    const isNpcSelected = selection?.type === 'npc' && selection.id === npc.id;
-                                    const iconSize = isMobile ? 12 : 8;
-                                    const yOffset = isMobile ? -14 + (idx * 12) : -10 + (idx * 10);
-                                    return (
-                                        <g key={npc.id} transform={`translate(${isMobile ? 12 : 8}, ${yOffset})`}
-                                           onMouseDown={(e) => {
-                                               e.stopPropagation();
-                                               setSelection({ type: 'npc', id: npc.id });
-                                           }}
-                                        >
-                                            <rect width={iconSize} height={iconSize} fill={isNpcSelected ? '#fff' : '#f59e0b'} rx="1" stroke="black" strokeWidth="0.5"/>
-                                            <text x={iconSize/2} y={iconSize/2 + 1} fontSize={isMobile ? "7" : "5"} textAnchor="middle" fill="black" pointerEvents="none">N</text>
-                                        </g>
-                                    );
-                                })}
-
-                                {nodeObjs.map((obj, idx) => {
-                                    const isObjSelected = selection?.type === 'objective' && selection.id === obj.id;
-                                    const iconSize = isMobile ? 12 : 8;
-                                    const yOffset = isMobile ? -14 + (nodeNpcs.length * 12) + (idx * 12) : -10 + (nodeNpcs.length * 10) + (idx * 10);
-                                    return (
-                                        <g key={obj.id} transform={`translate(${isMobile ? 12 : 8}, ${yOffset})`}
-                                           onMouseDown={(e) => {
-                                               e.stopPropagation();
-                                               setSelection({ type: 'objective', id: obj.id });
-                                           }}
-                                        >
-                                            <rect width={iconSize} height={iconSize} fill={isObjSelected ? '#fff' : '#ef4444'} rx="1" stroke="black" strokeWidth="0.5"/>
-                                            <text x={iconSize/2} y={iconSize/2 + 1} fontSize={isMobile ? "7" : "5"} textAnchor="middle" fill="black" pointerEvents="none">!</text>
-                                        </g>
-                                    );
-                                })}
-                            </g>
+                            </NetworkNode>
                         );
                     })}
                 </g>
             </svg>
-
-            {addNode && !isMobile && (
-                <div className="absolute top-4 left-4 flex flex-col gap-2">
-                    <button 
-                        type="button"
-                        onClick={addNode}
-                        className={canvasAddButton}
-                    >
-                        + {t('map_editor.add_node')}
-                    </button>
-                </div>
-            )}
-            
-            {isMobile && showMobileControls && (
-                <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
-                    <button
-                        onClick={() => {
-                            if (typeof ref === 'object' && ref?.current) {
-                                ref.current.zoomIn();
-                            }
-                        }}
-                        className="w-11 h-11 flex items-center justify-center bg-black/80 border border-[var(--scp-border)] rounded-sm text-scp-text hover:text-scp-amber transition-colors"
-                    >
-                        <ZoomIn size={20} strokeWidth={1.5} />
-                    </button>
-                    <button
-                        onClick={() => {
-                            if (typeof ref === 'object' && ref?.current) {
-                                ref.current.zoomOut();
-                            }
-                        }}
-                        className="w-11 h-11 flex items-center justify-center bg-black/80 border border-[var(--scp-border)] rounded-sm text-scp-text hover:text-scp-amber transition-colors"
-                    >
-                        <ZoomOut size={20} strokeWidth={1.5} />
-                    </button>
-                    {addNode && (
-                        <button
-                            onClick={addNode}
-                            className="w-11 h-11 flex items-center justify-center bg-black/80 border border-[var(--scp-border)] rounded-sm text-scp-text hover:text-scp-amber transition-colors"
+            <div className="ed-tl">
+                <GameButton size="sm" onClick={addNode}>+ {t('map_editor.add_node')}</GameButton>
+                {blueprint.manualLayout && (
+                    <span className="ed-layout">
+                        {t('map_editor.manual_layout')}
+                        <GameButton
+                            variant="quiet"
+                            size="sm"
+                            onClick={() => {
+                                userMoved.current = false;
+                                restoreAutoLayout();
+                            }}
                         >
-                            <Plus size={20} strokeWidth={1.5} />
-                        </button>
+                            {t('map_editor.restore_auto_layout')}
+                        </GameButton>
+                    </span>
+                )}
+            </div>
+            <div className="ed-bl">
+                <div className="ed-zoom">
+                    <GameButton variant="icon" aria-label={t('stage.network.zoom_in')} onClick={() => { userMoved.current = true; network.zoomCenter(1.2); }}>+</GameButton>
+                    <GameButton variant="icon" aria-label={t('stage.network.zoom_out')} onClick={() => { userMoved.current = true; network.zoomCenter(1 / 1.2); }}>−</GameButton>
+                    <GameButton variant="icon" aria-label={t('stage.network.reset')} onClick={() => { userMoved.current = false; fit(); }}>⟲</GameButton>
+                </div>
+                <NetworkLegend className="legend" inGame={false} t={t} />
+                <div className="ed-count">
+                    {blueprint.nodes.length} {t('map_editor.nodes')} · {blueprint.edges.length} {t('map_editor.edges')}
+                    {connect && <span className="conn">[{t('map_editor.connecting')}...]</span>}
+                </div>
+                <div className="ed-help">
+                    <GameButton variant="quiet" size="sm" aria-expanded={helpOpen} onClick={() => setHelpOpen(open => !open)}>{t('map_editor.controls')}</GameButton>
+                    {helpOpen && (
+                        <div className="ed-help-pop">
+                            <div><b>{t('map_editor.help_key_blank')}</b>{t('map_editor.help_pan')}</div>
+                            <div><b>{t('map_editor.help_key_node')}</b>{t('map_editor.select_drag')}</div>
+                            <div><b>{t('map_editor.help_key_handle')}</b>{t('map_editor.connect_nodes')}</div>
+                            <div><b>Shift + Click</b>{t('map_editor.connect_nodes')}</div>
+                            <div><b>{t('map_editor.help_key_wheel')}</b>{t('map_editor.help_pan')}</div>
+                            <div><b>Ctrl/⌘ + {t('map_editor.help_key_wheel')}</b>{t('map_editor.help_zoom')}</div>
+                            <div><b>Delete</b>{t('map_editor.help_delete')}</div>
+                        </div>
                     )}
                 </div>
-            )}
-
-            {isMobile && showMobileControls && onAddNPC && onAddObjective && (
-                <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
-                    <button
-                        onClick={onAddNPC}
-                        className="h-11 px-3 flex items-center justify-center gap-2 bg-black/80 border border-scp-amber/30 rounded-sm text-scp-amber hover:bg-scp-amber/10 transition-colors text-xs font-mono"
-                    >
-                        <Users size={16} strokeWidth={1.5} /> NPC
-                    </button>
-                    <button
-                        onClick={onAddObjective}
-                        className="h-11 px-3 flex items-center justify-center gap-2 bg-black/80 border border-scp-accent/30 rounded-sm text-scp-accent hover:bg-scp-accent/10 transition-colors text-xs font-mono"
-                    >
-                        <Target size={16} strokeWidth={1.5} /> OBJ
-                    </button>
-                </div>
-            )}
-            
-            {!isMobile && (
-                <div className={canvasOverlay}>
-                    <div className={canvasOverlayHeader}>
-                        <span className={canvasOverlayDot}>●</span> {t('map_editor.controls')}
-                    </div>
-                    <ul className={canvasOverlayList}>
-                        <li><span className={canvasOverlayAccent}>Left Click + Drag</span>: {t('map_editor.pan')}</li>
-                        <li><span className={canvasOverlayAccent}>Node Drag</span>: {t('map_editor.select_drag')}</li>
-                        <li><span className={canvasOverlayAccent}>Drag Handle</span>: {t('map_editor.connect_nodes')}</li>
-                        <li><span className={canvasOverlayAccent}>Shift + Click</span>: {t('map_editor.connect_nodes')}</li>
-                        <li><span className={canvasOverlayAccent}>Scroll</span>: {t('map_editor.zoom')}</li>
-                    </ul>
-                    <div className={canvasOverlayStat}>
-                        <span>{t('map_editor.nodes')}: {blueprint.nodes.length}</span>
-                        <span>{t('map_editor.edges')}: {blueprint.edges.length}</span>
-                    </div>
-                    {isConnecting && <div className={canvasOverlayConnecting}>[{t('map_editor.connecting')}...]</div>}
-                </div>
-            )}
-            
-            {isMobile && (
-                <div className="absolute bottom-3 left-3 text-xs text-scp-text-dim font-mono pointer-events-none bg-black/80 px-2 py-1 rounded border border-[var(--scp-border)]">
-                    <span>{t('map_editor.nodes')}: {blueprint.nodes.length}</span>
-                    <span className="ml-2">{t('map_editor.edges')}: {blueprint.edges.length}</span>
-                </div>
-            )}
-            
-            <div className={canvasWatermark}>
-                <GameLogo className={canvasWatermarkLogo} color="#ef4444" />
             </div>
-        </div>
+        </>
     );
 });
+
+EditorCanvas.displayName = 'EditorCanvas';
 
 export default EditorCanvas;

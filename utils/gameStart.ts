@@ -1,4 +1,5 @@
 import { GameState, GameStatus, Language } from '../types';
+import { markStageEntry } from './stageEntry';
 import { initializeGameChatStream, extractStability, extractVisualPrompt, generateImage, extractLoc, extractMapUpdate, setProviderCallbacks } from '../services/aiService';
 import { loadGlobalSettings } from '../services/indexedDBService';
 import { getBackgroundAspectRatio, getSceneAspectRatio } from '../services/ai/utils';
@@ -170,6 +171,7 @@ export const startGameProcess = async ({ gameState, setGameState, language, t }:
 
             
             if (isFirstChunk) {
+                markStageEntry();
                 setGameState(prev => ({
                     ...prev,
                     status: GameStatus.PLAYING,

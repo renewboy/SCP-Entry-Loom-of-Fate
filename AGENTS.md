@@ -68,6 +68,8 @@
 - **Display**: `RadarMinimap` is fixed under the HUME readout; drag and zoom happen inside it. `SiteNetwork` opens as the right-hand drawer by default and can go full screen (`F`). All of them draw `NetworkGraph` left to right and share `hooks/useNetworkView.ts`; pure layout and route logic live in `utils/siteNetwork.ts`
 - **Route**: The red thread comes from `message.nodeId`; older saves have no per-turn location, so they show no route
 - **Updates**: `[MAP_UPDATE: {...}]` mutates NPC location, objective state, inventory, gate lock
+- **Layout**: Maps lay out left to right automatically. Dragging a node in the editor sets `MapBlueprint.manualLayout` and pins every node's `layout` (`pinNetworkLayout`); only then does `buildNetworkLayout` use those positions, in the game as well. A `layout` without the flag is ignored
+- **Node drawing**: `components/game/stage/NetworkNode.tsx` is the one node, shared by the in-game maps, the tactical briefing and the editor
 
 ### 5. Provider Abstraction & Config
 - **Interface**: `AIService` in `services/ai/types.ts` (async generator for streaming)
@@ -89,6 +91,15 @@
 - **Entry**: After an ending, `EndingStage` reviews from the first turn and each log turn reviews from that turn, both through `startReplay` in `GameStage`
 - **Scope**: Replay plays stored turns only; the input, notices and Hume roll stay off, and failed turns are skipped
 - **State**: Stability and map position come from each message's snapshot, not from live game state
+
+### Screens Outside the Stage
+- **Root**: The tactical briefing, story editor, legacy selection and legacy archive render inside `.stage-root` for its tokens and map styles, with their own sheets: `styles/tactical.css`, `styles/storyEditor.css`, `styles/legacy.css`, `styles/fateThread.css`. Their root sits on a `.p3-view`
+- **Compact layout**: `hooks/useCompactScreen.ts` holds the same query as those sheets' media blocks (narrow or nearly square windows)
+- **Tactical prep**: `TacticalPreview` keeps the logic and `TransitionOverlay`; `components/tactical/TacticalBriefing.tsx` is the page. It shows no NPC secrets
+- **Stage entry**: `utils/gameStart.ts` calls `markStageEntry()` on a new run's first chunk, and `GameScreen` plays `StageEntryDoor` before mounting `GameStage`. Loaded saves skip it
+- **Story editor**: `StoryEditor` owns data and history. `EditorCanvas`, `EditorRail`, `PropertyInspector`, `StoryFormPanel` and `EditorAssistantPanel` are its panels; fields come from `EditorFields.tsx` and `ChipInput.tsx`. `TagInput` and `editorStyles.ts` remain for `EntityProfileAugmentation` and `CustomSelect`'s older variants. Edge ids join the two node ids with `EDGE_ID_SEPARATOR`
+- **Legacy**: `postGameReport/worldLine/LegacySelection.tsx` chooses what carries over and `components/LegacyArchiveDrawer.tsx` shows it on the start screen. Both draw `common/FateThread.tsx`; path math is in `utils/fateThread.ts`
+- **Sound**: `sweep*`, `bigSweep`, `gateOpen`, `gateClose` and `stamp` in `sfxService` are full-length samples already level-matched, so play them at normal speed with volume 1. The bolts on the containment ending keep `doorUnlock`
 
 ### 7. Post-Game Report Domain
 - **Entry point**: `GameScreen` opens `WorldLineTree` on `GAME_OVER`
@@ -133,7 +144,9 @@ npm run pack:dir         # Electron builder (unsigned macOS)
 | **Provider Implementations** | `services/ai/providers/{geminiProvider, openaiProvider}.ts` |
 | **Game Loop & Rendering** | `hooks/useGameLoop.ts`, `components/GameScreen.tsx`, `components/game/stage/GameStage.tsx`, `hooks/useBeatPlayer.ts`, `utils/beats.ts` |
 | **Stage Panels** | `components/game/stage/{SiteNetwork,DossierOverlay,StageNotices,Backlog}.tsx`, `styles/stage.css`, `styles/stagePanels.css` |
-| **Map & Context** | `hooks/useMapContext.ts`, `hooks/useMapUpdate.ts`, `utils/siteNetwork.ts`, `utils/mapLayout.ts`, `components/game/stage/SiteNetwork.tsx` |
+| **Map & Context** | `hooks/useMapContext.ts`, `hooks/useMapUpdate.ts`, `utils/siteNetwork.ts`, `utils/mapLayout.ts`, `components/game/stage/SiteNetwork.tsx`, `components/game/stage/NetworkNode.tsx` |
+| **Prep & Editor** | `components/TacticalPreview.tsx`, `components/tactical/TacticalBriefing.tsx`, `components/editor/`, `styles/tactical.css`, `styles/storyEditor.css` |
+| **Legacy** | `components/postGameReport/worldLine/LegacySelection.tsx`, `components/LegacyArchiveDrawer.tsx`, `components/common/FateThread.tsx`, `utils/fateThread.ts`, `styles/legacy.css` |
 | **Stability UI** | `hooks/useThemeColors.ts`, `styles/themeCss.ts`, `components/game/stage/StageWorld.tsx` |
 | **Post-Game Analysis** | `components/WorldLineTree.tsx`, `components/postGameReport/PostGameReportShell.tsx`, `components/postGameReport/`, `styles/report.css` |
 | **Storage & Sync** | `services/indexedDBService.ts`, `services/supabaseService.ts`, `components/SaveLoadModal.tsx` |

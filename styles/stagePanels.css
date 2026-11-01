@@ -19,7 +19,7 @@
 .stage-root .notice-text { min-width: 0; }
 .stage-root .notice-tag { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; opacity: .68; margin-bottom: 5px; }
 .stage-root .notice-msg { font-family: var(--report); font-size: 16px; letter-spacing: .06em; line-height: 1.35; }
-.stage-root .notice-sub { font-family: var(--report); font-size: 14px; letter-spacing: .03em; line-height: 1.45; margin-top: 3px; opacity: .92; color: var(--body); }
+.stage-root .notice-sub { font-family: var(--serif); font-size: 14px; letter-spacing: .08em; line-height: 1.45; margin-top: 3px; opacity: .92; color: var(--body); }
 .stage-root .notice-icon { flex: none; width: 18px; height: 18px; opacity: .5; }
 .stage-root .notice-timer { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: currentColor; opacity: .34; transform-origin: left; animation-name: st-noticeTimer; animation-timing-function: linear; animation-fill-mode: forwards; }
 @keyframes st-noticeTimer { to { transform: scaleX(0); } }

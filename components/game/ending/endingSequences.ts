@@ -83,11 +83,11 @@ export const runContained: EndingSequence = ({ root, timeline, done }) => {
   // Times line up with door2.py: impact at frame 92, latches from 112 every 7 frames, green at 150, 30 fps
   const begin = () => {
     video?.play().catch(() => null);
-    at(700, () => playSfx('bigSweep', { rate: 0.55, gain: 0.8 }));
-    at(1900, () => playSfx('sweepDown', { rate: 0.55, gain: 0.7 }));
+    at(700, () => playSfx('bigSweep', { gain: 0.8 }));
+    at(1900, () => playSfx('sweepDown', { gain: 0.7 }));
     at(3030, () => {
-      playSfx('doorUnlock', { rate: 0.42, gain: 1.5 });
-      playSfx('sweep', { rate: 0.5, gain: 0.5 });
+      playSfx('gateClose');
+      playSfx('sweep', { gain: 0.5 });
     });
     [0, 1, 2, 3].forEach(i => at(3730 + i * 233, () => playSfx('doorUnlock', { rate: 0.8 + i * 0.04, gain: 0.75 })));
     at(5000, () => {
@@ -162,7 +162,7 @@ export const runEscaped: EndingSequence = ({ root, bg, timeline, title, signalLo
     bg.style.transform = 'scale(1.1)';
     bg.style.filter = 'brightness(.62) saturate(.45)';
   });
-  at(650, () => playSfx('bigSweep', { gain: 0.7, rate: 0.8 }));
+  at(650, () => playSfx('bigSweep', { gain: 0.7 }));
   at(700, () => {
     exposure.style.opacity = '1';
   });
@@ -348,7 +348,7 @@ export const runCollapse: EndingSequence = ({ root, bg, timeline, stats, sceneUr
 
   at(30, () => {
     frame(draw);
-    playSfx('sweepUp', { rate: 0.5, gain: 0.9 });
+    playSfx('sweepUp', { gain: 0.9 });
   });
   [150, 620, 1020, 1340, 1600, 1810, 1980, 2120, 2240, 2340, 2430, 2510].forEach((ms, i) => {
     at(ms, () => playSfx('glitch', { gain: 0.45 + i * 0.05, rate: 1 + i * 0.04 }));
@@ -371,7 +371,7 @@ export const runCollapse: EndingSequence = ({ root, bg, timeline, stats, sceneUr
   at(DURATION + 120, () => {
     settle();
     duckBgm(0, 0.02);
-    playSfx('doorUnlock', { rate: 0.42, gain: 1.7 });
+    playSfx('gateClose');
     playSfx('glitch', { rate: 0.6, gain: 0.9 });
   });
   at(DURATION + 1500, () => {
@@ -441,7 +441,7 @@ export const runUnknown: EndingSequence = ({ root, bg, timeline, done }) => {
   at(struck + 2350, () => on(secondLine, 'reveal'));
   at(struck + 2850, () => {
     on(stamp);
-    playSfx('doorUnlock', { offset: 0.06, duration: 0.32, rate: 0.8, gain: 1.2 });
+    playSfx('stamp');
   });
   at(struck + 3100, () => on(part(root, '.e-sub')));
   at(struck + 3400, () => on(part(root, '.stat-line')));

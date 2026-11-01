@@ -285,7 +285,6 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
     if (!title) return;
     holdUntilRef.current = Date.now() + (prefersReducedMotion() ? 0 : TITLE_HOLD_MS);
     setTitleCard(title);
-    playSfx('footstep');
   }, []);
 
   useEffect(() => {
@@ -325,8 +324,8 @@ const GameStage: React.FC<GameStageProps> = ({ gameState, input, setInput, onSen
         showTitleCard(name);
       } else {
         pushNotice('LOCATION', t('game.entering_zone'), name);
-        playSfx('footstep');
       }
+      playSfx('footstep');
     }
 
     const previousObjectives = before.objectives || [];

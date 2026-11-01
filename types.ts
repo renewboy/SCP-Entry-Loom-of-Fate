@@ -169,6 +169,8 @@ export interface MapBlueprint {
   edges: MapBlueprintEdge[];
   npcs: MapBlueprintNPC[];
   objectives: MapBlueprintObjective[];
+  /** The player dragged nodes in the editor, so the game draws each node's `layout` instead of laying the map out */
+  manualLayout?: boolean;
 }
 
 export interface RuntimeMapState {

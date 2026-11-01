@@ -1,15 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MapBlueprint, Message } from '../../types';
-import {
-  buildNetworkLayout,
-  buildRoutePath,
-  buildVisitedRoute,
-  dangerColor,
-  missingRequirements,
-  neighborsOf,
-  networkCurve,
-  wrapNodeName,
-} from '../../utils/siteNetwork';
+import { NETWORK_GEOMETRY, buildNetworkLayout, buildRoutePath, buildVisitedRoute, clearManualLayout, dangerColor, fitNetworkView, missingRequirements, neighborsOf, networkCurve, pinNetworkLayout, wrapNodeName } from '../../utils/siteNetwork';
 
 const blueprint: MapBlueprint = {
   id: 'map',
@@ -103,5 +94,62 @@ describe('siteNetwork', () => {
     expect(dangerColor(30)).toBe('#33ff00');
     expect(dangerColor(70)).toBe('#f59e0b');
     expect(dangerColor(71)).toBe('#ef4444');
+  });
+});
+
+describe('手动布局', () => {
+  const blueprint = {
+    id: 'm',
+    title: 'M',
+    startNodeId: 'a',
+    nodes: [{ id: 'a', name: 'A', danger: 0 }, { id: 'b', name: 'B', danger: 0 }],
+    edges: [{ from: 'a', to: 'b', bidirectional: true }],
+    npcs: [],
+    objectives: [],
+  };
+
+  it('没拖过的地图忽略节点上的 layout，继续自动排布', () => {
+    const withLayout = { ...blueprint, nodes: blueprint.nodes.map(node => ({ ...node, layout: { x: 900, y: 900 } })) };
+    expect(buildNetworkLayout(withLayout, false)).toEqual(buildNetworkLayout(blueprint, false));
+  });
+
+  it('拖动后所有节点都固定下来，只有被拖的节点变位置', () => {
+    const auto = buildNetworkLayout(blueprint, false);
+    const pinned = pinNetworkLayout(blueprint, { b: { x: 40, y: 500 } });
+    expect(pinned.manualLayout).toBe(true);
+    expect(buildNetworkLayout(pinned, false)).toEqual({ a: auto.a, b: { x: 40, y: 500 } });
+  });
+
+  it('小地图按间距比例缩小手动位置', () => {
+    const pinned = pinNetworkLayout(blueprint, { b: { x: 268, y: 300 } });
+    const { gapX, gapY } = NETWORK_GEOMETRY.compact;
+    expect(buildNetworkLayout(pinned, true).b).toEqual({ x: gapX, y: gapY });
+  });
+
+  it('手动布局下新节点没有 layout 时落在自动位置', () => {
+    const pinned = pinNetworkLayout(blueprint, {});
+    const withNew = { ...pinned, nodes: [...pinned.nodes, { id: 'c', name: 'C', danger: 0 }], edges: [...pinned.edges, { from: 'b', to: 'c', bidirectional: true }] };
+    expect(buildNetworkLayout(withNew, false).c).toEqual(buildNetworkLayout({ ...blueprint, nodes: withNew.nodes, edges: withNew.edges }, false).c);
+  });
+
+  it('恢复自动排布后清掉标记和位置', () => {
+    const restored = clearManualLayout(pinNetworkLayout(blueprint, { b: { x: 1, y: 2 } }));
+    expect(restored.manualLayout).toBeUndefined();
+    expect(restored.nodes.every(node => !node.layout)).toBe(true);
+    expect(buildNetworkLayout(restored, false)).toEqual(buildNetworkLayout(blueprint, false));
+  });
+});
+
+describe('fitNetworkView', () => {
+  it('没有节点或容器没有尺寸时不给视图', () => {
+    expect(fitNetworkView({}, 800, 600)).toBeNull();
+    expect(fitNetworkView({ a: { x: 0, y: 0 } }, 0, 600)).toBeNull();
+  });
+
+  it('整张图都落在容器里', () => {
+    const view = fitNetworkView({ a: { x: 0, y: 0 }, b: { x: 1000, y: 400 } }, 800, 600)!;
+    expect(view.k).toBeLessThan(1);
+    expect(0 * view.k + view.x).toBeGreaterThan(0);
+    expect(1000 * view.k + view.x).toBeLessThan(800);
   });
 });

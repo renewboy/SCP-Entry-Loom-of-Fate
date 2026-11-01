@@ -152,10 +152,9 @@ export const useStoryEditorModals = ({
                 isOpen: true,
                 title: t('map_editor.import'),
                 content: (
-                    <div className="space-y-4">
-                        <p className="text-xs text-scp-text/70">{t('map_editor.msg_import')}</p>
+                    <>
                         <div
-                            className="w-full border border-dashed border-[var(--scp-border)] bg-black/30 p-3 text-xs text-scp-text/70 text-center"
+                            className="modal-drop"
                             onDragOver={e => e.preventDefault()}
                             onDrop={e => {
                                 e.preventDefault();
@@ -163,12 +162,11 @@ export const useStoryEditorModals = ({
                                 if (file) handleImportFile(file);
                             }}
                         >
-                            <div className="mb-2">{t('map_editor.msg_import_file')}</div>
-                            <label className="inline-flex items-center gap-2 text-[12px] px-2 py-1 bg-gray-800 border border-gray-600 text-gray-300 hover:bg-gray-700 cursor-pointer">
+                            <div>{t('map_editor.msg_import_file')}</div>
+                            <label className="gbtn gbtn-secondary gbtn-sm modal-file">
                                 {t('map_editor.btn_choose_file')}
                                 <input
                                     type="file"
-                                    className="hidden"
                                     accept="application/json,.json"
                                     onChange={e => {
                                         const file = e.target.files?.[0];
@@ -176,25 +174,19 @@ export const useStoryEditorModals = ({
                                     }}
                                 />
                             </label>
-                            {importFileName && (
-                                <div className="mt-2 text-[11px] text-scp-text/60">{importFileName}</div>
-                            )}
+                            {importFileName && <div>{importFileName}</div>}
                         </div>
-                        <textarea 
-                            className="w-full h-40 bg-black/50 border border-[var(--scp-border)] text-xs font-mono p-2 text-scp-text focus:outline-none focus:border-scp-alert"
+                        <div style={{ marginTop: 10 }}>{t('map_editor.msg_import')}</div>
+                        <textarea
                             value={importText}
-                        onChange={e => {
-                            setImportText(e.target.value);
-                            if (importError) setImportError('');
-                        }}
+                            onChange={e => {
+                                setImportText(e.target.value);
+                                if (importError) setImportError('');
+                            }}
                             placeholder="{ ... }"
                         />
-                    {importError && (
-                        <div className="text-[12px] text-scp-alert/90 border border-scp-alert/40 bg-black/40 px-2 py-1 whitespace-pre-wrap">
-                            {importError}
-                        </div>
-                    )}
-                    </div>
+                        {importError && <div className="modal-error">{importError}</div>}
+                    </>
                 ),
                 onConfirm: () => {
                     applyImportText(importText);
@@ -205,15 +197,7 @@ export const useStoryEditorModals = ({
             return {
                 isOpen: true,
                 title: t('map_editor.export'),
-                content: (
-                    <div className="space-y-4">
-                        <textarea 
-                            readOnly
-                            value={exportJson}
-                            className="w-full h-40 bg-black/50 border border-[var(--scp-border)] text-xs font-mono p-2 text-scp-text focus:outline-none focus:border-scp-alert select-all"
-                        />
-                    </div>
-                ),
+                content: <textarea readOnly value={exportJson} />,
                 extraAction: {
                     labelKey: 'map_editor.btn_save_file',
                     onClick: handleSaveToFile

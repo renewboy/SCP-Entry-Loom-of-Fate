@@ -22,12 +22,57 @@ export const buildNetworkLayout = (blueprint: MapBlueprint, compact: boolean): R
       positions[id] = { x: rank * geometry.gapX, y: (index - (ids.length - 1) / 2) * geometry.gapY };
     });
   });
+  if (!blueprint.manualLayout) return positions;
+  // The editor draws at the wide scale, so a dragged position shrinks with the spacing on small maps
+  const scaleX = geometry.gapX / NETWORK_GEOMETRY.wide.gapX;
+  const scaleY = geometry.gapY / NETWORK_GEOMETRY.wide.gapY;
+  blueprint.nodes.forEach(node => {
+    if (node.layout) positions[node.id] = { x: node.layout.x * scaleX, y: node.layout.y * scaleY };
+  });
   return positions;
+};
+
+/** Pins every node where the automatic layout has it, then moves the dragged one */
+export const pinNetworkLayout = (blueprint: MapBlueprint, moved: Record<string, NetworkPoint>): MapBlueprint => {
+  const positions = buildNetworkLayout(blueprint, false);
+  return {
+    ...blueprint,
+    manualLayout: true,
+    nodes: blueprint.nodes.map(node => ({ ...node, layout: moved[node.id] ?? positions[node.id] })),
+  };
+};
+
+export const clearManualLayout = (blueprint: MapBlueprint): MapBlueprint => {
+  const { manualLayout, ...rest } = blueprint;
+  return { ...rest, nodes: blueprint.nodes.map(({ layout, ...node }) => node) };
 };
 
 export const networkCurve = (a: NetworkPoint, b: NetworkPoint, bulge = 0) => {
   const handle = Math.abs(b.x - a.x) < 1 ? 70 : (b.x - a.x) * 0.5;
   return `C ${a.x + handle} ${a.y + bulge}, ${b.x - handle} ${b.y + bulge}, ${b.x} ${b.y}`;
+};
+
+/** A view that fits the whole map into a box, for the briefing and the editor, which show every zone at once */
+export const fitNetworkView = (
+  positions: Record<string, NetworkPoint>,
+  width: number,
+  height: number,
+  { left = 120, right = 130, top = 110, bottom = 90, maxZoom = 1.2 } = {},
+) => {
+  const points = Object.values(positions);
+  if (!points.length || !width || !height) return null;
+  const xs = points.map(point => point.x);
+  const ys = points.map(point => point.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const k = Math.max(0.3, Math.min(maxZoom, width / (maxX - minX + left + right), height / (maxY - minY + top + bottom)));
+  return {
+    k,
+    x: width / 2 - ((minX - left + maxX + right) / 2) * k,
+    y: height / 2 - ((minY - top + maxY + bottom) / 2) * k,
+  };
 };
 
 /** 紧凑布局的节点间距小，长名字折成两行，优先在空格和括号处断开 */

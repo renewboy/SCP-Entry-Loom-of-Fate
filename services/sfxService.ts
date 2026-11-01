@@ -11,7 +11,10 @@ export type SfxKey =
   | 'sweepDown'
   | 'sweepReverse'
   | 'bigSweep'
-  | 'quickSweep';
+  | 'quickSweep'
+  | 'gateOpen'
+  | 'gateClose'
+  | 'stamp';
 
 export interface SfxOptions {
   gain?: number;
@@ -33,7 +36,10 @@ const sources: Record<SfxKey, string> = {
   sweepDown: stageAsset('audio/sweep_dn.mp3'),
   sweepReverse: stageAsset('audio/sweep_rev.mp3'),
   bigSweep: stageAsset('audio/bigsweep.mp3'),
-  quickSweep: stageAsset('audio/quicksweep.mp3')
+  quickSweep: stageAsset('audio/quicksweep.mp3'),
+  gateOpen: stageAsset('audio/gate_open.mp3'),
+  gateClose: stageAsset('audio/gate_close.mp3'),
+  stamp: stageAsset('audio/stamp.mp3')
 };
 
 const volumes: Record<SfxKey, number> = {
@@ -41,12 +47,15 @@ const volumes: Record<SfxKey, number> = {
   doorUnlock: 0.65,
   objectiveComplete: 0.65,
   glitch: 0.5,
-  sweep: 0.4,
-  sweepUp: 0.4,
-  sweepDown: 0.4,
-  sweepReverse: 0.4,
-  bigSweep: 0.5,
-  quickSweep: 0.35
+  sweep: 1,
+  sweepUp: 1,
+  sweepDown: 1,
+  sweepReverse: 1,
+  bigSweep: 1,
+  quickSweep: 0.35,
+  gateOpen: 1,
+  gateClose: 1,
+  stamp: 1
 };
 
 const audioCache = new Map<SfxKey, HTMLAudioElement>();

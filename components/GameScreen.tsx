@@ -7,6 +7,7 @@ import WorldLineTree from './WorldLineTree';
 import { useTranslation } from '../utils/i18n';
 
 import GameStage from './game/stage/GameStage';
+import StageEntryDoor from './game/stage/StageEntryDoor';
 import TutorialOverlay from './game/TutorialOverlay';
 
 import { useMapContext } from '../hooks/useMapContext';
@@ -14,6 +15,7 @@ import { useMapUpdate } from '../hooks/useMapUpdate';
 import { useGameLoop } from '../hooks/useGameLoop';
 import { useTutorial } from '../hooks/useTutorial';
 import { THEME_CSS } from '../styles/themeCss';
+import { clearStageEntry, hasPendingStageEntry } from '../utils/stageEntry';
 
 interface GameScreenProps {
   gameState: GameState;
@@ -28,6 +30,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   const [saveLoadMode, setSaveLoadMode] = useState<'save' | 'load'>('save');
   const [isReportOpen, setIsReportOpen] = useState(true);
   const [isMemoryEchoActive, setMemoryEchoActive] = useState(false);
+  const [door, setDoor] = useState<'closed' | 'opening' | 'gone'>(() => (hasPendingStageEntry() ? 'closed' : 'gone'));
+
+  useEffect(clearStageEntry, []);
 
   const { isTutorialOpen, closeTutorial } = useTutorial(gameState.turnCount);
 
@@ -166,7 +171,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
   return (
     <>
     <style>{THEME_CSS}</style>
-    <GameStage
+    {door !== 'gone' && <StageEntryDoor onReveal={() => setDoor('opening')} onDone={() => setDoor('gone')} />}
+    {door !== 'closed' && <GameStage
       gameState={gameState}
       input={input}
       setInput={setInput}
@@ -183,7 +189,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, setGameState }) => {
         }
       }}
       onViewArchive={handleViewArchive}
-    />
+    />}
 
     {gameState.status === GameStatus.GAME_OVER && (
         <div className={isReportOpen ? 'contents' : 'hidden'}>

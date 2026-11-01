@@ -10,7 +10,7 @@ import BootSequenceOverlay from './BootSequenceOverlay';
 import SaveLoadModal from './SaveLoadModal';
 import { useTranslation, getRoleTranslation } from '../utils/i18n';
 import GameLogo from './GameLogo';
-import LegacySidebar from './LegacySidebar';
+import LegacyArchiveDrawer from './LegacyArchiveDrawer';
 import GlobalSettingsModal from './GlobalSettingsModal';
 import { startGameProcess } from '../utils/gameStart';
 import { checkAIConfigAvailable } from '../services/aiConfigService';
@@ -55,7 +55,6 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
   const [skipBootSequence, setSkipBootSequence] = useState(false);
   
   const [showProfileAugmentation, setShowProfileAugmentation] = useState(false);
-  const [legacyDrawerOpen, setLegacyDrawerOpen] = useState(false);
   const [entityProfile, setEntityProfile] = useState<EntityProfile | undefined>(undefined);
 
   useEffect(() => {
@@ -292,16 +291,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
       />
     )}
     <div className="max-w-xl w-full p-4 md:p-8 scp-window scp-ui border border-scp-gray relative z-10 crt shadow-2xl flex flex-col max-h-[90dvh] overflow-y-auto">
-        {legacyData && <LegacySidebar legacyData={legacyData} isDrawerOpen={legacyDrawerOpen} onDrawerClose={() => setLegacyDrawerOpen(false)} />}
-        {/* Left-edge legacy tab (mobile only) */}
-        {isMobile && legacyData && (
-          <button
-            onClick={() => setLegacyDrawerOpen(true)}
-            className="fixed left-0 top-1/2 -translate-y-1/2 z-[90] w-6 min-h-[56px] flex items-center justify-center bg-black/80 border border-l-0 border-scp-term/40 rounded-r text-scp-term/70 active:bg-scp-term/20"
-          >
-            <span className="text-xs font-mono">›</span>
-          </button>
-        )}
+        {legacyData && <LegacyArchiveDrawer legacyData={legacyData} />}
         <div className="absolute top-0 left-0 w-full h-1 bg-scp-accent shadow-[0_0_10px_rgba(195,46,46,0.5)]"></div>
         <div className="absolute bottom-0 right-0 w-20 h-20 border-r-2 border-b-2 border-scp-gray opacity-50 pointer-events-none"></div>
 

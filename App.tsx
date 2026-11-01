@@ -214,7 +214,7 @@ const AppContent: React.FC = () => {
         )}
       </div>
 
-      {gameState.status !== GameStatus.ENTITY_PROFILE && !isInGame && (
+      {gameState.status !== GameStatus.ENTITY_PROFILE && gameState.status !== GameStatus.TACTICAL_PREVIEW && gameState.status !== GameStatus.STORY_EDITOR && !isInGame && (
         <>
           <AuthorLinks status={gameState.status} />
 

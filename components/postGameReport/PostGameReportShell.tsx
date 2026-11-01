@@ -13,7 +13,7 @@ import ReviewBoard from './review/ReviewBoard';
 import { buildPrintableNpcs, buildStabilityHistory, buildTimelineEvents, buildWorldLineTurns, getEndingDisplayConfig } from './selectors/worldLine';
 import AudioDramaPortal from './shared/AudioDramaPortal';
 import type { WorldLineTreeProps } from './types';
-import LegacySelectionModal from './worldLine/LegacySelectionModal';
+import LegacySelection from './worldLine/LegacySelection';
 import WorldLineActionBar from './worldLine/WorldLineActionBar';
 import WorldLineHeader from './worldLine/WorldLineHeader';
 import WorldLineHero from './worldLine/WorldLineHero';
@@ -260,21 +260,11 @@ const PostGameReportShell: React.FC<WorldLineTreeProps> = ({
         onClose={audioDrama.closeDrama}
       />
 
-      <LegacySelectionModal
+      <LegacySelection
         open={legacy.showLegacyModal}
         legacyData={legacy.newLegacyData}
         selectedTraits={legacy.selectedTraits}
         selectedItems={legacy.selectedItems}
-        title={t('legacy.modal_title') || 'LEGACY EXTRACTION'}
-        subtitle={t('legacy.modal_subtitle') || 'Select traits and items to carry over to the next timeline. (Max 5 each)'}
-        traitsLabel={t('legacy.traits') || 'TRAITS'}
-        itemsLabel={t('legacy.items') || 'REALITY ANCHORS'}
-        echoesLabel={t('legacy.echoes') || 'WORLD ECHOES'}
-        readOnlyLabel={t('common.read_only') || 'READ ONLY'}
-        noTraitsLabel={t('legacy.no_traits') || 'No traits generated.'}
-        noItemsLabel={t('legacy.no_items') || 'No items preserved.'}
-        cancelLabel={t('common.cancel') || 'CANCEL'}
-        confirmLabel={t('legacy.confirm_start') || 'INITIATE PROTOCOL'}
         onToggleTrait={legacy.toggleTraitSelection}
         onToggleItem={legacy.toggleItemSelection}
         onCancel={legacy.closeLegacyModal}

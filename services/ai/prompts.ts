@@ -60,10 +60,10 @@ export const getStartGamePrompt = (
 ) => {
     const langInstruction = translate(language, 'i18n.prompt_language_labels.zh');
     const isEmptyStoryDraft = Object.values(storyDraft || {}).every(value => !value);
-    const sanitizedMapBlueprint = mapBlueprint ? {
-        ...mapBlueprint,
-        nodes: mapBlueprint.nodes.map(({ layout, ...rest }) => rest)
-    } : null;
+    const sanitizedMapBlueprint = mapBlueprint ? (({ manualLayout, ...rest }) => ({
+        ...rest,
+        nodes: rest.nodes.map(({ layout, ...node }) => node)
+    }))(mapBlueprint) : null;
     const hasNpcVisuals = Boolean(npcVisuals && Object.keys(npcVisuals).length > 0);
 
     return renderPromptTemplate(startGamePromptTemplate, {

@@ -1,16 +1,24 @@
 import React from 'react';
-import { MapBlueprint, MapBlueprintNode, MapBlueprintEdge, MapBlueprintNPC, MapBlueprintObjective } from '../../types';
+import { MapBlueprint, MapBlueprintEdge, MapBlueprintNode, MapBlueprintNPC, MapBlueprintObjective } from '../../types';
 import { useTranslation } from '../../utils/i18n';
+import { dangerColor } from '../../utils/siteNetwork';
+import GameButton from '../common/GameButton';
+import { AreaField, Field, ImageSlot, SelectField, TextField } from './EditorFields';
+import ChipInput from './ChipInput';
+
+export type EditorSelection = { type: 'node' | 'edge' | 'npc' | 'objective', id: string } | null;
+export const EDGE_ID_SEPARATOR = '|';
 
 interface PropertyInspectorProps {
     blueprint: MapBlueprint;
-    selection: { type: 'node' | 'edge' | 'npc' | 'objective', id: string } | null;
-    setSelection: (sel: { type: 'node' | 'edge' | 'npc' | 'objective', id: string } | null) => void;
+    selection: EditorSelection;
+    setSelection: (sel: EditorSelection) => void;
     updateNode: (id: string, updates: Partial<MapBlueprintNode>) => void;
     updateEdge: (from: string, to: string, updates: Partial<MapBlueprintEdge>) => void;
     updateNPC: (id: string, updates: Partial<MapBlueprintNPC>) => void;
     updateObjective: (id: string, updates: Partial<MapBlueprintObjective>) => void;
     setBlueprint: (next: MapBlueprint | ((prev: MapBlueprint) => MapBlueprint), commitMode?: 'immediate' | 'deferred') => void;
+    onDeleteSelection: () => void;
     npcImagePrompts?: Record<string, string>;
     onNpcPromptChange?: (npcId: string, value: string) => void;
     onGenerateNpcImage?: (npcId: string) => void;
@@ -21,460 +29,210 @@ interface PropertyInspectorProps {
     setLightboxImage?: (url: string | null) => void;
     commitBlueprint: () => void;
     commitScpData: () => void;
-    isMobile?: boolean;
 }
 
-import TagInput from './TagInput';
-import CustomSelect from '../common/CustomSelect';
-import {
-    deleteButton,
-    emptyStateBox,
-    inputBase,
-    inputGroup,
-    labelBase,
-    numberInputBase,
-    rangeInputBase,
-    textareaBase
-} from './editorStyles';
-
-const PropertyInspector: React.FC<PropertyInspectorProps> = ({ 
-    blueprint, selection, setSelection, updateNode, updateEdge, updateNPC, updateObjective, setBlueprint,
-    npcImagePrompts, onNpcPromptChange, onGenerateNpcImage, onUploadNpcImage, onDeleteNpcImage, npcImages, generatingState, setLightboxImage, commitBlueprint, commitScpData,
-    isMobile = false
+const PropertyInspector: React.FC<PropertyInspectorProps> = ({
+    blueprint, selection, setSelection, updateNode, updateEdge, updateNPC, updateObjective, setBlueprint, onDeleteSelection,
+    npcImagePrompts, onNpcPromptChange, onGenerateNpcImage, onUploadNpcImage, onDeleteNpcImage, npcImages, generatingState, setLightboxImage, commitBlueprint, commitScpData
 }) => {
     const { t } = useTranslation();
-    
-    const inputClass = isMobile ? `${inputBase} text-base` : inputBase;
-    const textareaClass = isMobile ? `${textareaBase} text-base` : textareaBase;
-    const deleteButtonClass = isMobile ? `${deleteButton} min-h-[44px]` : deleteButton;
 
-    // Helper to get all access tokens used in requires fields for suggestions
-    const getAllRequiredTokens = () => {
-        const tokens = new Set<string>();
-        blueprint.nodes.forEach(n => n.requires?.forEach(t => tokens.add(t)));
-        return Array.from(tokens).map(t => ({ value: t, label: t }));
-    };
+    const nodeOptions = blueprint.nodes.map(n => ({ value: n.id, label: n.name, hint: n.id }));
+    const deleteButton = (
+        <div className="side-del">
+            <GameButton variant="danger" size="sm" block onClick={onDeleteSelection}>{t('common.delete')}</GameButton>
+        </div>
+    );
+
+    const panel = (title: string, kind: string, body: React.ReactNode) => (
+        <>
+            <div className="side-head"><b>{title}</b><span>{kind}</span></div>
+            <div className="side-body">{body}</div>
+        </>
+    );
 
     if (!selection) {
-        return (
-            <div className={`p-4 font-mono ${isMobile ? 'h-full overflow-y-auto' : ''}`}>
-                <div className="space-y-4">
-                    <div className={inputGroup}>
-                        <label className={labelBase}>{t('map_editor.map_id')}</label>
-                        <input
-                            type="text"
-                            value={blueprint.id}
-                            onChange={e => setBlueprint(prev => ({...prev, id: e.target.value}), 'deferred')}
-                            onBlur={commitBlueprint}
-                            className={inputClass}
-                        />
-                    </div>
-                    <div className={inputGroup}>
-                        <label className={labelBase}>{t('map_editor.map_title')}</label>
-                        <input
-                            type="text"
-                            value={blueprint.title}
-                            onChange={e => setBlueprint(prev => ({...prev, title: e.target.value}), 'deferred')}
-                            onBlur={commitBlueprint}
-                            className={inputClass}
-                        />
-                    </div>
-                     <CustomSelect 
-                        label={t('map_editor.start_node_id')}
-                        value={blueprint.startNodeId}
-                        onChange={(val) => setBlueprint(prev => ({...prev, startNodeId: val}), 'immediate')}
-                        options={blueprint.nodes.map(n => ({ value: n.id, label: `${n.name} (${n.id})` }))}
-                        isMobile={isMobile}
-                    />
-                </div>
-                 <div className={emptyStateBox}>
-                    {t('map_editor.no_selection')}
-                </div>
-            </div>
-        );
+        return panel(blueprint.title, t('map_editor.kind_map'), (
+            <>
+                <TextField mono label={t('map_editor.map_id')} value={blueprint.id} onChange={value => setBlueprint(prev => ({ ...prev, id: value }), 'deferred')} onBlur={commitBlueprint} />
+                <TextField label={t('map_editor.map_title')} value={blueprint.title} onChange={value => setBlueprint(prev => ({ ...prev, title: value }), 'deferred')} onBlur={commitBlueprint} />
+                <SelectField label={t('map_editor.start_node_id')} value={blueprint.startNodeId} options={nodeOptions} onChange={value => setBlueprint(prev => ({ ...prev, startNodeId: value }), 'immediate')} />
+                <p className="side-empty">{t('map_editor.no_selection')}</p>
+            </>
+        ));
     }
 
-    const renderNodeInspector = () => {
+    if (selection.type === 'node') {
         const node = blueprint.nodes.find(n => n.id === selection.id);
         if (!node) return null;
-
-        return (
-            <div className={`space-y-4 p-4 ${isMobile ? 'h-full overflow-y-auto' : ''}`}>
-                <div className={inputGroup}>
-                    <label className={labelBase}>{t('map_editor.node_id')}</label>
-                    <input 
-                        type="text" 
-                        value={node.id} 
-                        onChange={(e) => updateNode(node.id, { id: e.target.value })}
-                        onBlur={commitBlueprint}
-                        className={inputClass}
-                    />
-                </div>
-                <div className={inputGroup}>
-                    <label className={labelBase}>{t('map_editor.node_name')}</label>
-                    <input 
-                        type="text" 
-                        value={node.name} 
-                        onChange={(e) => updateNode(node.id, { name: e.target.value })}
-                        onBlur={commitBlueprint}
-                        className={inputClass}
-                    />
-                </div>
-                <div className={inputGroup}>
-                    <label className={labelBase}>{t('game.map_tooltip_danger')}</label>
-                    <div className="flex items-center gap-2">
-                        <input 
-                            type="range" 
-                            min="0" max="100" 
-                            value={node.danger} 
-                            onChange={(e) => updateNode(node.id, { danger: parseInt(e.target.value) })}
+        const danger = node.danger ?? 0;
+        const setTags = (key: 'requires' | 'discoverables' | 'interactables') => (tags: string[]) => {
+            updateNode(node.id, { [key]: tags });
+            commitBlueprint();
+        };
+        return panel(node.name, t('map_editor.kind_node'), (
+            <>
+                <TextField mono label={t('map_editor.node_id')} value={node.id} onChange={value => updateNode(node.id, { id: value })} onBlur={commitBlueprint} />
+                <TextField label={t('map_editor.node_name')} value={node.name} onChange={value => updateNode(node.id, { name: value })} onBlur={commitBlueprint} />
+                <Field label={t('game.map_tooltip_danger')}>
+                    <div className="danger-row">
+                        <input
+                            className="rng"
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={danger}
+                            aria-label={t('game.map_tooltip_danger')}
+                            onChange={e => updateNode(node.id, { danger: parseInt(e.target.value, 10) })}
                             onMouseUp={commitBlueprint}
                             onTouchEnd={commitBlueprint}
-                            className={rangeInputBase}
                         />
-                        <div className={`text-xs font-mono w-8 text-right ${node.danger > 50 ? 'text-scp-alert' : (node.danger > 30 ? 'text-scp-amber' : 'text-scp-term')}`}>{node.danger}</div>
+                        <b style={{ color: dangerColor(danger) }}>{danger}</b>
                     </div>
-                </div>
-                
-                <TagInput label={t('map_editor.requires')} tags={node.requires} onChange={(newTags) => { updateNode(node.id, { requires: newTags }); commitBlueprint(); }} isMobile={isMobile} />
-                
-                <TagInput label={t('map_editor.discoverables')} tags={node.discoverables} onChange={(newTags) => { updateNode(node.id, { discoverables: newTags }); commitBlueprint(); }} isMobile={isMobile} />
-                
-                <TagInput label={t('map_editor.interactables')} tags={node.interactables} onChange={(newTags) => { updateNode(node.id, { interactables: newTags }); commitBlueprint(); }} isMobile={isMobile} />
+                </Field>
+                <ChipInput label={t('map_editor.requires')} tags={node.requires} onChange={setTags('requires')} />
+                <ChipInput label={t('map_editor.discoverables')} tags={node.discoverables} onChange={setTags('discoverables')} />
+                <ChipInput label={t('map_editor.interactables')} tags={node.interactables} onChange={setTags('interactables')} />
+                <TextField label={t('map_editor.visual_hint')} value={node.visualHint || ''} onChange={value => updateNode(node.id, { visualHint: value })} onBlur={commitBlueprint} />
+                <AreaField label={t('map_editor.blocked_text')} value={node.blockedText || ''} onChange={value => updateNode(node.id, { blockedText: value })} onBlur={commitBlueprint} />
+                {deleteButton}
+            </>
+        ));
+    }
 
-                <div className={inputGroup}>
-                    <label className={labelBase}>{t('map_editor.visual_hint')}</label>
-                    <input 
-                        type="text" 
-                        value={node.visualHint || ''} 
-                        onChange={(e) => updateNode(node.id, { visualHint: e.target.value })}
-                        onBlur={commitBlueprint}
-                        className={inputClass}
-                    />
-                </div>
-
-                 <div className={inputGroup}>
-                    <label className={labelBase}>{t('map_editor.blocked_text')}</label>
-                    <textarea 
-                        value={node.blockedText || ''} 
-                        onChange={(e) => updateNode(node.id, { blockedText: e.target.value })}
-                        onBlur={commitBlueprint}
-                        className={`${textareaClass} h-20`}
-                    />
-                </div>
-                
-                <div className="pt-4 border-t border-[var(--scp-border)]">
-                    <button 
-                        onClick={() => {
-                            setBlueprint(prev => ({
-                                ...prev,
-                                nodes: prev.nodes.filter(n => n.id !== node.id),
-                                edges: prev.edges.filter(e => e.from !== node.id && e.to !== node.id),
-                                npcs: prev.npcs.filter(n => n.initialNodeId !== node.id),
-                                objectives: prev.objectives.filter(o => o.nodeId !== node.id)
-                            }), 'immediate');
-                        }}
-                        className={deleteButtonClass}
-                    >
-                        {t('common.delete')}
-                    </button>
-                </div>
-            </div>
-        );
-    };
-
-    const renderEdgeInspector = () => {
-        const [from, to] = selection.id.split('-');
+    if (selection.type === 'edge') {
+        const [from, to] = selection.id.split(EDGE_ID_SEPARATOR);
         const edge = blueprint.edges.find(e => e.from === from && e.to === to);
         if (!edge) return null;
-
-        const fromNode = blueprint.nodes.find(n => n.id === from);
-        const toNode = blueprint.nodes.find(n => n.id === to);
-
+        const nameOf = (id: string) => blueprint.nodes.find(n => n.id === id)?.name || id;
         const canonicalFrom = from < to ? from : to;
         const canonicalTo = from < to ? to : from;
-        
-        let currentState: 'bi' | 'canonical_fwd' | 'canonical_rev';
-        if (edge.bidirectional) {
-            currentState = 'bi';
-        } else {
-            if (edge.from === canonicalFrom) {
-                currentState = 'canonical_fwd';
-            } else {
-                currentState = 'canonical_rev';
-            }
-        }
 
+        const reroute = (nextFrom: string, nextTo: string) => {
+            setBlueprint(prev => ({
+                ...prev,
+                edges: prev.edges.map(e => (e.from === from && e.to === to) ? { ...e, from: nextFrom, to: nextTo, bidirectional: false } : e)
+            }), 'immediate');
+            setSelection({ type: 'edge', id: `${nextFrom}${EDGE_ID_SEPARATOR}${nextTo}` });
+        };
         const handleDirectionCycle = () => {
-            if (currentState === 'bi') {
-                if (edge.from !== canonicalFrom) {
-                     setBlueprint(prev => ({
-                        ...prev,
-                        edges: prev.edges.map(e => {
-                            if (e.from === from && e.to === to) {
-                                return { ...e, from: canonicalFrom, to: canonicalTo, bidirectional: false };
-                            }
-                            return e;
-                        })
-                    }), 'immediate');
-                    setSelection({ type: 'edge', id: `${canonicalFrom}-${canonicalTo}` });
-                } else {
-                    updateEdge(from, to, { bidirectional: false });
-                    commitBlueprint();
-                }
-            } else if (currentState === 'canonical_fwd') {
-                 setBlueprint(prev => ({
-                    ...prev,
-                    edges: prev.edges.map(e => {
-                        if (e.from === from && e.to === to) {
-                            return { ...e, from: to, to: from, bidirectional: false };
-                        }
-                        return e;
-                    })
-                }), 'immediate');
-                setSelection({ type: 'edge', id: `${to}-${from}` });
+            if (edge.bidirectional) {
+                reroute(canonicalFrom, canonicalTo);
+            } else if (edge.from === canonicalFrom) {
+                reroute(to, from);
             } else {
                 updateEdge(from, to, { bidirectional: true });
                 commitBlueprint();
             }
         };
-
-        let label = '';
-        if (currentState === 'bi') {
-            label = `${fromNode?.name || from} ↔ ${toNode?.name || to}`;
-        } else if (currentState === 'canonical_fwd') {
-             label = `${fromNode?.name || from} → ${toNode?.name || to}`;
-        } else {
-             label = `${fromNode?.name || from} → ${toNode?.name || to}`;
-        }
-
-        return (
-            <div className={`space-y-4 p-4 ${isMobile ? 'h-full overflow-y-auto' : ''}`}>
-                <div className="space-y-2">
-                    <label className={labelBase}>{t('map_editor.direction')}</label>
-                    <button
-                        onClick={handleDirectionCycle}
-                        className={`w-full py-2 text-xs font-mono border bg-scp-amber/5 border-scp-amber/30 text-scp-amber hover:bg-scp-amber/10 flex items-center justify-center gap-2 transition-colors ${isMobile ? 'min-h-[44px] text-base' : ''}`}
-                        title={t('map_editor.click_to_cycle')}
-                    >
-                        {label}
-                      
+        return panel(t('map_editor.edges'), t('map_editor.kind_edge'), (
+            <>
+                <Field label={t('map_editor.direction')}>
+                    <button type="button" className="dir-btn" title={t('map_editor.click_to_cycle')} onClick={handleDirectionCycle}>
+                        {nameOf(from)} {edge.bidirectional ? '↔' : '→'} {nameOf(to)}
                     </button>
-                    <div className="text-[12px] text-gray-500 italic text-center">
-                        {t('map_editor.cycle_hint')}
-                    </div>
-                </div>
-                
-                <div className="pt-4 border-t border-[var(--scp-border)]">
-                     <button 
-                        onClick={() => {
-                            setBlueprint(prev => ({
-                                ...prev,
-                                edges: prev.edges.filter(e => !(e.from === from && e.to === to))
-                            }), 'immediate');
-                        }}
-                        className={deleteButtonClass}
-                    >
-                        {t('common.delete')}
-                    </button>
-                </div>
-            </div>
-        );
-    };
+                    <div className="fld-note">{t('map_editor.cycle_hint')}</div>
+                </Field>
+                {deleteButton}
+            </>
+        ));
+    }
 
-    const renderNPCInspector = () => {
+    if (selection.type === 'npc') {
         const npc = blueprint.npcs.find(n => n.id === selection.id);
         if (!npc) return null;
-
-        const npcImage = npcImages?.[npc.id];
-        const isGenerating = generatingState?.npc?.[npc.id];
-        
-        const btnClass = isMobile 
-            ? "text-xs px-3 py-2 min-h-[44px] bg-scp-accent/20 border border-scp-accent/50 text-scp-accent hover:bg-scp-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
-            : "text-[10px] px-2 py-1 bg-scp-accent/20 border border-scp-accent/50 text-scp-accent hover:bg-scp-accent/40 disabled:opacity-50 disabled:cursor-not-allowed";
-        const uploadBtnClass = isMobile
-            ? "text-xs px-3 py-2 min-h-[44px] bg-gray-800 border border-gray-600 text-gray-300 hover:bg-gray-700 cursor-pointer"
-            : "text-[10px] px-2 py-1 bg-gray-800 border border-gray-600 text-gray-300 hover:bg-gray-700 cursor-pointer";
-
-        return (
-            <div className={`space-y-4 p-4 ${isMobile ? 'h-full overflow-y-auto' : ''}`}>
-                <div className="space-y-2 border-b border-[var(--scp-border)] pb-4 mb-2">
-                    <label className={labelBase}>{t('map_editor.npc_avatar')}</label>
-                    
-                    <textarea 
+        return panel(npc.name, t('map_editor.kind_npc'), (
+            <>
+                <Field label={t('map_editor.npc_avatar')}>
+                    <textarea
+                        style={{ height: 58 }}
                         value={npcImagePrompts?.[npc.id] || ''}
+                        placeholder={t('story_editor.npc_prompt_placeholder')}
                         onChange={e => onNpcPromptChange?.(npc.id, e.target.value)}
                         onBlur={commitScpData}
-                        className={`${textareaClass} h-16 ${isMobile ? 'text-xs' : 'text-[10px]'} leading-tight mb-1`}
-                        placeholder="Visual description for AI generation..."
                     />
-                    
-                    <div className="flex gap-1 justify-end">
-                        <button 
-                            onClick={() => onGenerateNpcImage?.(npc.id)}
-                            disabled={isGenerating}
-                            className={btnClass}
-                        >
-                            {t('story_editor.btn_generate')}
-                        </button>
-                        <label className={uploadBtnClass}>
-                            {t('story_editor.btn_upload')}
-                            <input type="file" className="hidden" accept="image/*" onChange={(e) => onUploadNpcImage?.(npc.id, e)} />
-                        </label>
-                    </div>
-
-                    <div 
-                        className="w-full aspect-square bg-black/50 border border-gray-800 relative flex items-center justify-center overflow-hidden group cursor-pointer"
-                        onClick={() => npcImage && setLightboxImage?.(npcImage)}
-                    >
-                        {npcImage ? (
-                            <>
-                                <img src={npcImage} alt={npc.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onDeleteNpcImage?.(npc.id);
-                                    }}
-                                    className="absolute top-1 right-1 bg-black/70 hover:bg-red-900/80 text-white p-1 rounded-sm z-20 transition-colors opacity-0 group-hover:opacity-100"
-                                    title={t('common.delete')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </>
-                        ) : (
-                            <div className="text-gray-700 text-xs flex flex-col items-center gap-1">
-                                <span>NO IMG</span>
-                            </div>
-                        )}
-                        {isGenerating && (
-                            <div className="absolute inset-0 bg-black/80 flex flex-col gap-2 items-center justify-center z-10 cursor-default" onClick={(e) => e.stopPropagation()}>
-                                <div className="w-6 h-6 border-2 border-scp-accent border-t-transparent rounded-full animate-spin"></div>
-                                <span className="text-[12px] text-scp-accent animate-pulse">GENERATING...</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className={inputGroup}>
-                    <label className={labelBase}>{t('map_editor.npc_id')}</label>
-                    <input type="text" value={npc.id} onChange={e => updateNPC(npc.id, { id: e.target.value })} onBlur={commitBlueprint} className={inputClass} />
-                </div>
-                <div className={inputGroup}>
-                    <label className={labelBase}>{t('map_editor.npc_name')}</label>
-                    <input type="text" value={npc.name} onChange={e => updateNPC(npc.id, { name: e.target.value })} onBlur={commitBlueprint} className={inputClass} />
-                </div>
-                <div className={inputGroup}>
-                    <label className={labelBase}>{t('map_editor.npc_archetype')}</label>
-                    <input type="text" value={npc.archetype} onChange={e => updateNPC(npc.id, { archetype: e.target.value })} onBlur={commitBlueprint} className={inputClass} />
-                </div>
-                 <CustomSelect 
-                    label={t('map_editor.initial_node_id')}
-                    value={npc.initialNodeId}
-                    onChange={(val) => { updateNPC(npc.id, { initialNodeId: val }); commitBlueprint(); }}
-                    options={blueprint.nodes.map(n => ({ value: n.id, label: `${n.name} (${n.id})` }))}
-                    isMobile={isMobile}
-                />
-                <TagInput label={t('map_editor.secret_tags')} tags={npc.secretTags} onChange={(newTags) => { updateNPC(npc.id, { secretTags: newTags }); commitBlueprint(); }} isMobile={isMobile} />
-                <TagInput label={t('map_editor.dialogue_goals')} tags={npc.dialogueGoals} onChange={(newTags) => { updateNPC(npc.id, { dialogueGoals: newTags }); commitBlueprint(); }} isMobile={isMobile} />
-                
-                <div className="pt-4 border-t border-[var(--scp-border)]">
-                     <button onClick={() => { setBlueprint(prev => ({ ...prev, npcs: prev.npcs.filter(n => n.id !== npc.id) }), 'immediate'); }} className={deleteButtonClass}>{t('common.delete')}</button>
-                </div>
-            </div>
-        );
-    };
-
-    const renderObjectiveInspector = () => {
-        const obj = blueprint.objectives.find(o => o.id === selection.id);
-        if (!obj) return null;
-
-        return (
-            <div className={`space-y-4 p-4 ${isMobile ? 'h-full overflow-y-auto' : ''}`}>
-                <div className={inputGroup}>
-                    <label className={labelBase}>{t('map_editor.obj_id')}</label>
-                    <input type="text" value={obj.id} onChange={e => updateObjective(obj.id, { id: e.target.value })} onBlur={commitBlueprint} className={inputClass} />
-                </div>
-                <div className={inputGroup}>
-                    <label className={labelBase}>{t('map_editor.obj_title')}</label>
-                    <input type="text" value={obj.title} onChange={e => updateObjective(obj.id, { title: e.target.value })} onBlur={commitBlueprint} className={inputClass} />
-                </div>
-                 <CustomSelect 
-                    label={t('map_editor.obj_type')}
-                    value={obj.type}
-                    onChange={(val) => { updateObjective(obj.id, { type: val as any }); commitBlueprint(); }}
-                    options={[{ value: 'MAIN', label: t('map_editor.obj_main') }, { value: 'SIDE', label: t('map_editor.obj_side') }]}
-                    isMobile={isMobile}
-                />
-                 <CustomSelect 
-                    label={t('map_editor.target_node_id')}
-                    value={obj.nodeId}
-                    onChange={(val) => { updateObjective(obj.id, { nodeId: val }); commitBlueprint(); }}
-                    options={blueprint.nodes.map(n => ({ value: n.id, label: `${n.name} (${n.id})` }))}
-                    isMobile={isMobile}
-                />
-                 <div className={inputGroup}>
-                    <label className={labelBase}>{t('map_editor.obj_detail')}</label>
-                    <textarea value={obj.detail || ''} onChange={e => updateObjective(obj.id, { detail: e.target.value })} onBlur={commitBlueprint} className={`${textareaClass} h-20`} />
-                </div>
-                
-                <div className="space-y-2 border-t border-[var(--scp-border)] pt-2 mt-2">
-                    <label className="text-xs text-scp-text-dim uppercase font-bold font-mono block">{t('map_editor.rewards')}</label>
-                    
-                    <CustomSelect 
-                        label={t('map_editor.add_access_token')}
-                        value=""
-                        onChange={(val) => {
-                             const current = obj.reward?.accessTokens || [];
-                             if (!current.includes(val)) {
-                                 updateObjective(obj.id, { reward: { ...obj.reward, accessTokens: [...current, val] } });
-                                 commitBlueprint();
-                             }
-                        }}
-                        options={[{ value: '', label: t('map_editor.select_token') }, ...getAllRequiredTokens()]}
-                        isMobile={isMobile}
+                    <ImageSlot
+                        actionsFirst
+                        url={npcImages?.[npc.id]}
+                        ratio="1"
+                        generating={generatingState?.npc?.[npc.id]}
+                        labels={{ generate: t('story_editor.btn_generate'), upload: t('story_editor.btn_upload'), delete: t('common.delete'), empty: t('story_editor.no_image'), generating: t('story_editor.generating') }}
+                        onGenerate={() => onGenerateNpcImage?.(npc.id)}
+                        onUpload={e => onUploadNpcImage?.(npc.id, e)}
+                        onDelete={() => onDeleteNpcImage?.(npc.id)}
+                        onZoom={url => setLightboxImage?.(url)}
                     />
-                    
-                    <div className="flex flex-wrap gap-1 mb-1">
-                        {obj.reward?.accessTokens?.map(token => (
-                             <span key={token} className={`px-1 bg-scp-term/10 text-scp-text text-xs border border-[var(--scp-border)] flex items-center gap-1 ${isMobile ? 'py-1 min-h-[32px]' : ''}`}>
+                </Field>
+                <TextField mono label={t('map_editor.npc_id')} value={npc.id} onChange={value => updateNPC(npc.id, { id: value })} onBlur={commitBlueprint} />
+                <TextField label={t('map_editor.npc_name')} value={npc.name} onChange={value => updateNPC(npc.id, { name: value })} onBlur={commitBlueprint} />
+                <TextField label={t('map_editor.npc_archetype')} value={npc.archetype} onChange={value => updateNPC(npc.id, { archetype: value })} onBlur={commitBlueprint} />
+                <SelectField label={t('map_editor.initial_node_id')} value={npc.initialNodeId} options={nodeOptions} onChange={value => { updateNPC(npc.id, { initialNodeId: value }); commitBlueprint(); }} />
+                <ChipInput label={t('map_editor.secret_tags')} tags={npc.secretTags} onChange={tags => { updateNPC(npc.id, { secretTags: tags }); commitBlueprint(); }} />
+                <ChipInput label={t('map_editor.dialogue_goals')} tags={npc.dialogueGoals} onChange={tags => { updateNPC(npc.id, { dialogueGoals: tags }); commitBlueprint(); }} />
+                {deleteButton}
+            </>
+        ));
+    }
+
+    const obj = blueprint.objectives.find(o => o.id === selection.id);
+    if (!obj) return null;
+    const tokens = obj.reward?.accessTokens ?? [];
+    const availableTokens = Array.from(new Set(blueprint.nodes.flatMap(n => n.requires ?? []))).filter(token => !tokens.includes(token));
+    return panel(obj.title, t('map_editor.kind_objective'), (
+        <>
+            <TextField mono label={t('map_editor.obj_id')} value={obj.id} onChange={value => updateObjective(obj.id, { id: value })} onBlur={commitBlueprint} />
+            <TextField label={t('map_editor.obj_title')} value={obj.title} onChange={value => updateObjective(obj.id, { title: value })} onBlur={commitBlueprint} />
+            <SelectField
+                label={t('map_editor.obj_type')}
+                value={obj.type}
+                options={[{ value: 'MAIN', label: t('map_editor.obj_main') }, { value: 'SIDE', label: t('map_editor.obj_side') }]}
+                onChange={value => { updateObjective(obj.id, { type: value as MapBlueprintObjective['type'] }); commitBlueprint(); }}
+            />
+            <SelectField label={t('map_editor.target_node_id')} value={obj.nodeId} options={nodeOptions} onChange={value => { updateObjective(obj.id, { nodeId: value }); commitBlueprint(); }} />
+            <AreaField label={t('map_editor.obj_detail')} value={obj.detail || ''} height={110} onChange={value => updateObjective(obj.id, { detail: value })} onBlur={commitBlueprint} />
+            <div className="sub-title">{t('map_editor.rewards')}</div>
+            <SelectField
+                label={t('map_editor.add_access_token')}
+                value=""
+                options={[{ value: '', label: t('map_editor.select_token') }, ...availableTokens.map(token => ({ value: token, label: token }))]}
+                onChange={value => {
+                    if (!value) return;
+                    updateObjective(obj.id, { reward: { ...obj.reward, accessTokens: [...tokens, value] } });
+                    commitBlueprint();
+                }}
+            />
+            {tokens.length > 0 && (
+                <div className="fld">
+                    <div className="chips">
+                        {tokens.map(token => (
+                            <span key={token} className="chip">
                                 {token}
-                                <button onClick={() => {
-                                     updateObjective(obj.id, { reward: { ...obj.reward, accessTokens: obj.reward?.accessTokens?.filter(t => t !== token) } });
-                                     commitBlueprint();
-                                }} className="hover:text-white font-bold px-1">×</button>
+                                <button
+                                    type="button"
+                                    aria-label={t('common.delete')}
+                                    onClick={() => {
+                                        updateObjective(obj.id, { reward: { ...obj.reward, accessTokens: tokens.filter(entry => entry !== token) } });
+                                        commitBlueprint();
+                                    }}
+                                >
+                                    ✕
+                                </button>
                             </span>
                         ))}
                     </div>
-
-                    <div className={inputGroup}>
-                        <label className={labelBase}>{t('map_editor.stability_delta')}</label>
-                        <input 
-                            type="number" 
-                            value={obj.reward?.stabilityDelta || 0} 
-                            onChange={(e) => updateObjective(obj.id, { reward: { ...obj.reward, stabilityDelta: parseInt(e.target.value) || 0 } })}
-                            onBlur={commitBlueprint}
-                            className={isMobile ? `${numberInputBase} text-base` : numberInputBase}
-                        />
-                    </div>
                 </div>
-
-                <div className="pt-4 border-t border-[var(--scp-border)]">
-                     <button onClick={() => { setBlueprint(prev => ({ ...prev, objectives: prev.objectives.filter(o => o.id !== obj.id) }), 'immediate'); }} className={deleteButtonClass}>{t('common.delete')}</button>
-                </div>
-            </div>
-        );
-    };
-
-    return (
-        <div className="font-mono h-full overflow-y-auto">
-            {selection.type === 'node' && renderNodeInspector()}
-            {selection.type === 'edge' && renderEdgeInspector()}
-            {selection.type === 'npc' && renderNPCInspector()}
-            {selection.type === 'objective' && renderObjectiveInspector()}
-        </div>
-    );
+            )}
+            <TextField
+                mono
+                type="number"
+                label={t('map_editor.stability_delta')}
+                value={obj.reward?.stabilityDelta || 0}
+                onChange={value => updateObjective(obj.id, { reward: { ...obj.reward, stabilityDelta: parseInt(value, 10) || 0 } })}
+                onBlur={commitBlueprint}
+            />
+            {deleteButton}
+        </>
+    ));
 };
 
 export default PropertyInspector;

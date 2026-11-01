@@ -180,6 +180,7 @@ const MapBlueprintSchema = z.object({
     edges: z.array(MapBlueprintEdgeSchema),
     npcs: z.array(MapBlueprintNPCSchema),
     objectives: z.array(MapBlueprintObjectiveSchema),
+    manualLayout: z.boolean().optional(),
 });
 
 const StoryDraftSchema = z.object({
@@ -224,7 +225,7 @@ export const AnalyzeScpDataSubmissionSchema = z.object({
         roleDetails: true,
         storyBackground: true,
     }).required(),
-    mapBlueprint: MapBlueprintSchema.extend({
+    mapBlueprint: MapBlueprintSchema.omit({ manualLayout: true }).extend({
         nodes: z.array(MapBlueprintNodeSchema.pick({
             id: true,
             name: true,

@@ -1,55 +1,66 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { GameState, GameStatus, SCPData } from '../../types';
+import { Redo2, Sparkles, Undo2 } from 'lucide-react';
 import { useTranslation } from '../../utils/i18n';
-import { useViewport } from '../../hooks/useViewport';
+import { useCompactScreen } from '../../hooks/useCompactScreen';
+import { clearManualLayout, NetworkPoint, pinNetworkLayout } from '../../utils/siteNetwork';
+import GameButton from '../common/GameButton';
+import { StageFilters } from '../game/stage/StageOverlays';
 import EditorCanvas, { EditorCanvasRef } from './EditorCanvas';
-import PropertyInspector from './PropertyInspector';
+import EditorRail from './EditorRail';
+import PropertyInspector, { EDGE_ID_SEPARATOR, EditorSelection } from './PropertyInspector';
 import StoryFormPanel from './StoryFormPanel';
-import ConfirmationModal from '../ConfirmationModal';
-import SidePanel from '../common/SidePanel';
-import MobileEditorTabs, { MobileEditorTab } from './MobileEditorTabs';
-import EntityListMobile from './EntityListMobile';
-import { Sparkles, ZoomIn, ZoomOut, Undo, Redo, Play, ArrowLeft, Save, Trash, RotateCcw } from "lucide-react";
-
-import {
-    addEntityButtonNpc,
-    addEntityButtonObj,
-    editorPanelHeader,
-    editorPanelTitle,
-    listItemBase,
-    listItemInactive,
-    listItemNpcActive,
-    listItemObjectiveActive,
-    panelContainerBase,
-    modalOverlay,
-    modalPanel,
-    modalHeader,
-    modalBody,
-    modalFooter,
-    toolbarHistoryButton,
-    toolbarButtonBase,
-    toolbarButtonGhost,
-    toolbarGroupDivider,
-} from './editorStyles';
 import { loadEditingSCPData, saveEditingSCPData } from '../../services/indexedDBService';
 import { getEditingStoryCache, setEditingStoryCache } from '../../services/storyEditorCache';
 import { useStoryEditorModals } from '../../hooks/storyEditor/useStoryEditorModals';
 import { useStoryImageManager } from '../../hooks/storyEditor/useStoryImageManager';
 import { DEFAULT_BLUEPRINT, SCP173_TEMPLATE } from '../../constants/storyTemplates';
 import { useHistory } from '../../hooks/storyEditor/useHistory';
-
 import EditorAssistantPanel from './EditorAssistantPanel';
+import '../../styles/stage.css';
+import '../../styles/stagePanels.css';
+import '../../styles/tactical.css';
+import '../../styles/storyEditor.css';
 
 interface StoryEditorProps {
     gameState: GameState;
     setGameState: React.Dispatch<React.SetStateAction<GameState>>;
 }
 
-type EditorSelection = { type: 'node' | 'edge' | 'npc' | 'objective', id: string } | null;
+type MobileEditorTab = 'story' | 'canvas' | 'properties' | 'assistant' | 'entities';
+const MOBILE_TABS: [MobileEditorTab, string][] = [
+    ['story', 'story_editor.tab_story'],
+    ['canvas', 'story_editor.tab_map'],
+    ['properties', 'map_editor.properties'],
+    ['assistant', 'editor_assistant.title'],
+    ['entities', 'map_editor.entity_list'],
+];
+
+interface ConfirmDialogProps {
+    title: string;
+    message: string;
+    confirmLabel: string;
+    cancelLabel: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+}
+
+const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ title, message, confirmLabel, cancelLabel, onConfirm, onCancel }) => (
+    <div className="modal-back">
+        <div className="modal" role="dialog" aria-label={title}>
+            <h3>{title}</h3>
+            <div className="modal-body">{message}</div>
+            <div className="modal-foot">
+                <GameButton size="sm" onClick={onCancel}>{cancelLabel}</GameButton>
+                <GameButton size="sm" variant="danger" onClick={onConfirm}>{confirmLabel}</GameButton>
+            </div>
+        </div>
+    </div>
+);
 
 const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) => {
     const { t } = useTranslation();
-    const { isMobile } = useViewport();
+    const isMobile = useCompactScreen();
     const [showAssistant, setShowAssistant] = useState(false);
     const isHydratingRef = useRef(true);
     const [selectionState, setSelectionState] = useState<EditorSelection>(null);
@@ -106,7 +117,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         if (sel.type === 'node') return blueprint.nodes.some(n => n.id === sel.id);
         if (sel.type === 'npc') return blueprint.npcs.some(n => n.id === sel.id);
         if (sel.type === 'objective') return blueprint.objectives.some(o => o.id === sel.id);
-        if (sel.type === 'edge') return blueprint.edges.some(e => `${e.from}-${e.to}` === sel.id);
+        if (sel.type === 'edge') return blueprint.edges.some(e => `${e.from}${EDGE_ID_SEPARATOR}${e.to}` === sel.id);
         return false;
     }, [blueprint]);
 
@@ -162,18 +173,32 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
     }, [setBlueprint]);
 
     const updateNPC = useCallback((id: string, updates: any) => {
-        setBlueprint((prev: any) => {
-            if (updates.id && updates.id !== id) {
-                if (selectionState?.type === 'npc' && selectionState.id === id) {
-                    setSelection(s => s ? { ...s, id: updates.id } : null);
-                }
+        setScpData(prev => {
+            const current = prev.mapBlueprint || DEFAULT_BLUEPRINT;
+            const renamed = updates.id && updates.id !== id;
+            if (renamed && selectionState?.type === 'npc' && selectionState.id === id) {
+                setSelection(s => s ? { ...s, id: updates.id } : null);
             }
+            const npcImages = renamed && prev.npcImages?.[id] ? { ...prev.npcImages, [updates.id]: prev.npcImages[id] } : prev.npcImages;
+            if (renamed && npcImages) delete npcImages[id];
             return {
                 ...prev,
-                npcs: prev.npcs.map((n: any) => n.id === id ? { ...n, ...updates } : n)
+                npcImages,
+                mapBlueprint: {
+                    ...current,
+                    npcs: current.npcs.map((n: any) => n.id === id ? { ...n, ...updates } : n)
+                }
             };
         }, 'deferred');
-    }, [selectionState, setBlueprint, setSelection]);
+    }, [selectionState, setScpData, setSelection]);
+
+    const moveNode = useCallback((id: string, point: NetworkPoint) => {
+        setBlueprint((prev: any) => pinNetworkLayout(prev, { [id]: point }), 'immediate');
+    }, [setBlueprint]);
+
+    const restoreAutoLayout = useCallback(() => {
+        setBlueprint((prev: any) => clearManualLayout(prev), 'immediate');
+    }, [setBlueprint]);
 
     const updateObjective = useCallback((id: string, updates: any) => {
         setBlueprint((prev: any) => {
@@ -195,8 +220,9 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
             id,
             name: 'New Node',
             danger: 0,
-            layout: { x: 100, y: 100 }
+            layout: canvasRef.current?.centerPoint() ?? { x: 100, y: 100 }
         };
+        selectionRef.current = { type: 'node', id };
         setBlueprint((prev: any) => ({ ...prev, nodes: [...prev.nodes, newNode] }), 'immediate');
         setSelection({ type: 'node', id });
         if (isMobile) {
@@ -224,6 +250,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
             archetype: 'Researcher',
             initialNodeId: targetNodeId
         };
+        selectionRef.current = { type: 'npc', id };
         setBlueprint((prev: any) => ({ ...prev, npcs: [...prev.npcs, newNPC] }), 'immediate');
         setSelection({ type: 'npc', id });
         if (isMobile) {
@@ -240,6 +267,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
             type: 'MAIN',
             nodeId: targetNodeId
         };
+        selectionRef.current = { type: 'objective', id };
         setBlueprint((prev: any) => ({ ...prev, objectives: [...prev.objectives, newObj] }), 'immediate');
         setSelection({ type: 'objective', id });
         if (isMobile) {
@@ -258,7 +286,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                 objectives: prev.objectives.filter((o: any) => o.nodeId !== selectionState.id)
             }), 'immediate');
         } else if (selectionState.type === 'edge') {
-            const [from, to] = selectionState.id.split('-');
+            const [from, to] = selectionState.id.split(EDGE_ID_SEPARATOR);
             setBlueprint((prev: any) => ({
                 ...prev,
                 edges: prev.edges.filter((e: any) => !(e.from === from && e.to === to))
@@ -519,494 +547,190 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         }
     };
 
-    const handleMobileTabChange = (tab: MobileEditorTab) => {
-        setMobileTab(tab);
-        if (tab === 'assistant') {
-            setShowAssistant(true);
-        } else {
-            setShowAssistant(false);
-        }
+    const handleSelect = (next: EditorSelection) => {
+        setSelection(next);
+        if (isMobile && next) setMobileTab('properties');
     };
 
     const showSaveAndPlay = !gameState.scpData || gameState.scpData.designation === SCP173_TEMPLATE.designation;
 
+    const mapMode = activeTab === 'MAP';
+    const assistantOpen = isMobile ? mobileTab === 'assistant' : showAssistant;
+    const panelOn = (tab: MobileEditorTab) => (isMobile && mobileTab === tab ? 'm-on' : '');
+    const background = scpData.storyDraft?.backgroundImage || gameState.backgroundImage;
+
     return (
-        <div className="w-full h-full flex flex-col bg-[var(--scp-bg)] text-[var(--scp-text)] overflow-hidden relative font-mono">
-            {modal && modal.isOpen && (
-                <div className={modalOverlay}>
-                    <div className={modalPanel}>
-                        <div className={modalHeader}>
-                            <span>{modal.title}</span>
-                            <button onClick={closeModal} className="hover:text-white">×</button>
-                        </div>
-                        <div className={modalBody}>
-                            {modal.content}
-                        </div>
-                        <div className={modalFooter}>
-                            <button onClick={closeModal} className={toolbarButtonGhost}>
-                                {t('map_editor.btn_close')}
-                            </button>
-                            {modal.extraAction && (
-                                <button onClick={modal.extraAction.onClick} className={toolbarButtonBase}>
-                                    {t(modal.extraAction.labelKey)}
-                                </button>
-                            )}
-                            {modal.onConfirm && (
-                                <button onClick={modal.onConfirm} className={toolbarButtonBase}>
-                                    {modal.title === t('map_editor.delete_confirm_title') 
-                                        ? t('common.delete') 
-                                        : (modal.title === t('map_editor.import') 
-                                            ? t('map_editor.btn_import') 
-                                            : (modal.title === t('map_editor.reset_title') ? t('map_editor.btn_reset_confirm') : t('map_editor.btn_copy')))}
-                                </button>
-                            )}
-                        </div>
+        <div className="stage-root">
+            <StageFilters />
+            <section className="p3-view ed">
+                {background && <div className="ed-bg" style={{ backgroundImage: `url(${background})` }} />}
+                <header className="ed-top">
+                    <GameButton variant="quiet" size="sm" onClick={handleBack}>← {t('common.back')}</GameButton>
+                    <span className="ed-sep" />
+                    <span className="ed-title">{t('story_editor.title')}</span>
+                    <div className="ed-tabs" role="tablist">
+                        <button type="button" role="tab" aria-selected={activeTab === 'STORY'} onClick={() => setActiveTab('STORY')}>{t('story_editor.tab_story')}</button>
+                        <button type="button" role="tab" aria-selected={activeTab === 'MAP'} onClick={() => setActiveTab('MAP')}>{t('story_editor.tab_map')}</button>
                     </div>
-                </div>
-            )}
-
-            {lightboxImage && (
-                <div 
-                    className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/95 backdrop-blur-sm cursor-zoom-out p-4"
-                    onClick={() => setLightboxImage(null)}
-                >
-                    <img 
-                        src={lightboxImage} 
-                        alt="Zoomed" 
-                        className="max-w-full max-h-full object-contain shadow-2xl border border-scp-border"
-                    />
-                </div>
-            )}
-
-            <ConfirmationModal 
-                isOpen={showNewMapConfirm}
-                onCancel={() => setShowNewMapConfirm(false)}
-                onConfirm={confirmNewMap}
-                title={t('map_editor.new_map_confirm_title')}
-                message={t('map_editor.new_map_confirm_msg')}
-                confirmText={t('common.confirm')}
-            />
-
-            <ConfirmationModal 
-                isOpen={showResetConfirm}
-                onCancel={() => setShowResetConfirm(false)}
-                onConfirm={confirmReset}
-                title={t('map_editor.reset_title')}
-                message={t('map_editor.reset_confirm_msg')}
-                confirmText={t('map_editor.btn_reset_confirm')}
-            />
-
-            {isMobile ? (
-                <div className="h-12 border-b border-[var(--scp-border)] flex items-center justify-between px-2 bg-[var(--scp-surface)] shrink-0 z-10 shadow-md scp-ui crt">
-                    <div className="flex items-center gap-1">
-                        <button 
-                            onClick={handleBack} 
-                            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-scp-text hover:text-scp-accent transition-colors"
-                        >
-                            <ArrowLeft size={20} strokeWidth={1.5} />
-                        </button>
+                    <span className="ed-sep" />
+                    <div className="ed-hist">
+                        <GameButton variant="icon" disabled={!canUndo} title="Undo (Ctrl+Z)" aria-label={t('common.undo')} onClick={handleUndo}><Undo2 size={16} strokeWidth={1.75} /></GameButton>
+                        <GameButton variant="icon" disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" aria-label={t('common.redo')} onClick={handleRedo}><Redo2 size={16} strokeWidth={1.75} /></GameButton>
                     </div>
-                    <div className="flex-1 flex items-center justify-center gap-2">
-                        <span className="text-xs font-mono uppercase tracking-wider text-scp-text-dim font-bold">
-                            {t('story_editor.title')}
-                        </span>
-                        <div className="flex items-center gap-1">
-                            <button
-                                onClick={handleUndo}
-                                disabled={!canUndo}
-                                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-scp-text hover:text-scp-accent transition-colors disabled:opacity-40"
-                            >
-                                <Undo size={18} strokeWidth={1.5} />
-                            </button>
-                            <button
-                                onClick={handleRedo}
-                                disabled={!canRedo}
-                                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-scp-text hover:text-scp-accent transition-colors disabled:opacity-40"
-                            >
-                                <Redo size={18} strokeWidth={1.5} />
-                            </button>
-                        </div>
+                    <GameButton size="sm" className={`ed-assist ${showAssistant ? 'on' : ''}`} aria-pressed={showAssistant} onClick={() => setShowAssistant(open => !open)}>
+                        <Sparkles size={16} strokeWidth={2} />{t('editor_assistant.title')} (Beta)
+                    </GameButton>
+                    <span className="ed-spacer" />
+                    {isMobile && selectionState && <GameButton variant="icon" aria-label={t('common.delete')} title={t('common.delete')} onClick={handleDeleteSelection}>✕</GameButton>}
+                    {isMobile && mobileTab === 'canvas' && <GameButton variant="icon" aria-label={t('map_editor.reset_title')} title={t('map_editor.reset_title')} onClick={handleReset}>⟲</GameButton>}
+                    <div className="ed-file">
+                        <GameButton variant="quiet" size="sm" onClick={() => setShowNewMapConfirm(true)}>{t('map_editor.new_map')}</GameButton>
+                        <GameButton variant="quiet" size="sm" onClick={() => showImportModal()}>{t('map_editor.import')}</GameButton>
+                        <GameButton variant="quiet" size="sm" onClick={() => showExportModal()}>{t('map_editor.export')}</GameButton>
+                        <GameButton variant="quiet" size="sm" title="Reset Story Template" onClick={handleReset}>{t('map_editor.reset_title')}</GameButton>
                     </div>
-                    <div className="flex items-center gap-1">
-                        {selectionState && (
-                            <button
-                                onClick={handleDeleteSelection}
-                                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-scp-text hover:text-scp-accent transition-colors"
-                            >
-                                <Trash size={18} strokeWidth={1.5} />
-                            </button>
-                        )}
-                        {mobileTab === 'canvas' && (
-                            <button
-                                onClick={handleReset}
-                                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-scp-text hover:text-scp-accent transition-colors"
-                            >
-                                <RotateCcw size={18} strokeWidth={1.5} />
-                            </button>
-                        )}
-                        {showSaveAndPlay ? (
-                            <button 
-                                onClick={handleSaveAndPlay}
-                                disabled={isStarting}
-                                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-scp-text hover:text-scp-accent transition-colors disabled:opacity-50"
-                            >
-                                {isStarting ? (
-                                    <div className="w-5 h-5 border-2 border-scp-accent/30 border-t-scp-accent rounded-full animate-spin"></div>
-                                ) : (
-                                    <Play size={20} strokeWidth={1.5} />
-                                )}
-                            </button>
-                        ) : (
-                            <button 
-                                onClick={handleBack}
-                                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-scp-term hover:text-scp-accent transition-colors"
-                            >
-                                <Save size={20} strokeWidth={1.5} />
-                            </button>
-                        )}
-                    </div>
-                </div>
-            ) : (
-                <div className="h-12 border-b border-[var(--scp-border)] flex items-center justify-between px-4 bg-[var(--scp-surface)] shrink-0 z-10 shadow-md scp-ui crt">
-                    <div className="flex items-center gap-4">
-                        <button onClick={handleBack} className={toolbarButtonBase}>
-                            <span>←</span> {t('common.back')}
-                        </button>
-                        <div className={toolbarGroupDivider}></div>
-                        <span className="text-scp-text-dim font-bold font-mono text-xs tracking-wider">{t('story_editor.title')}</span>
-                        
-                        <button
-                            onClick={() => setShowAssistant(!showAssistant)}
-                            className={`ml-4 px-3 py-1 text-xs font-bold transition-colors ${showAssistant ? 'bg-scp-accent text-white' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            <div className="flex items-center gap-2">
-                                <Sparkles size={16} strokeWidth={2} />
-                                <span>{t('editor_assistant.title')} (Beta)</span>
-                            </div>
-                        </button>
+                    {showSaveAndPlay && (
+                        <GameButton variant="primary" size="sm" loading={isStarting} onClick={handleSaveAndPlay}>{t('story_editor.btn_save_and_play')}</GameButton>
+                    )}
+                </header>
 
-                        <div className="flex items-center gap-2 ml-4 bg-black/30 p-1 rounded">
-                            <button 
-                                onClick={() => setActiveTab('STORY')}
-                                className={`px-3 py-1 text-xs font-bold transition-colors ${activeTab === 'STORY' ? 'bg-scp-accent text-white' : 'text-gray-400 hover:text-white'}`}
-                            >
-                                {t('story_editor.tab_story')}
-                            </button>
-                            <button 
-                                onClick={() => setActiveTab('MAP')}
-                                className={`px-3 py-1 text-xs font-bold transition-colors ${activeTab === 'MAP' ? 'bg-scp-accent text-white' : 'text-gray-400 hover:text-white'}`}
-                            >
-                                {t('story_editor.tab_map')}
-                            </button>
-                        </div>
-
-                        <>
-                            <div className="flex items-center gap-1 ml-4 pl-4 border-l border-[var(--scp-border)]">
-                                <button 
-                                    onClick={handleUndo} 
-                                    disabled={!canUndo}
-                                    className={toolbarHistoryButton(canUndo)}
-                                    title="Undo (Ctrl+Z)"
-                                >
-                                    <Undo size={16} strokeWidth={1} /> {t('common.undo')}
-                                </button>
-                                <button 
-                                    onClick={handleRedo} 
-                                    disabled={!canRedo}
-                                    className={toolbarHistoryButton(canRedo)}
-                                    title="Redo (Ctrl+Shift+Z)"
-                                >
-                                    <Redo size={16} strokeWidth={1} /> {t('common.redo')}
-                                </button>
-                            </div>
-                            {activeTab === 'MAP' && (
-                                <>
-                                    <div className="flex items-center gap-1 ml-4 pl-4 border-l border-[var(--scp-border)]">
-                                        <button
-                                            onClick={() => canvasRef.current?.zoomIn()}
-                                            className={toolbarHistoryButton(true)}
-                                            title="Zoom In"
-                                        >
-                                            <ZoomIn size={16} strokeWidth={1} />
-                                        </button>
-                                        <button
-                                            onClick={() => canvasRef.current?.zoomOut()}
-                                            className={toolbarHistoryButton(true)}
-                                            title="Zoom Out"
-                                        >
-                                            <ZoomOut size={16} strokeWidth={1} />
-                                        </button>
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-2 ml-4">
-                                        <button 
-                                            onClick={addNPC}
-                                            className={addEntityButtonNpc}
-                                            title={t('map_editor.add_npc')}
-                                        >
-                                            + NPC
-                                        </button>
-                                        <button 
-                                            onClick={addObjective}
-                                            className={addEntityButtonObj}
-                                            title={t('map_editor.add_objective')}
-                                        >
-                                            + OBJ
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </>
-                    </div>
-                    <div className="flex gap-2 pr-32">
-                        <button onClick={() => setShowNewMapConfirm(true)} className={toolbarButtonGhost}>{t('map_editor.new_map')}</button>
-                        <button onClick={() => showImportModal()} className={toolbarButtonGhost}>{t('map_editor.import')}</button>
-                        <button onClick={() => showExportModal()} className={toolbarButtonGhost}>{t('map_editor.export')}</button>
-                        <button onClick={handleReset} className={toolbarButtonGhost} title="Reset Story Template">
-                            {t('map_editor.reset_title')}
-                        </button>
-                        
-                        {showSaveAndPlay && (
-                            <button 
-                                onClick={handleSaveAndPlay}
-                                disabled={isStarting}
-                                className="scp-btn-action px-4 py-1 text-xs font-bold text-scp-white hover:text-scp-accent border-scp-gray/30 hover:border-scp-accent/60 flex items-center gap-2 min-w-[140px] justify-center"
-                            >
-                                {isStarting ? (
-                                    <div className="w-4 h-4 border-2 border-white/20 border-t-scp-accent rounded-full animate-spin"></div>
-                                ) : (
-                                    <span>▶ {t('story_editor.btn_save_and_play')}</span>
-                                )}
-                            </button>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            <div className="flex-1 relative overflow-hidden">
-                {isMobile ? (
-                    <div className="w-full h-full flex flex-col">
-                        <div className="flex-1 overflow-hidden">
-                            {mobileTab === 'story' && (
-                                <StoryFormPanel
-                                    t={t}
-                                    scpData={scpData}
-                                    setScpData={setScpData}
-                                    commitScpData={commitScpData}
-                                    showValidationErrors={showValidationErrors}
-                                    bgImagePrompt={bgImagePrompt}
-                                    setBgImagePrompt={setBgImagePrompt}
-                                    entityImagePrompt={entityImagePrompt}
-                                    setEntityImagePrompt={setEntityImagePrompt}
-                                    generatingState={generatingState}
-                                    handleGenerateImage={handleGenerateImage}
-                                    handleImageUpload={handleImageUpload}
-                                    handleDeleteImage={handleDeleteImage}
-                                    setLightboxImage={setLightboxImage}
-                                    isMobile={true}
-                                />
-                            )}
-                            {mobileTab === 'canvas' && (
-                                <EditorCanvas 
-                                    ref={canvasRef}
-                                    blueprint={blueprint} 
-                                    selection={selectionState} 
-                                    setSelection={handleMapSelection} 
-                                    updateNode={updateNode}
-                                    addNode={addNode}
-                                    addEdge={addEdge}
-                                    commitBlueprint={commitBlueprint}
-                                    onDeleteSelection={handleDeleteSelection}
-                                    isMobile={true}
-                                    onAddNPC={addNPC}
-                                    onAddObjective={addObjective}
-                                />
-                            )}
-                            {mobileTab === 'properties' && (
-                                <PropertyInspector 
-                                    blueprint={blueprint}
-                                    selection={selectionState}
-                                    setSelection={handleMapSelection}
-                                    updateNode={updateNode}
-                                    updateEdge={updateEdge}
-                                    updateNPC={updateNPC}
-                                    updateObjective={updateObjective}
-                                    setBlueprint={setBlueprint}
-                                    npcImagePrompts={npcImagePrompts}
-                                    onNpcPromptChange={handleNpcPromptChange}
-                                    onGenerateNpcImage={handleGenerateNPCImage}
-                                    onUploadNpcImage={handleUploadNPCImage}
-                                    onDeleteNpcImage={handleDeleteNPCImage}
-                                    npcImages={scpData.npcImages}
-                                    generatingState={generatingState}
-                                    setLightboxImage={setLightboxImage}
-                                    commitBlueprint={commitBlueprint}
-                                    commitScpData={commitScpData}
-                                    isMobile={true}
-                                />
-                            )}
-                            {mobileTab === 'assistant' && (
-                                <EditorAssistantPanel
-                                    blueprint={blueprint}
-                                    setBlueprint={setBlueprint}
-                                    scpData={scpData}
-                                    setScpData={setScpData}
-                                    legacyData={gameState.legacy}
-                                    onClose={() => setMobileTab('story')}
-                                    isOpen={true}
-                                    isMobile={true}
-                                />
-                            )}
-                            {mobileTab === 'entities' && (
-                                <EntityListMobile
-                                    blueprint={blueprint}
-                                    selection={selectionState}
-                                    onSelectionChange={handleMobileSelection}
-                                    onAddNPC={addNPC}
-                                    onAddObjective={addObjective}
-                                />
-                            )}
-                        </div>
-                        
-                        <MobileEditorTabs 
-                            activeTab={mobileTab}
-                            onTabChange={handleMobileTabChange}
-                            hasSelection={!!selectionState}
+                <div className="ed-main">
+                    <aside className={`ed-rail ${panelOn('entities')}`} hidden={!isMobile && !mapMode}>
+                        <EditorRail
+                            blueprint={blueprint}
+                            selection={selectionState}
+                            npcImages={scpData.npcImages}
+                            onSelect={handleSelect}
+                            onAddNode={addNode}
+                            onAddNPC={addNPC}
+                            onAddObjective={addObjective}
+                        />
+                    </aside>
+                    <div className={`ed-canvas ${panelOn('canvas')}`} hidden={!isMobile && !mapMode}>
+                        <EditorCanvas
+                            ref={canvasRef}
+                            blueprint={blueprint}
+                            selection={selectionState}
+                            setSelection={handleMapSelection}
+                            moveNode={moveNode}
+                            addNode={addNode}
+                            addEdge={addEdge}
+                            restoreAutoLayout={restoreAutoLayout}
+                            onDeleteSelection={handleDeleteSelection}
+                            npcImages={scpData.npcImages}
                         />
                     </div>
-                ) : (
-                    <>
-                        <div className="absolute inset-0 bg-[#050505] scp-ui crt pl-56 pr-80 box-border">
-                            <div className="absolute inset-0 bg-grid-pattern opacity-10 pointer-events-none"></div>
-                            <div className="relative w-full h-full">
-                                <EditorCanvas 
-                                    ref={canvasRef}
-                                    blueprint={blueprint} 
-                                    selection={selectionState} 
-                                    setSelection={handleMapSelection} 
-                                    updateNode={updateNode}
-                                    addNode={addNode}
-                                    addEdge={addEdge}
-                                    commitBlueprint={commitBlueprint}
-                                    onDeleteSelection={handleDeleteSelection}
-                                />
-                            </div>
-                        </div>
+                    <div className={`story ${panelOn('story')}`} hidden={!isMobile && mapMode}>
+                        <StoryFormPanel
+                            t={t}
+                            scpData={scpData}
+                            setScpData={setScpData}
+                            commitScpData={commitScpData}
+                            showValidationErrors={showValidationErrors}
+                            bgImagePrompt={bgImagePrompt}
+                            setBgImagePrompt={setBgImagePrompt}
+                            entityImagePrompt={entityImagePrompt}
+                            setEntityImagePrompt={setEntityImagePrompt}
+                            generatingState={generatingState}
+                            handleGenerateImage={handleGenerateImage}
+                            handleImageUpload={handleImageUpload}
+                            handleDeleteImage={handleDeleteImage}
+                            setLightboxImage={setLightboxImage}
+                        />
+                    </div>
+                    <aside className={`ai ${assistantOpen ? 'open' : ''} ${panelOn('assistant')}`}>
+                        <EditorAssistantPanel
+                            blueprint={blueprint}
+                            setBlueprint={setBlueprint}
+                            scpData={scpData}
+                            setScpData={setScpData}
+                            legacyData={gameState.legacy}
+                            onClose={() => {
+                                setShowAssistant(false);
+                                if (isMobile) setMobileTab('story');
+                            }}
+                            isOpen={assistantOpen}
+                            isMobile={isMobile}
+                        />
+                    </aside>
+                    <aside className={`ed-side ${panelOn('properties')}`} hidden={!isMobile && !mapMode}>
+                        <PropertyInspector
+                            blueprint={blueprint}
+                            selection={selectionState}
+                            setSelection={handleMapSelection}
+                            updateNode={updateNode}
+                            updateEdge={updateEdge}
+                            updateNPC={updateNPC}
+                            updateObjective={updateObjective}
+                            setBlueprint={setBlueprint}
+                            onDeleteSelection={handleDeleteSelection}
+                            npcImagePrompts={npcImagePrompts}
+                            onNpcPromptChange={handleNpcPromptChange}
+                            onGenerateNpcImage={handleGenerateNPCImage}
+                            onUploadNpcImage={handleUploadNPCImage}
+                            onDeleteNpcImage={handleDeleteNPCImage}
+                            npcImages={scpData.npcImages}
+                            generatingState={generatingState}
+                            setLightboxImage={setLightboxImage}
+                            commitBlueprint={commitBlueprint}
+                            commitScpData={commitScpData}
+                        />
+                    </aside>
+                </div>
 
-                        {showAssistant && (
-                            <EditorAssistantPanel
-                                blueprint={blueprint}
-                                setBlueprint={setBlueprint}
-                                scpData={scpData}
-                                setScpData={setScpData}
-                                legacyData={gameState.legacy}
-                                onClose={() => setShowAssistant(false)}
-                                isOpen={showAssistant}
-                            />
-                        )}
+                <nav className="ed-mtabs">
+                    {MOBILE_TABS.map(([tab, labelKey]) => (
+                        <button key={tab} type="button" className={`${mobileTab === tab ? 'on' : ''} ${tab === 'properties' && selectionState ? 'dot' : ''}`} onClick={() => setMobileTab(tab)}>
+                            {t(labelKey)}
+                        </button>
+                    ))}
+                </nav>
 
-                        <SidePanel side="left" className={`absolute top-0 bottom-0 w-56 ${panelContainerBase}`}>
-                            <div className={editorPanelHeader}>
-                                <div className={editorPanelTitle}>
-                                    {t('map_editor.entity_list')}
-                                </div>
-                            </div>
-                            <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-3 space-y-4">
-                                <div>
-                                    <div className="text-[12px] text-scp-text-dim uppercase font-bold mb-2 px-1 tracking-wider">
-                                        {t('map_editor.npcs')} ({(blueprint.npcs || []).length})
-                                    </div>
-                                    <div className="space-y-1">
-                                        {(blueprint.npcs || []).map(npc => (
-                                            <div 
-                                                key={npc.id}
-                                                onClick={() => {
-                                                    handleMapSelection({ type: 'npc', id: npc.id });
-                                                }}
-                                                className={`${listItemBase} ${selectionState?.type === 'npc' && selectionState.id === npc.id ? listItemNpcActive : listItemInactive}`}
-                                            >
-                                                <div className="font-bold truncate">{npc.name}</div>
-                                                <div className="text-[12px] opacity-60 truncate">{npc.archetype}</div>
-                                            </div>
-                                        ))}
-                                        {(blueprint.npcs || []).length === 0 && <div className="p-2 text-[12px] text-gray-600 italic text-center border border-dashed border-gray-800 rounded">No Entities</div>}
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <div className="text-[12px] text-scp-text-dim uppercase font-bold mb-2 px-1 tracking-wider border-t border-[var(--scp-border)] pt-4">
-                                        {t('map_editor.objectives')} ({(blueprint.objectives || []).length})
-                                    </div>
-                                    <div className="space-y-1">
-                                        {(blueprint.objectives || []).map(obj => (
-                                            <div 
-                                                key={obj.id}
-                                                onClick={() => {
-                                                    handleMapSelection({ type: 'objective', id: obj.id });
-                                                }}
-                                                className={`${listItemBase} ${selectionState?.type === 'objective' && selectionState.id === obj.id ? listItemObjectiveActive : listItemInactive}`}
-                                            >
-                                                <div className="font-bold truncate">{obj.title}</div>
-                                                <div className="text-[12px] opacity-60 truncate">{obj.type}</div>
-                                            </div>
-                                        ))}
-                                        {(blueprint.objectives || []).length === 0 && <div className="p-2 text-[12px] text-gray-600 italic text-center border border-dashed border-gray-800 rounded">No Objectives</div>}
-                                    </div>
-                                </div>
-                            </div>
-                        </SidePanel>
-
-                        <SidePanel side="right" className={`absolute top-0 bottom-0 w-80 ${panelContainerBase}`}>
-                            <div className={editorPanelHeader}>
-                                <div className={editorPanelTitle}>
-                                    {activeTab === 'MAP' ? t('map_editor.properties') : t('story_editor.title')}
-                                </div>
-                            </div>
-                            <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                {activeTab === 'MAP' ? (
-                                    <PropertyInspector 
-                                        blueprint={blueprint}
-                                        selection={selectionState}
-                                        setSelection={handleMapSelection}
-                                        updateNode={updateNode}
-                                        updateEdge={updateEdge}
-                                        updateNPC={updateNPC}
-                                        updateObjective={updateObjective}
-                                        setBlueprint={setBlueprint}
-                                        npcImagePrompts={npcImagePrompts}
-                                        onNpcPromptChange={handleNpcPromptChange}
-                                        onGenerateNpcImage={handleGenerateNPCImage}
-                                        onUploadNpcImage={handleUploadNPCImage}
-                                        onDeleteNpcImage={handleDeleteNPCImage}
-                                        npcImages={scpData.npcImages}
-                                        generatingState={generatingState}
-                                        setLightboxImage={setLightboxImage}
-                                        commitBlueprint={commitBlueprint}
-                                        commitScpData={commitScpData}
-                                    />
-                                ) : (
-                                    <StoryFormPanel
-                                        t={t}
-                                        scpData={scpData}
-                                        setScpData={setScpData}
-                                        commitScpData={commitScpData}
-                                        showValidationErrors={showValidationErrors}
-                                        bgImagePrompt={bgImagePrompt}
-                                        setBgImagePrompt={setBgImagePrompt}
-                                        entityImagePrompt={entityImagePrompt}
-                                        setEntityImagePrompt={setEntityImagePrompt}
-                                        generatingState={generatingState}
-                                        handleGenerateImage={handleGenerateImage}
-                                        handleImageUpload={handleImageUpload}
-                                        handleDeleteImage={handleDeleteImage}
-                                        setLightboxImage={setLightboxImage}
-                                    />
+                {modal && modal.isOpen && (
+                    <div className="modal-back">
+                        <div className="modal" role="dialog" aria-label={modal.title}>
+                            <h3>{modal.title}</h3>
+                            <div className="modal-body">{modal.content}</div>
+                            <div className="modal-foot">
+                                <GameButton size="sm" onClick={closeModal}>{t('map_editor.btn_close')}</GameButton>
+                                {modal.extraAction && <GameButton size="sm" onClick={modal.extraAction.onClick}>{t(modal.extraAction.labelKey)}</GameButton>}
+                                {modal.onConfirm && (
+                                    <GameButton size="sm" variant="primary" onClick={modal.onConfirm}>
+                                        {t(modal.title === t('map_editor.import') ? 'map_editor.btn_import' : 'map_editor.btn_copy')}
+                                    </GameButton>
                                 )}
                             </div>
-                        </SidePanel>
-                    </>
+                        </div>
+                    </div>
                 )}
-            </div>
+
+                {showNewMapConfirm && (
+                    <ConfirmDialog
+                        title={t('map_editor.new_map_confirm_title')}
+                        message={t('map_editor.new_map_confirm_msg')}
+                        confirmLabel={t('common.confirm')}
+                        cancelLabel={t('common.cancel')}
+                        onCancel={() => setShowNewMapConfirm(false)}
+                        onConfirm={confirmNewMap}
+                    />
+                )}
+                {showResetConfirm && (
+                    <ConfirmDialog
+                        title={t('map_editor.reset_title')}
+                        message={t('map_editor.reset_confirm_msg')}
+                        confirmLabel={t('map_editor.btn_reset_confirm')}
+                        cancelLabel={t('common.cancel')}
+                        onCancel={() => setShowResetConfirm(false)}
+                        onConfirm={confirmReset}
+                    />
+                )}
+
+                {lightboxImage && (
+                    <div className="ed-lightbox" onClick={() => setLightboxImage(null)}>
+                        <img src={lightboxImage} alt="" />
+                    </div>
+                )}
+            </section>
         </div>
     );
 };

@@ -12,6 +12,8 @@ interface NetworkViewOptions {
   currentId: string;
   minZoom?: number;
   maxZoom?: number;
+  /** 'zoom' is the in-game map. 'pan' moves on the wheel and zooms with Ctrl/⌘ or a trackpad pinch */
+  wheel?: 'zoom' | 'pan';
   onPaint?: (view: NetworkView) => void;
 }
 
@@ -20,7 +22,7 @@ const clamp = (value: number, low: number, high: number) => Math.max(low, Math.m
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 /** Pan and zoom for a site map, shared by the drawer, the full screen view and the minimap */
-export function useNetworkView({ positions, currentId, minZoom = 0.45, maxZoom = 2.4, onPaint }: NetworkViewOptions) {
+export function useNetworkView({ positions, currentId, minZoom = 0.45, maxZoom = 2.4, wheel = 'zoom', onPaint }: NetworkViewOptions) {
   const svgRef = useRef<SVGSVGElement>(null);
   const worldRef = useRef<SVGGElement>(null);
   const sweepRef = useRef<HTMLDivElement>(null);
@@ -118,13 +120,21 @@ export function useNetworkView({ positions, currentId, minZoom = 0.45, maxZoom =
       event.preventDefault();
       event.stopPropagation();
       const box = svg.getBoundingClientRect();
-      zoomAt(event.deltaY < 0 ? 1.1 : 0.9, event.clientX - box.left, event.clientY - box.top);
+      if (wheel === 'pan' && !event.ctrlKey && !event.metaKey) {
+        stopTween();
+        const view = viewRef.current;
+        viewRef.current = { ...view, x: view.x - event.deltaX, y: view.y - event.deltaY };
+        paint();
+        return;
+      }
+      const factor = wheel === 'pan' ? Math.exp(-event.deltaY * 0.0035) : event.deltaY < 0 ? 1.1 : 0.9;
+      zoomAt(factor, event.clientX - box.left, event.clientY - box.top);
     };
     svg.addEventListener('wheel', onWheel, { passive: false });
     return () => svg.removeEventListener('wheel', onWheel);
-  }, [zoomAt]);
+  }, [paint, stopTween, wheel, zoomAt]);
 
   useEffect(() => stopTween, [stopTween]);
 
-  return { svgRef, worldRef, sweepRef, viewRef, draggedRef, paint, setView, glideTo, onPointerDown, zoomCenter };
+  return { svgRef, worldRef, sweepRef, viewRef, draggedRef, paint, setView, glideTo, onPointerDown, zoomAt, zoomCenter };
 }

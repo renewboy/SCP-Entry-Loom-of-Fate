@@ -1,0 +1,14 @@
+/* 红线：和 net-thread、世界线同一种质感，加一段流动的亮点 */
+.stage-root .th path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.stage-root .th-glow { stroke: rgba(224,70,70,.2); stroke-width: 7; }
+.stage-root .th-core { stroke: var(--fate-hi); stroke-width: 2; filter: url(#thread-glow); }
+.stage-root .th-pulse { stroke: #ffd4cc; stroke-width: 2.2; stroke-dasharray: .045 .955; stroke-dashoffset: 1; animation: th-flow 3.4s linear infinite; filter: url(#thread-glow); }
+.stage-root .th.draw .th-glow, .stage-root .th.draw .th-core { stroke-dasharray: 1; stroke-dashoffset: 1; animation: th-draw 1s cubic-bezier(.76,0,.24,1) forwards; }
+@keyframes th-flow { to { stroke-dashoffset: 0; } }
+@keyframes th-draw { to { stroke-dashoffset: 0; } }
+.stage-root .th-stub { fill: none; stroke: rgba(224,70,70,.34); stroke-width: 1; stroke-dasharray: 2 3; }
+.stage-root .trail { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-root .th-pulse { animation: none; }
+}
