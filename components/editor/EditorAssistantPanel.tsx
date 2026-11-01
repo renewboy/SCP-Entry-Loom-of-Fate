@@ -126,18 +126,18 @@ const ToolCard = ({ data }: { data: ToolCallCardData }) => {
             {expanded && (
                 <div className="ai-tool-body">
                     <div>
-                        <span>ARGS</span>
+                        <span>{t('editor_assistant.tool_args')}</span>
                         <pre>{JSON.stringify(data.args, null, 2)}</pre>
                     </div>
                     {data.result && (
                         <div>
-                            <span>RESULT</span>
+                            <span>{t('editor_assistant.tool_result')}</span>
                             <pre>{JSON.stringify(data.result, null, 2)}</pre>
                         </div>
                     )}
                     {data.error && (
                         <div>
-                            <span className="err">ERROR</span>
+                            <span className="err">{t('editor_assistant.tool_error')}</span>
                             <pre>{data.error}</pre>
                         </div>
                     )}
@@ -371,7 +371,7 @@ const EditorAssistantPanel: React.FC<EditorAssistantPanelProps> = ({
                     const newNPC = {
                         id: npcId,
                         name: args.name,
-                        archetype: args.archetype ?? 'Researcher',
+                        archetype: args.archetype ?? t('map_editor.default_npc_archetype'),
                         initialNodeId: args.initialNodeId,
                         secretTags: Array.isArray(args.secretTags) ? args.secretTags : [],
                         dialogueGoals: Array.isArray(args.dialogueGoals) ? args.dialogueGoals : []

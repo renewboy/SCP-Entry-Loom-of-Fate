@@ -62,6 +62,7 @@ interface NetworkNodeProps {
   faces: NetworkNodeFace[];
   gate: 'locked' | 'authorized' | null;
   gateLabels: { locked: string; authorized: string };
+  dangerLabel: string;
   /** Keeps clip paths apart when more than one map is on the page */
   idPrefix: string;
   focusable?: boolean;
@@ -72,7 +73,7 @@ interface NetworkNodeProps {
 }
 
 /** One zone on a site map. The in-game maps, the tactical briefing and the story editor all draw this */
-const NetworkNode: React.FC<NetworkNodeProps> = ({ node, point, compact, known, current = false, selected = false, isStart, marks, faces, gate, gateLabels, idPrefix, focusable = false, reticleOnSelected = false, className = '', children }) => {
+const NetworkNode: React.FC<NetworkNodeProps> = ({ node, point, compact, known, current = false, selected = false, isStart, marks, faces, gate, gateLabels, dangerLabel, idPrefix, focusable = false, reticleOnSelected = false, className = '', children }) => {
   const geometry = compact ? NETWORK_GEOMETRY.compact : NETWORK_GEOMETRY.wide;
   const { x, y } = point;
   const danger = node.danger ?? 0;
@@ -124,7 +125,7 @@ const NetworkNode: React.FC<NetworkNodeProps> = ({ node, point, compact, known, 
         ))}
       </text>
       <text className="n-danger" x={x} y={dangerY} textAnchor="middle" style={danger > 70 ? { fill: '#ef4444' } : undefined}>
-        DANGER {danger}
+        {dangerLabel} {danger}
         {compact && gate && <tspan className={gate === 'locked' ? 'n-lock' : 'n-pass'} dx={5}>{gate === 'locked' ? '⊘' : '✓'}</tspan>}
       </text>
       {!compact && gate && (gate === 'locked'

@@ -32,7 +32,7 @@ const EditorRail: React.FC<EditorRailProps> = ({ blueprint, selection, npcImages
                 {head(t('map_editor.nodes'), blueprint.nodes.length, onAddNode)}
                 {blueprint.nodes.map(node => {
                     const danger = node.danger ?? 0;
-                    const notes = [`DANGER ${danger}`];
+                    const notes = [`${t('stage.network.danger')} ${danger}`];
                     if (node.id === blueprint.startNodeId) notes.push(t('game.map_start'));
                     if ((node.requires ?? []).length) notes.push(t('stage.network.legend_gate'));
                     return (

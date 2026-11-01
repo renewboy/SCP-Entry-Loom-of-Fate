@@ -84,8 +84,8 @@ const StoryFormPanel: React.FC<StoryFormPanelProps> = ({
                 <h2>{t('story_editor.section_file')}</h2>
                 {identity('designation', 'story_editor.designation', 'SCP-XXX', true, true)}
                 {identity('containmentClass', 'story_editor.containment_class', 'Euclid')}
-                {identity('name', 'story_editor.name', 'The ...', true)}
-                {identity('role', 'story_editor.player_role', 'Researcher', true)}
+                {identity('name', 'story_editor.name', t('story_editor.placeholder_name'), true)}
+                {identity('role', 'story_editor.player_role', t('story_editor.placeholder_player_role'), true)}
                 <p className="story-note">
                     {blueprint?.nodes.length ?? 0} {t('map_editor.nodes')} · {blueprint?.npcs.length ?? 0} {t('map_editor.npcs')} · {blueprint?.objectives.length ?? 0} {t('map_editor.objectives')}
                     <br />

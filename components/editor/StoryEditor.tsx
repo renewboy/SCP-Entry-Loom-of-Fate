@@ -218,7 +218,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         const id = `node_${Math.floor(Math.random() * 900) + 100}`;
         const newNode = {
             id,
-            name: 'New Node',
+            name: t('map_editor.default_node_name'),
             danger: 0,
             layout: canvasRef.current?.centerPoint() ?? { x: 100, y: 100 }
         };
@@ -228,7 +228,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         if (isMobile) {
             setMobileTab('properties');
         }
-    }, [setBlueprint, setSelection, isMobile]);
+    }, [setBlueprint, setSelection, isMobile, t]);
 
     const addEdge = useCallback((from: string, to: string) => {
         const exists = blueprint.edges.some((e: any) =>
@@ -246,8 +246,8 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         const targetNodeId = (selectionState?.type === 'node' && selectionState.id) ? selectionState.id : blueprint.startNodeId;
         const newNPC = {
             id,
-            name: 'New NPC',
-            archetype: 'Researcher',
+            name: t('map_editor.default_npc_name'),
+            archetype: t('map_editor.default_npc_archetype'),
             initialNodeId: targetNodeId
         };
         selectionRef.current = { type: 'npc', id };
@@ -256,14 +256,14 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         if (isMobile) {
             setMobileTab('properties');
         }
-    }, [blueprint.startNodeId, selectionState, setBlueprint, setSelection, isMobile]);
+    }, [blueprint.startNodeId, selectionState, setBlueprint, setSelection, isMobile, t]);
 
     const addObjective = useCallback(() => {
         const id = `obj_${Math.floor(Math.random() * 900) + 100}`;
         const targetNodeId = (selectionState?.type === 'node' && selectionState.id) ? selectionState.id : blueprint.startNodeId;
         const newObj = {
             id,
-            title: 'New Objective',
+            title: t('map_editor.default_objective_title'),
             type: 'MAIN',
             nodeId: targetNodeId
         };
@@ -273,7 +273,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
         if (isMobile) {
             setMobileTab('properties');
         }
-    }, [blueprint.startNodeId, selectionState, setBlueprint, setSelection, isMobile]);
+    }, [blueprint.startNodeId, selectionState, setBlueprint, setSelection, isMobile, t]);
 
     const handleDeleteSelection = useCallback(() => {
         if (!selectionState) return;
@@ -574,8 +574,8 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                     </div>
                     <span className="ed-sep" />
                     <div className="ed-hist">
-                        <GameButton variant="icon" disabled={!canUndo} title="Undo (Ctrl+Z)" aria-label={t('common.undo')} onClick={handleUndo}><Undo2 size={16} strokeWidth={1.75} /></GameButton>
-                        <GameButton variant="icon" disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" aria-label={t('common.redo')} onClick={handleRedo}><Redo2 size={16} strokeWidth={1.75} /></GameButton>
+                        <GameButton variant="icon" disabled={!canUndo} title={`${t('common.undo')} (Ctrl+Z)`} aria-label={t('common.undo')} onClick={handleUndo}><Undo2 size={16} strokeWidth={1.75} /></GameButton>
+                        <GameButton variant="icon" disabled={!canRedo} title={`${t('common.redo')} (Ctrl+Shift+Z)`} aria-label={t('common.redo')} onClick={handleRedo}><Redo2 size={16} strokeWidth={1.75} /></GameButton>
                     </div>
                     <GameButton size="sm" className={`ed-assist ${showAssistant ? 'on' : ''}`} aria-pressed={showAssistant} onClick={() => setShowAssistant(open => !open)}>
                         <Sparkles size={16} strokeWidth={2} />{t('editor_assistant.title')} (Beta)
@@ -587,7 +587,7 @@ const StoryEditor: React.FC<StoryEditorProps> = ({ gameState, setGameState }) =>
                         <GameButton variant="quiet" size="sm" onClick={() => setShowNewMapConfirm(true)}>{t('map_editor.new_map')}</GameButton>
                         <GameButton variant="quiet" size="sm" onClick={() => showImportModal()}>{t('map_editor.import')}</GameButton>
                         <GameButton variant="quiet" size="sm" onClick={() => showExportModal()}>{t('map_editor.export')}</GameButton>
-                        <GameButton variant="quiet" size="sm" title="Reset Story Template" onClick={handleReset}>{t('map_editor.reset_title')}</GameButton>
+                        <GameButton variant="quiet" size="sm" title={t('map_editor.reset_title')} onClick={handleReset}>{t('map_editor.reset_title')}</GameButton>
                     </div>
                     {showSaveAndPlay && (
                         <GameButton variant="primary" size="sm" loading={isStarting} onClick={handleSaveAndPlay}>{t('story_editor.btn_save_and_play')}</GameButton>

@@ -1,11 +1,5 @@
-export const editorPanelTitle = "text-[12px] font-mono tracking-widest text-scp-term uppercase";
-export const editorPanelHeader = "p-3 border-b border-scp-gray/30 scp-window-header";
-export const toolbarButtonBase = "text-scp-text font-mono text-xs flex items-center gap-2 px-3 py-1 hover:bg-white/5 rounded border border-scp-gray/30 hover:border-scp-accent/60";
-export const panelContainerBase = "bg-[var(--scp-surface)]/90 backdrop-blur-sm";
 export const inputGroup = "space-y-1 group";
 export const labelBase = "text-xs text-scp-text-dim uppercase font-mono tracking-wider group-hover:text-scp-accent";
-export const inputBase = "w-full bg-[var(--scp-surface-2)] border border-[var(--scp-border)] p-1 text-sm font-mono text-scp-text focus:border-scp-accent hover:border-scp-accent/60 hover:ring-1 hover:ring-scp-accent/20 outline-none";
-export const textareaBase = "w-full bg-[var(--scp-surface-2)] border border-[var(--scp-border)] p-1 text-sm font-mono text-scp-text focus:border-scp-accent hover:border-scp-accent/60 hover:ring-1 hover:ring-scp-accent/20 outline-none";
 export const selectTriggerBase = "w-full bg-[var(--scp-surface-2)] border border-[var(--scp-border)] p-1 text-sm font-mono text-scp-text cursor-pointer hover:border-scp-accent/60 hover:ring-1 hover:ring-scp-accent/20 flex justify-between items-center";
 export const selectDropdownBase = "absolute z-50 w-full mt-1 bg-[var(--scp-surface)] border border-[var(--scp-border)] shadow-lg max-h-40 overflow-y-auto";
 export const selectOptionBase = "p-2 text-sm font-mono cursor-pointer";

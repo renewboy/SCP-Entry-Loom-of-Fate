@@ -86,7 +86,7 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
                 allowSkip={!isReturn}
                 title={t('map_editor.clearance_check')}
                 steps={[
-                    { text: "IDENTITY VERIFIED", delay: 800 },
+                    { text: t('map_editor.identity_verified'), delay: 800 },
                     { text: t('map_editor.access_granted'), delay: 1500 }
                 ]}
                 countdownDuration={isReturn ? 2 : 5}
@@ -104,7 +104,7 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
                                 onChange={e => toggleEnterPrep(e.target.checked)}
                             />
                             <span className="text-xs text-gray-400 group-hover:text-white font-mono tracking-wider transition-colors">
-                                {t('map_editor.enter_prep_checkbox') || "ENTER TACTICAL PREPARATION"}
+                                {t('map_editor.enter_prep_checkbox')}
                             </span>
                         </label>
                     </div>
@@ -112,7 +112,7 @@ const TacticalPreview: React.FC<TacticalPreviewProps> = ({ gameState, setGameSta
 
                 {!enterPrep && (
                      <div className="text-center text-[10px] text-scp-alert animate-pulse mt-2 uppercase tracking-widest">
-                         {t('map_editor.auto_deploy_msg') || "AUTO-DEPLOYMENT IMMINENT"}
+                         {t('map_editor.auto_deploy_msg')}
                      </div>
                 )}
             </TransitionOverlay>

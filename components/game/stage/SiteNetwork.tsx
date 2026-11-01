@@ -178,7 +178,7 @@ const SiteNetwork: React.FC<SiteNetworkProps> = ({ open, fullscreen, onToggleFul
         <div className={`meta-line ${isCurrent ? 'sys' : 'dim'}`}>{t(isCurrent ? 'stage.network.here' : isKnown ? 'stage.network.known' : 'stage.network.unknown')}</div>
         <h2>{selected.name}</h2>
         <div className="nx-danger">
-          <span>DANGER</span>
+          <span>{t('stage.network.danger')}</span>
           <b style={{ color }}>{danger}</b>
           <div className="nx-ticks">{Array.from({ length: 20 }, (_, i) => <i key={i} style={i < Math.round(danger / 5) ? { background: color } : undefined} />)}</div>
         </div>

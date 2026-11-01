@@ -68,7 +68,7 @@ const LegacyArchiveDrawer: React.FC<{ legacyData: LegacyData }> = ({ legacyData 
       {compact && open && <div className="ar-back" onClick={() => setOpen(false)} />}
       <aside ref={drawerRef} className={`ar-drawer ${open ? '' : 'shut'}`} style={{ width }} aria-label={t('legacy.sidebar_title')}>
         <header className="ar-head">
-          <div className="meta-line fate">LEGACY ARCHIVE</div>
+          <div className="meta-line fate">{t('legacy.archive_tag')}</div>
           <h2>{t('legacy.sidebar_title')}</h2>
           <small>{t('legacy.run_count')}: #{legacyData.runCount}</small>
         </header>

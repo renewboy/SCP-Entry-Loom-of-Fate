@@ -304,6 +304,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(({ blueprint
                                 faces={blueprint.npcs.filter(npc => npc.initialNodeId === node.id).map(npc => ({ id: npc.id, image: npcImages?.[npc.id], picked: selection?.type === 'npc' && selection.id === npc.id }))}
                                 gate={(node.requires ?? []).length ? 'locked' : null}
                                 gateLabels={{ locked: t('stage.network.legend_gate'), authorized: '' }}
+                                dangerLabel={t('stage.network.danger')}
                                 idPrefix="ed"
                                 focusable
                                 className={`${connect?.over === node.id ? 'c-target' : ''} ${seenNodes.current.has(node.id) ? '' : 'fresh'}`}
@@ -356,10 +357,10 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(({ blueprint
                             <div><b>{t('map_editor.help_key_blank')}</b>{t('map_editor.help_pan')}</div>
                             <div><b>{t('map_editor.help_key_node')}</b>{t('map_editor.select_drag')}</div>
                             <div><b>{t('map_editor.help_key_handle')}</b>{t('map_editor.connect_nodes')}</div>
-                            <div><b>Shift + Click</b>{t('map_editor.connect_nodes')}</div>
+                            <div><b>{t('map_editor.help_key_shift')}</b>{t('map_editor.connect_nodes')}</div>
                             <div><b>{t('map_editor.help_key_wheel')}</b>{t('map_editor.help_pan')}</div>
-                            <div><b>Ctrl/⌘ + {t('map_editor.help_key_wheel')}</b>{t('map_editor.help_zoom')}</div>
-                            <div><b>Delete</b>{t('map_editor.help_delete')}</div>
+                            <div><b>{t('map_editor.help_key_ctrl_wheel')}</b>{t('map_editor.help_zoom')}</div>
+                            <div><b>{t('map_editor.help_key_delete')}</b>{t('map_editor.help_delete')}</div>
                         </div>
                     )}
                 </div>

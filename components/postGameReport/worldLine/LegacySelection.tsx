@@ -248,7 +248,7 @@ const LegacySelection: React.FC<LegacySelectionProps> = ({ open, legacyData, sel
         </svg>
         <div className="lg-wrap" onScroll={paint}>
           <header className="lg-head">
-            <div className="meta-line fate">{t('legacy.run_count')} #{nextRun - 1} // LEGACY</div>
+            <div className="meta-line fate">{t('legacy.run_count')} #{nextRun - 1} // {t('legacy.tag')}</div>
             <h1>{t('legacy.modal_title')}</h1>
             <p>{t('legacy.modal_subtitle')}</p>
           </header>

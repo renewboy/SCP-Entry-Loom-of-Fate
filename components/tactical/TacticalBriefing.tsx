@@ -31,7 +31,7 @@ interface TacticalBriefingProps {
 
 /** Everything the player knows before going in. Nothing here is secret: NPC secrets stay out */
 const TacticalBriefing: React.FC<TacticalBriefingProps> = ({ gameState, ready, isStarting, onBack, onEdit, onStart }) => {
-  const { t, language } = useTranslation();
+  const { t } = useTranslation();
   const scpData = gameState.scpData;
   const blueprint = scpData?.mapBlueprint as MapBlueprint | undefined;
   const npcImages = scpData?.npcImages;
@@ -119,7 +119,7 @@ const TacticalBriefing: React.FC<TacticalBriefingProps> = ({ gameState, ready, i
             </filter>
           </svg>
           <div className="tb-top">
-            <div className="meta-line fate">{t('map_editor.mission_brief')}{language === 'en' ? '' : ' // MISSION BRIEF'}</div>
+            <div className="meta-line fate">{t('map_editor.mission_brief')}</div>
           </div>
           <div className="tb-id">
             {entityImage && <EntityPortrait src={entityImage} appendix={t('app.appendix')} designation={scpData.designation} onClick={() => setZoomed({ url: entityImage, portrait: true })} />}
@@ -217,7 +217,7 @@ const TacticalBriefing: React.FC<TacticalBriefingProps> = ({ gameState, ready, i
                 <div>
                   <div className="ti-name">{selected.name}</div>
                   <div className="ti-danger">
-                    DANGER <b style={{ color: dangerColor(selected.danger ?? 0) }}>{selected.danger ?? 0}</b>
+                    {t('stage.network.danger')} <b style={{ color: dangerColor(selected.danger ?? 0) }}>{selected.danger ?? 0}</b>
                     {selected.id === blueprint.startNodeId && <span>{t('game.map_start')}</span>}
                   </div>
                   {(selected.requires ?? []).length > 0 && <p className="ti-gate"><em>⊘ {t('stage.network.locked')}</em>{selected.blockedText}</p>}
@@ -243,7 +243,7 @@ const TacticalBriefing: React.FC<TacticalBriefingProps> = ({ gameState, ready, i
           <div className="tac-actions">
             <GameButton variant="quiet" disabled={isStarting} onClick={onBack}>← {t('common.back')}</GameButton>
             <div className="grp">
-              <span className="tac-status">STATUS: READY<br />{t('map_editor.awaiting_command')}</span>
+              <span className="tac-status">{t('map_editor.status_ready')}<br />{t('map_editor.awaiting_command')}</span>
               <div className="tac-btns">
                 <GameButton disabled={isStarting} onClick={onEdit}>{t('map_editor.btn_edit_story')}</GameButton>
                 <button type="button" className="weave-btn" disabled={isStarting} onClick={onStart}>

@@ -74,6 +74,7 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ blueprint, map, positions, 
             faces={people.map(({ npc, met }) => ({ id: npc.id, image: met ? npcImages?.[npc.id] : undefined }))}
             gate={!gated ? null : missingRequirements(node, inventory).length ? 'locked' : 'authorized'}
             gateLabels={{ locked: t('stage.network.locked'), authorized: t('stage.network.authorized_short') }}
+            dangerLabel={t('stage.network.danger')}
             idPrefix={idPrefix}
             focusable={focusable}
           />
