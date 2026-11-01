@@ -150,11 +150,13 @@ const StartMenu = React.forwardRef<StartMenuHandle, StartMenuProps>(({
     const subtitle = document.getElementById('start-subtitle');
     setEntryLine(subtitle ? subtitle.getBoundingClientRect().bottom + 8 : window.innerHeight * 0.4);
     setEntryStatus(true);
+    playSfx('entryThread');
     await hold(900);
     playSfx('tubeOn');
     const flicker = view.flickerLights(1300);
     await hold(800);
     setTitlesHidden(false);
+    if (!skipped) playSfx('entryWeave');
     const woven = titles.current[0]?.weave(1250) ?? Promise.resolve();
     titles.current[1]?.weave(900, 340);
     await hold(1000);
@@ -272,10 +274,6 @@ const StartMenu = React.forwardRef<StartMenuHandle, StartMenuProps>(({
 
   return (
     <div className={`lm ${entered ? 'in' : ''} ${launching ? 'launching' : ''}`}>
-      <button type="button" className="lm-gear lm-fadein" title={t('common.settings')} aria-label={t('common.settings')} onClick={onSettings}>
-        <SettingsGearIcon className="lm-gear-icon" variant="outline" spin={false} />
-      </button>
-
       {!compact && (
         <>
           <svg className={`lm-thread ${entered && !rolesOpen ? '' : 'waiting'}`} aria-hidden="true">
@@ -306,6 +304,9 @@ const StartMenu = React.forwardRef<StartMenuHandle, StartMenuProps>(({
             <b>{t('start.chamber')}</b>
             <span className={observerOdd ? 'odd' : ''}>{t('start.observers', { n: observerOdd ? 3 : 2 })}</span>
           </div>
+          <button type="button" className="lm-gear" title={t('common.settings')} aria-label={t('common.settings')} onClick={onSettings}>
+            <SettingsGearIcon className="lm-gear-icon" variant="outline" spin={false} />
+          </button>
         </div>
 
         <div className={titlesHidden ? 'lm-titles hidden' : 'lm-titles'}>

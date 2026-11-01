@@ -109,6 +109,8 @@
 - **Ambience**: `services/ambienceService.ts` plays the chamber loop on the menu and the machine at full speed on the waits, at the music volume. The start screen and its waits play no sweep sounds
 - **Button press**: `playButtonPress` in `sfxService` is the full press, taken from pressing Weave Fate in the promo, and only the buttons that move the run forward use it: weave, upload and continue (`.weave-btn`). The other buttons on the start menu, profile screen and tactical actions use `playLightPress`, a quieter slice of the same sample (`common/buttonPress.ts` picks between them for a whole container)
 - **Sound**: `sweep*`, `bigSweep`, `gateOpen`, `gateClose` and `stamp` in `sfxService` are full-length samples already level-matched, so play them at normal speed with volume 1. The bolts on the containment ending keep `doorUnlock`
+- **Opening sound**: `BootSequenceOverlay` plays `bootPower` on mount, `playBootTick` per log line, `bootLink` on the handoff, `playBootDecode` while lines decode (one voice, so overlapping lines do not stack), `stamp` with the shake and `bootReady` plus `glitch` on the title, over the `boot` ambience. With the skip setting (`skipToReady`) the title page is silent, ambience included. `runEntry` adds `entryThread` and `entryWeave`. `boot_ticks.mp3` holds its ticks at even spacing, which `BOOT_TICK_SPACING` must match. Files come from `design-prototype/source/gen3/process_boot_sfx.py`
+- **Before the first click**: browsers suspend the `AudioContext` until a gesture, and a suspended context would hold every source and play them together on unlock, so `playSfx` drops sounds until then. Desktop builds have no such limit
 
 ### 7. Post-Game Report Domain
 - **Entry point**: `GameScreen` opens `WorldLineTree` on `GAME_OVER`

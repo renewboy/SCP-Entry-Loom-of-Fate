@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useTranslation } from '../utils/i18n';
 import { SCP_10042_LOF_ARCHIVE, BOOT_LOG_LINES } from '../data/scp_10042_lof_archive';
+import { playBootDecode, playBootTick, playSfx, preloadSfx } from '../services/sfxService';
 
 interface BootSequenceOverlayProps {
   onComplete: () => void;
@@ -295,12 +296,24 @@ const BootSequenceOverlay: React.FC<BootSequenceOverlayProps> = ({ onComplete, s
     return lines;
   }, [archiveSections]);
 
+  // ── Power on ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    preloadSfx();
+    if (skipToReady) return;
+    const timer = setTimeout(() => playSfx('bootPower'), 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── BIOS log ticker ───────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'bios') return;
     let timer: ReturnType<typeof setTimeout>;
     if (visibleLogCount < bootLogs.length) {
-      timer = setTimeout(() => setVisibleLogCount(c => c + 1), Math.random() * 300 + 50);
+      timer = setTimeout(() => {
+        playBootTick();
+        setVisibleLogCount(c => c + 1);
+      }, Math.random() * 300 + 50);
     } else {
       timer = setTimeout(() => setPhase('connect'), 800);
     }
@@ -310,6 +323,7 @@ const BootSequenceOverlay: React.FC<BootSequenceOverlayProps> = ({ onComplete, s
   // ── BIOS → Archive handoff ─────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'connect') return;
+    playSfx('bootLink');
     const timer = setTimeout(() => setPhase('archive'), 1800);
     return () => clearTimeout(timer);
   }, [phase]);
@@ -350,7 +364,10 @@ const BootSequenceOverlay: React.FC<BootSequenceOverlayProps> = ({ onComplete, s
       // Content paragraphs: scale with text length so cipher has room to breathe
       getCipherDuration(textLen) + 80;
 
-    const timer = setTimeout(() => setVisibleLineCount(c => c + 1), delay);
+    const timer = setTimeout(() => {
+      if (textLen > 0) playBootDecode(getCipherDuration(textLen) / 1000);
+      setVisibleLineCount(c => c + 1);
+    }, delay);
     return () => clearTimeout(timer);
   }, [phase, visibleLineCount, flatLines, skipAnimation]);
 
@@ -381,17 +398,22 @@ const BootSequenceOverlay: React.FC<BootSequenceOverlayProps> = ({ onComplete, s
   // ── Ready phase fade-out ──────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'ready') return;
+    if (!skipToReady) {
+      playSfx('bootReady');
+      playSfx('glitch');
+    }
     const timer = setTimeout(() => {
       setIsFading(true);
       setTimeout(onComplete, 1000);
     }, 2000);
     return () => clearTimeout(timer);
-  }, [phase, onComplete]);
+  }, [phase, onComplete, skipToReady]);
 
   // ── Shake on pause ────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase === 'archive' && isPaused) {
       const timer = setTimeout(() => {
+        playSfx('stamp');
         setIsShaking(true);
         setTimeout(() => setIsShaking(false), 300);
       }, 1100);

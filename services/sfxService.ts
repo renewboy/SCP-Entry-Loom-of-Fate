@@ -15,7 +15,14 @@ export type SfxKey =
   | 'gateOpen'
   | 'gateClose'
   | 'stamp'
-  | 'tubeOn';
+  | 'tubeOn'
+  | 'bootPower'
+  | 'bootTicks'
+  | 'bootLink'
+  | 'bootDecode'
+  | 'bootReady'
+  | 'entryThread'
+  | 'entryWeave';
 
 export interface SfxOptions {
   gain?: number;
@@ -41,7 +48,14 @@ const sources: Record<SfxKey, string> = {
   gateOpen: stageAsset('audio/gate_open.mp3'),
   gateClose: stageAsset('audio/gate_close.mp3'),
   stamp: stageAsset('audio/stamp.mp3'),
-  tubeOn: stageAsset('audio/tube_on.mp3')
+  tubeOn: stageAsset('audio/tube_on.mp3'),
+  bootPower: stageAsset('audio/boot_power.mp3'),
+  bootTicks: stageAsset('audio/boot_ticks.mp3'),
+  bootLink: stageAsset('audio/boot_link.mp3'),
+  bootDecode: stageAsset('audio/boot_decode.mp3'),
+  bootReady: stageAsset('audio/boot_ready.mp3'),
+  entryThread: stageAsset('audio/entry_thread.mp3'),
+  entryWeave: stageAsset('audio/entry_weave.mp3')
 };
 
 const volumes: Record<SfxKey, number> = {
@@ -58,7 +72,14 @@ const volumes: Record<SfxKey, number> = {
   gateOpen: 1,
   gateClose: 1,
   stamp: 1,
-  tubeOn: 1
+  tubeOn: 1,
+  bootPower: 1,
+  bootTicks: 1,
+  bootLink: 1,
+  bootDecode: 1,
+  bootReady: 1,
+  entryThread: 1,
+  entryWeave: 1
 };
 
 const audioCache = new Map<SfxKey, HTMLAudioElement>();
@@ -105,6 +126,8 @@ export const playSfx = (key: SfxKey, options: SfxOptions = {}) => {
   const buffer = bufferCache.get(key);
 
   if (ctx && buffer) {
+    // A suspended context holds every source and plays them all at once on the first click
+    if (ctx.state === 'suspended' && navigator.userActivation?.hasBeenActive === false) return;
     if (ctx.state === 'suspended') ctx.resume().catch(() => null);
     const source = ctx.createBufferSource();
     const output = ctx.createGain();
@@ -184,6 +207,36 @@ export const playButtonPress = () => playSfx('doorUnlock');
 
 /** The same sample's second, shorter click, quieter, for every other button on those screens */
 export const playLightPress = () => playSfx('doorUnlock', { offset: 0.33, duration: 0.17, fade: 0.08, gain: 0.4 });
+
+const BOOT_TICK_COUNT = 8;
+const BOOT_TICK_SPACING = 0.4;
+
+/** One boot log line: the sample holds its ticks at even spacing. Dropped until decoded, since it cannot be cut before that */
+export const playBootTick = () => {
+  if (!bufferCache.has('bootTicks')) return;
+  const tick = Math.floor(Math.random() * BOOT_TICK_COUNT);
+  playSfx('bootTicks', { offset: tick * BOOT_TICK_SPACING, duration: BOOT_TICK_SPACING });
+};
+
+const BOOT_DECODE_MIN_SECONDS = 0.05;
+let bootDecodeWanted = 0;
+let bootDecodePlaying = false;
+
+const runBootDecode = (buffer: AudioBuffer) => {
+  const duration = Math.min((bootDecodeWanted - performance.now()) / 1000, buffer.duration);
+  bootDecodePlaying = duration >= BOOT_DECODE_MIN_SECONDS;
+  if (!bootDecodePlaying) return;
+  playSfx('bootDecode', { offset: Math.random() * (buffer.duration - duration), duration, fade: Math.min(0.25, duration / 3) });
+  setTimeout(() => runBootDecode(buffer), duration * 1000);
+};
+
+/** The chatter while a line of the archive decodes, cut from a random place in the sample. Lines overlap, so one voice runs until the last is done */
+export const playBootDecode = (seconds: number) => {
+  const buffer = bufferCache.get('bootDecode');
+  if (!buffer) return;
+  bootDecodeWanted = Math.max(bootDecodeWanted, performance.now() + seconds * 1000);
+  if (!bootDecodePlaying) runBootDecode(buffer);
+};
 
 export const setSfxVolume = (volume: number) => {
   sfxVolume = clamp01(volume);

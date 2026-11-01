@@ -1,8 +1,9 @@
 import { stageAsset } from '../utils/stageAssets';
 
-export type AmbienceKey = 'chamber' | 'weaving';
+export type AmbienceKey = 'boot' | 'chamber' | 'weaving';
 
 const sources: Record<AmbienceKey, string> = {
+  boot: stageAsset('audio/boot_hum.mp3'),
   chamber: stageAsset('audio/loom_ambient.mp3'),
   weaving: stageAsset('audio/loom_weave.mp3'),
 };
@@ -41,6 +42,7 @@ const clearRetry = () => {
 
 const start = (audio: HTMLAudioElement) => {
   audio.play().then(() => fadeIn(audio)).catch(() => {
+    if (audio !== current) return;
     // The browser blocks sound until the first click or key press
     clearRetry();
     retry = () => {

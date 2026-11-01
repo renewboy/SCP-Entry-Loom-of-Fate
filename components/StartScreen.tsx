@@ -303,10 +303,11 @@ const StartScreen: React.FC<StartScreenProps> = ({ gameState, setGameState, lega
   }, [mode, onModeChange]);
 
   useEffect(() => {
-    if (mode === 'menu' || mode === 'drawer') playAmbience('chamber');
+    if (mode === 'boot' && showBoot && !skipBootSequence) playAmbience('boot');
+    else if (mode === 'menu' || mode === 'drawer') playAmbience('chamber');
     else if (mode === 'wait') playAmbience('weaving');
     else stopAmbience();
-  }, [mode]);
+  }, [mode, showBoot, skipBootSequence]);
   useEffect(() => stopAmbience, []);
 
   useEffect(() => {
